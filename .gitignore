@@ -1,0 +1,64 @@
+# --- R / RStudio -----------------------------------------------------------
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+.httr-oauth
+
+# --- Secrets: never commit ---------------------------------------------------
+.Renviron
+.Renviron.*
+*.env
+.env*
+secrets/
+*credentials*
+*.pem
+*.key
+
+# --- renv: commit renv.lock, renv/activate.R, renv/settings.json only --------
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/sandbox/
+renv/staging/
+
+# --- targets: the object store is fully regenerable --------------------------
+_targets/
+
+# --- Data: regenerable or third-party; keep out of Git -----------------------
+# Directory structure is kept via .gitkeep files.
+data/raw/*
+data/interim/*
+data/processed/*
+data/snapshots/*
+!data/**/.gitkeep
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.feather
+*.arrow
+*.rds
+*.qs
+*.qs2
+
+# --- Generated reports / caches ------------------------------------------------
+reports/*_files/
+reports/*.html
+reports/.quarto/
+research/*_files/
+research/*.html
+.quarto/
+*_cache/
+*.log
+tmp/
+temp/
+
+# --- OS / editor -------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

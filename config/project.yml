@@ -1,0 +1,30 @@
+# Project-wide configuration read by _targets.R (see R/utils/config.R).
+# Changing a value here invalidates the downstream targets that use it.
+
+seasons:
+  first: 2019          # first season ingested (features need >= 1 prior season)
+  last: 2025           # last completed season
+season_type: REG       # regular season only, for both features and targets
+positions: [WR]        # Milestone 1. Add RB/TE/QB here later.
+scoring_system: espn_ppr   # file name in config/scoring/
+
+# Chronological evaluation boundaries. The test season must not influence any
+# feature, preprocessing, hyperparameter, or model-selection decision.
+splits:
+  first_train_season: 2020   # 2019 is used only as feature history
+  train_last_season: 2023
+  validation_season: 2024
+  test_season: 2025
+
+espn:
+  league_defaults_id: 3      # ESPN default PPR league scoring
+  request_pause_seconds: 1.5
+  max_players: 2000
+
+features:
+  roll_windows: [3, 8]       # trailing windows, in games (not weeks)
+
+evaluation:
+  relevant_top_n: 60         # "fantasy-relevant" = top-N WRs per week by ESPN projection
+  bootstrap_reps: 2000
+  seed: 20261005

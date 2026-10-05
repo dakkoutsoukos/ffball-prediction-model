@@ -1,0 +1,40 @@
+Type: project
+Title: FFball Prediction Model
+Version: 0.1.0
+Description: Reproducible research pipeline for weekly fantasy football
+    projections. Milestone 1: WR weekly PPR projections benchmarked against
+    ESPN's pregame projections with strictly point-in-time features.
+License: MIT + file LICENSE
+Depends:
+    R (>= 4.5.0)
+Imports:
+    arrow,
+    cli,
+    data.table,
+    DBI,
+    dplyr,
+    duckdb,
+    ggplot2,
+    glmnet,
+    httr2,
+    jsonlite,
+    knitr,
+    nflreadr,
+    parsnip,
+    purrr,
+    quarto,
+    readr,
+    recipes,
+    rlang,
+    rmarkdown,
+    stringi,
+    stringr,
+    tarchetypes,
+    targets,
+    testthat,
+    tibble,
+    tidyr,
+    withr,
+    workflows,
+    yaml
+Encoding: UTF-8
