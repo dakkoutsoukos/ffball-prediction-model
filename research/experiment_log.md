@@ -130,3 +130,90 @@ The pre-registered candidates M0, M5, M6, D1 and D2 activate automatically. The
 2025 test season has now been opened for the non-ESPN models. No model or feature
 choice was changed after seeing it, and future feature work should be judged on
 validation and then on 2026 as a fresh holdout.
+
+> **Note added 2026-10-05 (after E1).** E1 used scoring that penalised only
+> sack, rushing and receiving fumbles lost. Validation against ESPN's own actual
+> totals (E2 below) showed ESPN also penalises fumbles lost on kick and punt
+> returns. Scoring now uses `fumbles_lost_total`. This changes `actual` by −2 on
+> about 1% of WR player-weeks. E1's numbers are left as originally recorded.
+
+---
+
+## 2026-10-05 — E2: ESPN benchmark and pre-registered ESPN comparison
+
+**Data.**
+- ESPN weekly WR projections and actuals for 2020–2025 (107 requests to the public `leaguedefaults/3` endpoint).
+- Fetched after the owner opted in for private research (docs/espn_projections.md).
+- 99.87% of ESPN-projected WR rows were matched to GSIS ids by ID only. 20 rows are ambiguous (two "DJ Turner"s) and excluded.
+
+**Population.** `pop_espn` (ESPN projection > 0). Train 9,916 (2020–2023), validation 2,499 (2024), test 2,592 (2025).
+
+**Changes made before the test season was opened.** All were committed in `3082abc` before E2's test run.
+1. Scoring: `fumbles_lost_total`. Our scoring now matches ESPN actuals on **99.96% of 14,628** player-weeks (it was 99.01%).
+2. Ridge bug: glmnet's default lambda path made a "tiny-penalty" ridge differ from OLS by up to 1 point. Fixed with an explicit path, and a unit test now guards it.
+3. Parser: per-game ESPN actual entries are summed. This happened once, for a mid-week team change in 2020.
+
+**ESPN benchmark by season** (all ESPN-projected WRs, actual = 0 when no stats):
+
+| season | n | MAE | RMSE | bias | corr |
+|---|---|---|---|---|---|
+| 2020 | 2462 | 4.55 | 6.29 | −0.18 | 0.63 |
+| 2021 | 2560 | 4.61 | 6.13 | +0.39 | 0.63 |
+| 2022 | 2452 | 4.49 | 6.07 | +0.37 | 0.63 |
+| 2023 | 2442 | 4.23 | 5.93 | +0.22 | 0.66 |
+| 2024 | 2499 | 4.31 | 6.04 | +0.19 | 0.65 |
+| 2025 | 2592 | 4.08 | 5.63 | +0.58 | 0.65 |
+
+ESPN over-projected WRs on average in 5 of 6 seasons.
+
+### Validation (2024), rolling: selection
+
+| model | MAE | RMSE | ΔMAE vs ESPN [95% CI] |
+|---|---|---|---|
+| espn_recal_l1 (diag.) | 4.173 | 6.180 | −0.135 [−0.199, −0.075] |
+| espn_recal_l2 (diag.) | 4.280 | 6.033 | −0.028 [−0.041, −0.015] |
+| **ols_espn_plus** | **4.292** | 6.048 | −0.016 [−0.040, +0.006] |
+| ridge_espn_plus | 4.292 | 6.047 | −0.016 [−0.040, +0.006] |
+| espn | 4.308 | 6.038 | — |
+| ols_usage | 4.494 | 6.254 | +0.186 [+0.112, +0.260] |
+| naive_roll8 | 4.535 | 6.451 | +0.227 [+0.122, +0.347] |
+
+**Selected (pre-registered rule): `ols_espn_plus`.** Note that on validation it
+did *not* meet the "beats ESPN" criterion: the CI spans 0 and RMSE is slightly worse.
+
+### Test (2025), rolling: opened once
+
+| model | MAE | RMSE | bias | rank corr | ΔMAE vs ESPN [95% CI] | weeks better |
+|---|---|---|---|---|---|---|
+| espn_recal_l1 (diag.) | 3.866 | 5.630 | −0.80 | 0.691 | −0.211 [−0.269, −0.146] | 94% |
+| **ols_espn_plus** | **4.001** | **5.571** | +0.35 | 0.697 | **−0.076 [−0.100, −0.053]** | **94%** |
+| espn_recal_l2 (diag.) | 4.032 | 5.595 | +0.37 | 0.691 | −0.045 [−0.059, −0.031] | 94% |
+| espn | 4.077 | 5.632 | +0.58 | 0.691 | — | — |
+| ols_usage | 4.190 | 5.778 | +0.27 | 0.657 | +0.113 [+0.050, +0.177] | 11% |
+| naive_roll8 | 4.313 | 6.027 | +0.37 | 0.631 | +0.236 [+0.134, +0.345] | 11% |
+
+Top-60 relevant subset: ols_espn_plus ΔMAE −0.139 [−0.172, −0.108], better in 18 of 18 weeks.
+
+**Headline: the pre-registered criterion is MET on 2025.** ESPN + lagged usage
+features beat ESPN alone on MAE (CI excludes 0) and RMSE.
+
+**But it should not be over-read.**
+1. **It did not replicate on 2024.** There the same model was −0.016 (CI spans 0) with slightly worse RMSE. The evidence over two seasons is mixed.
+2. **Much of it is calibration.** ESPN over-projected more in 2025 (bias +0.58 vs +0.19). A plain a + b·ESPN recalibration, which adds no player information, captures −0.045 of the −0.076. The gains concentrate where ESPN over-projects most (projections of 15+: ESPN bias +2.0).
+3. **Ordering barely improves.** Rank correlation goes from 0.691 to 0.697. Start/sit decisions depend mainly on ordering, so the practical value is smaller than the MAE gain suggests.
+4. **Diagnostic D2 confirms hypothesis 4.** Median-targeting "wins" 0.21 of MAE while RMSE does not improve.
+
+**Hypotheses.**
+- H1 (naive ≪ ESPN): confirmed.
+- H2 (usage models close to but behind ESPN): confirmed overall, about 0.11–0.19 behind. On the 2025 top-60 subset they are level with ESPN, within noise.
+- H3 (ESPN + features beats ESPN): 2025 yes, 2024 no. **Not yet repeatable.**
+- H4 (MAE gains from median targeting): confirmed.
+
+**Conclusion.** We have **not** shown a repeatable improvement over ESPN. We have
+shown a correctly measured ESPN benchmark, a model that is at least as good as
+ESPN in both held-out seasons, and a significant 2025 gain that is largely
+level-calibration. Our ESPN-free models are clearly worse than ESPN.
+
+**Next step.** Treat **2026** as the fresh, untouched holdout. Freeze `ols_espn_plus`
+and `espn_recal_l2` now. Archive live ESPN snapshots weekly. Evaluate after the
+season, or rolling-origin through it, without changing the models.

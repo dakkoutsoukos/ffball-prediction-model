@@ -77,9 +77,16 @@ research. Open-source tools such as ffanalytics and espn-api use this endpoint
 widely, but that does not change the terms.
 
 **This is a risk decision for the project owner, so the code does not make it.**
-During the investigation, about 57 exploratory requests were made to establish the
-facts above. Their samples live only in a temporary scratch directory, never in
-this repository.
+
+Request log for 2026-10-05:
+- **Before the owner's decision:** about 57 exploratory requests to establish the
+  facts above. Their samples lived only in a temporary scratch directory.
+- **After the opt-in:**
+  - 1 test request (2024 W5);
+  - 107 historical requests (2020–2025 regular-season weeks, 1.5 s apart);
+  - 2 requests for one live snapshot.
+
+No ESPN data is in this repository.
 
 ### Opting in
 The committed default stays `enabled: false`, so anyone cloning this public

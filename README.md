@@ -11,26 +11,38 @@ Milestone 1 builds the foundation for one question:
 | Component | State |
 |---|---|
 | Reproducible project (renv, targets, tests) | ✅ |
-| WR player-week dataset, 2019–2025 (nflverse) | ✅ about 3,200 rows per season, keyed on GSIS id |
-| ESPN-PPR scoring, configurable and validated | ✅ matches nflverse PPR on 99.96% of 40,330 offensive player-weeks. All 16 differences are fumble-recovery TDs, which ESPN scores. |
+| WR player-week dataset, 2019–2025 (nflverse + ESPN) | ✅ about 2,450–2,600 ESPN-projected WR player-weeks per season, keyed on GSIS id |
+| ESPN-PPR scoring, configurable and validated | ✅ matches **ESPN's own actual totals on 99.96%** of 14,628 WR player-weeks |
 | Point-in-time features + automated leakage checks | ✅ 0 leaking features on the real dataset |
 | Chronological evaluation (static + weekly rolling-origin) | ✅ |
-| Simple baselines: naive, OLS, ridge | ✅ |
-| **ESPN historical projections** | ⚠️ **Available, but not fetched pending a terms-of-use decision.** See [docs/espn_projections.md](docs/espn_projections.md). |
-| ESPN benchmark measured | ⏸ blocked by the item above. The interface is built and tested, and enabling it is one config flag. |
+| Historical ESPN pregame projections, 2020–2025 | ✅ public API, owner opt-in, verified pregame against Wayback captures. See [docs/espn_projections.md](docs/espn_projections.md). |
+| ESPN held-out benchmark | ✅ |
+| Baselines and ESPN comparison | ✅ pre-registered. See the results below. |
 
-### Results so far: ESPN-free, game-day-active WR population
+### Results (pre-registered; 2024 used for selection, 2025 opened once)
 
-Pre-registered in [research/experiment_log.md](research/experiment_log.md).
-Selection used 2024 only. 2025 was held out until the end.
+Population: WR player-weeks with an ESPN pregame projection above 0. Actual = 0 when the player
+recorded no stats. Weekly rolling refit.
 
-| 2025 test, weekly rolling refit | MAE | RMSE | corr |
-|---|---|---|---|
-| `ols_usage` (selected on 2024) | **3.957** | **5.560** | 0.637 |
-| `naive_roll8` (trailing 8-game mean) | 4.050 | 5.791 | 0.616 |
+| Model | 2024 MAE | 2025 MAE | 2025 RMSE | 2025 ΔMAE vs ESPN [95% CI] |
+|---|---|---|---|---|
+| **ESPN pregame projection** | 4.308 | 4.077 | 5.632 | — |
+| `ols_espn_plus`: ESPN + lagged usage (selected) | 4.292 | **4.001** | **5.571** | **−0.076 [−0.100, −0.053]** |
+| `espn_recal_l2`: a + b·ESPN (diagnostic, no new info) | 4.280 | 4.032 | 5.595 | −0.045 [−0.059, −0.031] |
+| `ols_usage`: our features, no ESPN | 4.494 | 4.190 | 5.778 | +0.113 [+0.050, +0.177] |
+| `naive_roll8`: trailing 8-game mean | 4.535 | 4.313 | 6.027 | +0.236 [+0.134, +0.345] |
 
-ΔMAE = −0.092 (95% week-clustered bootstrap CI −0.152 to −0.040). **This is a
-comparison with a naive baseline, not with ESPN. Nothing here shows that ESPN can be beaten.**
+**Bottom line:**
+- **Our standalone models do not beat ESPN.**
+- ESPN combined with our lagged usage features met the pre-registered criterion on
+  2025, beating ESPN on both MAE and RMSE and winning in 17 of 18 weeks.
+- That gain **did not replicate on 2024**, where the difference was −0.016 with a CI spanning 0.
+- Most of the 2025 gain is recalibrating ESPN's over-projection: a + b·ESPN alone gets −0.045.
+- Rank correlation barely moves (0.691 → 0.697).
+
+A repeatable edge over ESPN has **not** been demonstrated yet. 2026 is the next
+untouched holdout. Details: [research/experiment_log.md](research/experiment_log.md)
+and the rendered report.
 
 ## Architecture
 
@@ -151,21 +163,30 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 
 ## Current limitations
 
-1. **The ESPN benchmark has not been measured.** Fetching ESPN data is a terms-of-use decision for the project owner.
-2. Betting lines are approximately **closing** lines, valid only for kickoff-time predictions.
-3. Injury designations have no capture timestamps.
-4. One test season gives 18 weekly clusters. Whether gains repeat must be shown on 2026 as a fresh holdout.
-5. There are no route or participation features. That data is published only after each season.
-6. The ID history starts in 2019, so `career_games` undercounts veterans.
-7. The 2025 test season has been opened once for the ESPN-free experiment. See the experiment log.
+1. **ESPN terms of use.** The Disney/ESPN Terms of Use restrict scripted
+   extraction and ML benchmarking. ESPN data was fetched only after the owner
+   opted in for private research. It is kept out of Git, and the public default is off.
+2. **ESPN history was retrieved after the fact.** Wayback captures support final-pregame
+   values for 2019, 2023 and 2026, but 2020–2022 and 2024–2025 could not be checked
+   directly.
+3. **No repeatable edge over ESPN yet.** The 2025 gain did not appear in 2024, and two
+   seasons give only 36 weekly clusters. 2026 is the fresh holdout.
+4. Betting lines are approximately **closing** lines, valid only for kickoff-time predictions.
+5. Injury designations have no capture timestamps.
+6. There are no route or participation features. That data is published only after each season.
+7. The ID history starts in 2019, so `career_games` undercounts veterans.
+8. 20 ESPN-projected WR rows (0.13%) are excluded because of an ambiguous ID (two "DJ Turner"s).
+9. The 2025 test season has now been used: once for the ESPN-free experiment, once
+   for the ESPN comparison. Future model changes must not be judged on it.
 
 ## Roadmap
 
-1. **Next:** decide on ESPN. Then measure ESPN's held-out accuracy and run the pre-registered ESPN-augmented models.
-2. Start a timestamped live-projection archive for 2026 (`scripts/snapshot_espn.R`) to get a pristine point-in-time benchmark.
-3. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
-4. Extend to RB/TE/QB.
-5. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.
+1. **Next:** freeze the current models and evaluate them on **2026** as an untouched
+   holdout, rolling week by week. Archive live ESPN snapshots weekly
+   (`scripts/snapshot_espn.R`) so the 2026 benchmark is point-in-time by construction.
+2. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
+3. Extend to RB/TE/QB.
+4. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.
 
 ## Prior work
 

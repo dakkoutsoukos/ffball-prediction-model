@@ -46,7 +46,8 @@ See [espn_projections.md](espn_projections.md).
 
 | Provider | Endpoint | Fields | History | As-of | Status |
 |---|---|---|---|---|---|
-| ESPN fantasy API (public, no auth) | `lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{S}/segments/0/leaguedefaults/3?scoringPeriodId={W}&view=kona_player_info` | Weekly projected and actual PPR `appliedTotal`, projected receptions/targets/yards/TDs | 2018– | Final pregame projection, retrieved retroactively. Supported by Wayback captures of real API responses. | **Disabled** pending the owner's terms-of-use decision. |
+| ESPN fantasy API (public, no auth) | `lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{S}/segments/0/leaguedefaults/3?scoringPeriodId={W}&view=kona_player_info` | Weekly projected and actual PPR `appliedTotal`, projected receptions/targets/yards/TDs | 2018– (we use 2020–2025) | Final pregame projection, retrieved retroactively on 2026-10-05. Supported by Wayback captures of real API responses. | Fetched after the owner's opt-in (`config/local.yml`, git-ignored). 107 raw responses are cached in `data/raw/espn/`. The committed default is off. **Never commit ESPN data.** Disney Terms of Use apply. |
+| ESPN live snapshots | same endpoint, current/upcoming week | as above + `captured_at_utc` | from 2026 W5 | **True point-in-time** (capture timestamp) | One capture so far (2026-10-05 19:40 UTC, W5). `data/snapshots/espn/`, git-ignored. |
 
 ## Derived data
 

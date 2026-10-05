@@ -86,12 +86,17 @@ tibble(
 ) |> fmt(4)
 ```
 
-All differences against nflverse come from offensive fumble-recovery TDs,
-which ESPN scores and nflverse does not.
+Differences from nflverse are intended. ESPN penalises fumbles lost on kick
+and punt returns and credits offensive fumble-recovery TDs, while nflverse's
+PPR column does neither. The authoritative check is against **ESPN's own actual
+totals**:
 
 ```{r scoring-espn, results = "asis"}
 if (isTRUE(scoring_espn$available)) {
   print(knitr::kable(mutate(scoring_espn$summary, across(where(is.double), ~ round(.x, 4)))))
+  cat("\nRemaining mismatches (", nrow(scoring_espn$mismatches), "): special-teams fumble-recovery TDs",
+      "by coverage players, a missed-field-goal return TD, and two 2-pt conversions that ESPN",
+      "does not credit to the player.\n")
 } else {
   cat("ESPN actual totals are unavailable (ESPN disabled), so validation against ESPN is pending.\n")
 }
@@ -142,6 +147,34 @@ headline$bootstrap |>
 Pre-registered criterion: the CI must lie entirely below 0 **and** RMSE must not
 be worse. Result: **`r if (headline$beats_baseline) "met" else "not met"`**
 against ``r headline$baseline``.
+
+### Is the result repeatable?
+
+One season is not enough evidence. The table puts the same comparisons side by
+side for the validation and test seasons (rolling protocol, all player-weeks).
+
+```{r repeatability}
+both <- bind_rows(
+  mutate(ev_val$bootstrap, season = val_season),
+  mutate(ev_test$bootstrap, season = test_season)
+) |>
+  filter(protocol == "rolling", subset == "all",
+         model %in% c(selection$model, "espn_recal_l2", "espn_recal_l1", "ols_usage")) |>
+  select(model, season, mae_diff, ci_low, ci_high, weeks_model_better) |>
+  arrange(model, season)
+fmt(both)
+bias_tab <- bind_rows(ev_val$overall, ev_test$overall) |>
+  filter(protocol == "rolling", model == headline$baseline) |>
+  select(season, model, mae, rmse, bias)
+fmt(bias_tab)
+```
+
+`espn_recal_l2` is a + b·ESPN fitted on past seasons. It contains **no new
+information**: it only corrects ESPN's average level. When it captures most of
+a model's gain, the gain is mainly calibration, such as ESPN over-projecting in
+a given season, rather than better player-level information. `espn_recal_l1`
+targets the median and shows how much MAE can be "won" through distributional
+targeting alone. Its RMSE is worse.
 
 ## Error analysis
 
