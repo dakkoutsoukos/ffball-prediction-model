@@ -203,6 +203,56 @@ list(
   tar_target(m2_selection, select_challengers(dplyr::bind_rows(m2_dev_preds, m2_dev_cal_preds),
                                               m2_cal_choice$model, NF_CANDIDATES, AUG_CANDIDATES)),
 
+  # ---- Milestone 2: descriptive development studies (2020-2023) ------------
+  tar_target(m2_dev_aligned, m2_aligned(dplyr::bind_rows(m2_dev_preds, m2_dev_cal_preds), m2_dev),
+             format = "parquet"),
+  tar_target(m2_dev_tables, m2_metric_tables(m2_dev_aligned)),
+  tar_target(m2_dev_comparisons, m2_comparisons(
+    m2_dev_aligned, models = c(m2_selection$aug, m2_selection$nf, "aug_ols", "aug_xgb", "aug_resid_xgb",
+                               "nf_xgb", "nf_enet", m2_cal_choice$model),
+    benchmarks = c(m2_cal_choice$model, "espn", "m1spec_no_espn"),
+    reps = config$evaluation$bootstrap_reps, seed = config$evaluation$seed)),
+  tar_target(m2_dev_seasonal, dplyr::bind_rows(
+    m2_seasonal(m2_dev_aligned, c(m2_selection$aug, "aug_ols", "aug_xgb", "aug_resid_xgb"), m2_cal_choice$model),
+    m2_seasonal(m2_dev_aligned, c(m2_selection$nf, "nf_xgb", "nf_enet"), "m1spec_no_espn"))),
+  tar_target(m2_ablation_aug, ablation_study(m2_dev, m2_tuning, m2_cal_spec, m2_selection$aug, config$m2)),
+  tar_target(m2_ablation_nf, ablation_study(m2_dev, m2_tuning, m2_cal_spec, m2_selection$nf, config$m2)),
+  tar_target(m2_representation, representation_study(m2_dev, config$m2)),
+  tar_target(m2_residual_study, residual_study(m2_dev_cal_preds, m2_cal_choice$model, m2_dev)),
+
+  # ---- Milestone 2: frozen lineage and one-time historical holdout ----------
+  tar_target(m2_registry_file, "models/registry/m2.yml", format = "file"),
+  tar_target(m2_registry, read_registry("m2", dirname(m2_registry_file))),
+  tar_target(m2_frozen_specs, unname(registry_specs(m2_registry)), iteration = "list"),
+  tar_target(m2_full, m2_frame(player_week_m2, config$m2, max_season = 2025)),
+  tar_target(m2_holdout_preds,
+             rolling_folds(m2_full, m2_frozen_specs, unlist(config$m2$holdout_seasons),
+                           m2_registry$data$min_train_season),
+             pattern = map(m2_frozen_specs), format = "parquet"),
+  tar_target(m2_holdout_refs,
+             purrr::map(list(spec_espn(), spec_naive(8)), ~ rolling_folds(
+               m2_full, .x, unlist(config$m2$holdout_seasons), config$m2$first_train_season)) |>
+               purrr::list_rbind(), format = "parquet"),
+  tar_target(m2_holdout_aligned,
+             m2_aligned(dplyr::bind_rows(m2_holdout_preds, m2_holdout_refs,
+                                         dplyr::filter(m1_rolling, model != "m1_espn_raw")), m2_full),
+             format = "parquet"),
+  tar_target(m2_holdout_tables, m2_metric_tables(m2_holdout_aligned)),
+  tar_target(m2_holdout_comparisons, m2_comparisons(
+    m2_holdout_aligned,
+    models = c("m2_espn_aug", "m2_no_espn", "m2_espn_cal", "m1_espn_plus", "m1_no_espn", "m1_espn_recal"),
+    benchmarks = c("m2_espn_cal", "espn", "m1_espn_plus", "m1_no_espn"),
+    reps = config$evaluation$bootstrap_reps, seed = config$evaluation$seed)),
+  tar_target(m2_holdout_seasonal, dplyr::bind_rows(
+    m2_seasonal(m2_holdout_aligned, c("m2_espn_aug", "m1_espn_plus"), "m2_espn_cal"),
+    m2_seasonal(m2_holdout_aligned, "m2_no_espn", "m1_no_espn"))),
+  tar_target(m2_fingerprint_check, {
+    path <- m2_registry$fingerprint
+    if (!file.exists(path)) write_fingerprint(m2_holdout_preds, path, raw_manifest, 2017, 2018)
+    check_frozen_fingerprint(m2_holdout_preds, path, raw_manifest,
+                             list(data = list(history_start_season = 2017, min_train_season = 2018)))
+  }),
+
   # ---- Report -------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE)
 )

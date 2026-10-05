@@ -94,6 +94,16 @@ fingerprint_data_hash <- function(raw_manifest, nflverse_from, espn_from, max_se
   rlang::hash(paste(sort(paste(basename(m$path), m$bytes)), collapse = "|"))
 }
 
+#' Write a lineage's prediction fingerprint ONCE (first run after freezing).
+write_fingerprint <- function(preds, path, raw_manifest, nflverse_from, espn_from) {
+  if (file.exists(path)) cli::cli_abort("Fingerprint {.file {path}} already exists.")
+  fp <- prediction_fingerprint(preds)
+  fp$raw_data_hash_xxh128 <- fingerprint_data_hash(raw_manifest, nflverse_from, espn_from)
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  readr::write_csv(fp, path)
+  path
+}
+
 #' Compare regenerated frozen predictions with the committed fingerprint.
 #' Exact agreement is required when the raw data are the same version; with a
 #' different data version the check reports "unverifiable" rather than passing.

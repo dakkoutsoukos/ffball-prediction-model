@@ -68,6 +68,7 @@ assemble_live_inputs <- function(cfg, live_season, as_of = Sys.time()) {
     live_files = live, player_stats = player_stats, team_games = team_games,
     players = players, ff_playerids = ff_playerids, rosters = rosters, snaps = snaps,
     injuries = injuries, xfp = xfp, pbp_usage = pbp_usage, espn_weekly = espn_weekly,
+    pbp_paths = both("pbp"),
     player_games = build_player_games(player_stats, snaps, pbp_usage, xfp),
     team_volume = build_team_volume(player_stats),
     defense_allowed = build_defense_allowed(player_stats, team_games, position = "WR")
@@ -136,6 +137,28 @@ m1_live_frames <- function(reg, inputs, targets, cfg) {
   tg <- add_point_in_time_features(targets, keep(inputs$player_games), keep(inputs$team_volume),
                                    keep(inputs$defense_allowed), keep(inputs$team_games),
                                    windows = unlist(reg$data$feature_windows))
+  list(train = train, targets = tg)
+}
+
+#' M2 frames for a live run: full M2 feature engine (history from 2017),
+#' ESPN population from 2018, completed games only for training rows.
+m2_live_frames <- function(reg, inputs, targets, cfg) {
+  pbp <- inputs$pbp_paths
+  hist <- m2_histories(inputs$player_games, inputs$team_volume, inputs$defense_allowed,
+                       pbp_receiver_detail(pbp), inputs$pbp_usage, inputs$player_stats,
+                       pbp_team_game(pbp), pbp_defense_game(pbp), pbp_qb_game(pbp))
+  static <- list(team_games = inputs$team_games, bio = player_bio(inputs$players))
+  windows <- unlist(reg$data$feature_windows)
+  base <- build_player_week_base(inputs$espn_weekly, inputs$crosswalk, inputs$player_stats, inputs$rosters,
+                                 inputs$team_games, inputs$injuries, positions = cfg$positions) |>
+    final_games_only(inputs$team_games) |>
+    dplyr::filter(.data$has_game)
+  pw <- add_m2_features(base, hist, static, windows) |>
+    finalize_player_week(cfg$splits, cfg$evaluation$relevant_top_n)
+  train <- m2_frame(pw, list(first_train_season = reg$data$min_train_season,
+                             startable_top_n = cfg$m2$startable_top_n), max_season = max(targets$season))
+  tg <- add_m2_features(targets, hist, static, windows) |>
+    dplyr::mutate(dplyr::across(dplyr::all_of(setdiff(ESPN_COMPONENTS, "espn_proj")), ~ dplyr::coalesce(.x, 0)))
   list(train = train, targets = tg)
 }
 

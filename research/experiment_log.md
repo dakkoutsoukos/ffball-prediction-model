@@ -395,3 +395,77 @@ separate from noise over 71 weeks.
 
 **Next.** Run the 2024–2025 holdout once for the frozen M2 models. Run the
 descriptive ablations, representation and residual studies on the development folds.
+
+---
+
+## 2026-10-05 — E5: One-time 2024–2025 holdout of the frozen M2 lineage, plus descriptive studies
+
+**Holdout** (weekly rolling refits, all ESPN-projected WRs, n = 5,091, 36 weeks; frozen models unchanged):
+
+| model | MAE | RMSE | bias | weekly Spearman | pairwise acc. (top 60) |
+|---|---|---|---|---|---|
+| m1_espn_plus (frozen M1) | 4.144 | 5.810 | +0.15 | 0.701 | 0.634 |
+| **m2_espn_cal** | 4.144 | 5.816 | +0.12 | 0.698 | 0.635 |
+| m1_espn_recal | 4.154 | 5.814 | +0.18 | 0.698 | 0.634 |
+| **m2_espn_aug** | 4.154 | 5.816 | +0.24 | 0.700 | 0.637 |
+| raw ESPN | 4.190 | 5.835 | +0.39 | 0.698 | 0.634 |
+| m2_no_espn | 4.333 | 5.988 | +0.18 | 0.666 | 0.617 |
+| m1_no_espn | 4.340 | 6.016 | +0.07 | 0.661 | 0.613 |
+| naive_roll8 | 4.422 | 6.238 | +0.17 | 0.638 | 0.605 |
+
+**Paired comparisons** (season-stratified week bootstrap):
+
+| comparison | subset | ΔMAE [95% CI] | detail |
+|---|---|---|---|
+| m2_espn_aug vs m2_espn_cal | all | **+0.010 [−0.006, +0.027]** | worse in both 2024 (+0.010) and 2025 (+0.009); RMSE 5.816 vs 5.816 |
+| m2_espn_aug vs m2_espn_cal | top 60 | +0.038 [+0.012, +0.065] | **significantly worse** |
+| m2_espn_aug vs m2_espn_cal | top 36 | +0.048 [+0.011, +0.084] | **significantly worse** |
+| m2_espn_cal vs raw ESPN | all | −0.046 [−0.060, −0.033] | calibration replicates |
+| m1_espn_plus vs m2_espn_cal | all | −0.001 [−0.016, +0.014] | a tie |
+| m2_no_espn vs m1_no_espn | all | −0.007 [−0.036, +0.022] | RMSE 5.988 vs 6.016 |
+| m2_no_espn vs m2_espn_cal | all | +0.188 | — |
+
+**Historical evidence criterion (E3): NOT MET.** It fails at both stages:
+- development CI upper bound +0.001;
+- holdout ΔMAE positive in both seasons.
+
+**Interpretation.** The augmentation model ranks slightly better (pairwise 0.637 vs
+0.635) but adds positive bias. Its small, direction-consistent development gain did
+not survive out of sample, and it hurts among fantasy-relevant WRs. Calibration is
+the only robust gain over raw ESPN, about −0.02 to −0.05 MAE across six seasons.
+
+**M2 fingerprint.** The holdout predictions of the frozen models were written once to
+models/fingerprints/m2_holdout_2024_2025.csv and re-verified as identical.
+
+### Descriptive studies (development folds only; not used for any decision)
+
+**Ablations** (static development folds; Δ = MAE without the family − MAE with it):
+- **nf_ols:** opportunity +0.028, role change +0.026, history +0.021, priors +0.007,
+  opponent +0.003, team +0.002, QB −0.001, efficiency −0.007, context −0.009.
+- **aug_resid_enet:** every family within ±0.005. Opportunity +0.003 is the largest; removing context would have helped by 0.005.
+
+**Temporal representation** (OLS, same base features):
+
+| representation | MAE |
+|---|---|
+| EWMA + trend | 4.596 |
+| EWMA 2/6 | 4.625 |
+| trailing 1/2/4/8 | 4.641 |
+| M1 trailing 3/8 | 4.644 |
+
+**Residual study** (actual − calibrated ESPN, development rolling; uncertainty from week-level means):
+- **Rising target share** (top two quintiles of trend): −0.37 and −0.38, CIs below 0.
+- **Rising xFP:** −0.56 [−0.88, −0.23]. **Falling xFP:** +0.33 [+0.06, +0.60].
+- **Did not play the team's previous game:** −0.63 [−1.02, −0.24].
+- **Low points-over-xFP:** −0.34 [−0.59, −0.09].
+- **Projection range 5–10:** −0.29 [−0.54, −0.04].
+
+ESPN tends to **over-react to recent role changes and to over-project players
+returning from an absence**. That is the opposite of the "ESPN is slow to recognise
+role change" hypothesis. However, a residual model using these features did not
+generalise to 2024–2025, so these patterns are not yet a usable edge.
+
+**Decision.** The frozen M2 lineage is not modified. It enters the prospective record
+from 2026 Week 5, alongside M1. The residual patterns above are recorded as
+hypotheses for a future challenger (M3), to be pre-registered and tested
+prospectively.

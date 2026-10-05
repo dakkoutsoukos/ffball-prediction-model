@@ -1,0 +1,4 @@
+model_id,n,mean_pred,pred_hash_xxh128,raw_data_hash_xxh128
+m2_espn_aug,5091,6.995784,8c911a3cae0fef4977183c83ceaff5e7,bcd2e03369e65f7cb8a7c0e728bf812d
+m2_espn_cal,5091,6.877387,d11f5d7d248d2ee2ea462fce08176e2d,bcd2e03369e65f7cb8a7c0e728bf812d
+m2_no_espn,5091,6.935529,0284d798b4821bad8f676ff1005b7f40,bcd2e03369e65f7cb8a7c0e728bf812d
