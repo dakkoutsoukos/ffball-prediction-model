@@ -51,3 +51,21 @@ test_that("data-version hash ignores files outside the lineage's window", {
                                                path = c("old", "olde", "live"), bytes = 9))
   expect_identical(fingerprint_data_hash(extra, 2019, 2020), h)
 })
+
+test_that("M2 registry defines three frozen models built from registry entries", {
+  reg <- read_registry("m2", reg_dir)
+  expect_setequal(names(reg$models), c("m2_espn_cal", "m2_no_espn", "m2_espn_aug"))
+  expect_equal(reg$data$min_train_season, 2018)
+  specs <- registry_specs(reg)
+  expect_equal(unname(purrr::map_chr(specs, "name")), names(specs))
+  # frozen feature lists = the M2 feature set at freeze time (edits to the
+  # FEATURES_M2 constant would not change the frozen models, which use the registry)
+  expect_identical(unlist(reg$models$m2_no_espn$features), FEATURES_M2)
+  expect_identical(unlist(reg$models$m2_espn_cal$features), ESPN_COMPONENTS)
+  expect_false(any(c("implied_team_total", "team_spread", "total_line", "inj_questionable") %in%
+                     unlist(reg$models$m2_espn_aug$features)))   # no betting lines / injuries
+})
+
+test_that("frozen registries refuse to be overwritten", {
+  expect_error(write_m2_registry(list(), list(), list(), path = file.path(reg_dir, "m2.yml")), "never overwritten")
+})

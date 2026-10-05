@@ -53,8 +53,11 @@ best_params <- function(tuning, family) {
   as.list(t[which.min(t$mae), setdiff(names(t), c("name", "mae", "rmse", "family"))])
 }
 
-#' The pre-registered M2 candidates with tuned hyperparameters.
-m2_candidate_specs <- function(tuning, cal) {
+#' The pre-registered M2 candidates with tuned hyperparameters. `features`
+#' defaults to FEATURES_M2; ablations pass reduced sets (ESPN components are
+#' always kept in augmentation models).
+m2_candidate_specs <- function(tuning, cal, features = FEATURES_M2) {
+  FEATURES_M2 <- features
   aug_feats <- c(ESPN_COMPONENTS, FEATURES_M2)
   p_nf_enet <- best_params(tuning, "nf_enet")
   p_r_enet <- best_params(tuning, "aug_resid_enet")
