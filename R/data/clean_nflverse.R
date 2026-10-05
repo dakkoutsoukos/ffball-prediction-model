@@ -72,6 +72,9 @@ clean_team_games <- function(paths, season_type = "REG") {
         opponent = standardize_team(if (is_home) .data$away_team else .data$home_team),
         home = is_home & .data$location != "Neutral",
         kickoff = paste(.data$gameday, .data$gametime),
+        # nflverse gametime is US Eastern; convert to UTC for kickoff-time rules.
+        kickoff_utc = kickoff_to_utc(.data$gameday, .data$gametime),
+        game_final = !is.na(.data$result),
         # spread_line > 0 means the home team is favored by that many points
         team_spread = if (is_home) .data$spread_line else -.data$spread_line,
         total_line = .data$total_line,
@@ -87,6 +90,12 @@ clean_team_games <- function(paths, season_type = "REG") {
     assert_no_missing(c("team", "opponent"), "team_games") |>
     assert_unique_key(c("season", "week", "team"), "team_games") |>
     assert_unique_key(c("game_id", "team"), "team_games")
+}
+
+#' Kickoff instant in UTC from nflverse's Eastern-time date and clock.
+kickoff_to_utc <- function(gameday, gametime) {
+  et <- as.POSIXct(paste(gameday, gametime), format = "%Y-%m-%d %H:%M", tz = "America/New_York")
+  as.POSIXct(format(et, tz = "UTC", usetz = FALSE), tz = "UTC")
 }
 
 #' Chronological index for (season, week): later games always compare greater.

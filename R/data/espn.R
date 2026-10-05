@@ -205,16 +205,49 @@ snapshot_espn_projections <- function(position = "WR", league_defaults_id = 3, w
     httr2::req_perform() |>
     httr2::resp_body_string()
 
+  # Snapshots are immutable: write_once() refuses to overwrite an existing file.
   dir <- file.path(root, sprintf("season=%d", season), sprintf("week=%02d", week))
-  dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  con <- gzfile(file.path(dir, sprintf("captured_at=%s_%s.json.gz", captured_at, tolower(position))), "w")
-  writeLines(body, con)
-  close(con)
+  stem <- sprintf("captured_at=%s_%s", captured_at, tolower(position))
+  raw_path <- write_once(file.path(dir, paste0(stem, ".json.gz")), function(tmp) {
+    con <- gzfile(tmp, "w")
+    writeLines(body, con)
+    close(con)
+  })
   snap <- parse_espn_week(body, season, week) |>
-    dplyr::mutate(provider = "ESPN", position = position, captured_at_utc = captured_at)
-  out <- file.path(dir, sprintf("captured_at=%s_%s.parquet", captured_at, tolower(position)))
-  arrow::write_parquet(snap, out)
+    dplyr::mutate(
+      provider = "ESPN", position = position, captured_at_utc = captured_at,
+      team = espn_team(.data$espn_pro_team_id),  # live team id = team at capture time
+      league_defaults_id = as.integer(league_defaults_id), source_url = url,
+      raw_sha256 = sha256_file(raw_path)
+    )
+  out <- write_once(file.path(dir, paste0(stem, ".parquet")), function(tmp) arrow::write_parquet(snap, tmp))
+  register_snapshot(out, raw_path)
   out
+}
+
+#' Append a snapshot's hashes to the committed, append-only snapshot manifest.
+register_snapshot <- function(parquet_path, raw_path, manifest = SNAPSHOT_MANIFEST) {
+  snap <- arrow::read_parquet(parquet_path)
+  if (file.exists(manifest)) {
+    old <- readr::read_csv(manifest, col_types = readr::cols(.default = "c"))
+    if (basename(parquet_path) %in% old$file) cli::cli_abort("Snapshot {.file {parquet_path}} already registered.")
+  }
+  append_manifest(tibble::tibble(
+    file = basename(parquet_path), season = unique(snap$season), week = unique(snap$week),
+    position = unique(snap$position), captured_at_utc = unique(snap$captured_at_utc),
+    n_players = nrow(snap), n_projected = sum(snap$espn_proj > 0, na.rm = TRUE),
+    parquet_sha256 = sha256_file(parquet_path), raw_sha256 = sha256_file(raw_path)
+  ), manifest)
+}
+
+#' Retroactively fetch ESPN weekly data for weeks of a live season whose games
+#' are ALL final (training rows only; never used as the prospective benchmark).
+fetch_espn_completed_weeks <- function(season, team_games, enabled = FALSE, pause = 1.5) {
+  done <- team_games |>
+    dplyr::filter(.data$season == !!season) |>
+    dplyr::summarise(all_final = all(.data$game_final), .by = "week") |>
+    dplyr::filter(.data$all_final)
+  purrr::map_chr(sort(done$week), ~ fetch_espn_week(season, .x, enabled = enabled, pause = pause))
 }
 
 # --- ESPN <-> nflverse identity -------------------------------------------------

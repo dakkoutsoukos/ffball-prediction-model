@@ -1,0 +1,2 @@
+file,season,week,position,captured_at_utc,n_players,n_projected,parquet_sha256,raw_sha256
+captured_at=20261005T194046Z_wr.parquet,2026,5,WR,20261005T194046Z,382,152,09c53228fca6b8e60281356843f0fcc2ef1a6636439aa8e63bf8549e1e688004,8bcec87a630d01a01aa509311e07595c9fa64b1126c418384d7f72498862123a

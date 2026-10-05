@@ -26,7 +26,7 @@ test_that("team game context uses the nflverse spread sign convention", {
   sch <- tibble::tibble(
     season = 2024L, week = 1L, game_type = "REG", game_id = "g", gameday = "2024-09-08",
     gametime = "13:00", home_team = "KC", away_team = "BAL", location = "Home",
-    spread_line = 3, total_line = 47, home_rest = 7, away_rest = 7
+    spread_line = 3, total_line = 47, home_rest = 7, away_rest = 7, result = NA_real_
   )
   path <- withr::local_tempfile(fileext = ".parquet")
   arrow::write_parquet(sch, path)
@@ -35,6 +35,8 @@ test_that("team game context uses the nflverse spread sign convention", {
   expect_equal(tg$implied_team_total[tg$team == "BAL"], 22)
   expect_true(tg$home[tg$team == "KC"])
   expect_equal(tg$team_spread[tg$team == "BAL"], -3)
+  expect_false(any(tg$game_final))                       # no result yet = not final
+  expect_equal(format(tg$kickoff_utc[1], tz = "UTC"), "2024-09-08 17:00:00")
 })
 
 test_that("team codes are normalised to current franchises and unknown codes fail", {

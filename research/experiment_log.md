@@ -217,3 +217,119 @@ level-calibration. Our ESPN-free models are clearly worse than ESPN.
 **Next step.** Treat **2026** as the fresh, untouched holdout. Freeze `ols_espn_plus`
 and `espn_recal_l2` now. Archive live ESPN snapshots weekly. Evaluate after the
 season, or rolling-origin through it, without changing the models.
+
+---
+
+## 2026-10-05 — E3: Milestone 2 pre-registration (written before any M2 experiment and before any 2026 outcome was evaluated)
+
+**Question.** Do our football features carry *player-level* information beyond a
+**calibrated** ESPN forecast, repeatably and prospectively? Secondary: can the
+ESPN-free model close its gap to ESPN?
+
+**Status of seasons.** 2024 was used for M1 selection and 2025 was opened twice in
+M1, so neither is pristine. **2026 is the only clean evidence.** Its use is fixed in
+docs/prospective_protocol.md.
+
+### Historical development protocol
+- **Data:** nflverse extended to 2017 (feature warm-up); ESPN extended to 2018.
+  Training rows run from 2018.
+- **Development folds:** 2020, 2021, 2022, 2023. Each week is predicted after a
+  weekly expanding-window refit on all rows from 2018 strictly before that week.
+  **Every M2 decision** is made on these folds only: feature families,
+  hyperparameters, calibration choice and model choice.
+- **Hyperparameters:** chosen with static season-level fits on the same
+  development seasons (predict each season from all earlier ones), from small
+  fixed grids.
+- **Historical holdout:** 2024 and 2025, with weekly rolling refits, run **once**
+  after the M2 challengers are chosen. Not pristine, but no M2 decision is made on it.
+- **Test isolation:** development code asserts that no season after 2023 enters
+  development, and no season after 2025 enters any historical target.
+
+### Benchmark hierarchy
+1. **Raw ESPN.**
+2. **Calibrated ESPN (`m2_espn_cal`):** the best, by pooled development MAE, of a
+   pre-declared ESPN-only family:
+   - linear a + b·ESPN;
+   - natural spline of ESPN (df = 4);
+   - linear on ESPN's projected stat components (points, receptions, targets,
+     receiving yards and TDs, rushing yards);
+   - the components model with recency weights (half-life 1 season).
+   All are refit weekly.
+3. **ESPN-free model.**
+4. **ESPN + our information.**
+
+**The primary scientific comparison is (4) vs (2).**
+
+### Candidates, declared in advance
+- **ESPN-free:**
+  - `nf_ols` (OLS);
+  - `nf_enet` (elastic net, mixture 0.5, penalty tuned);
+  - `nf_xgb` (XGBoost, grid: depth {3, 5} × rounds {300, 600}, eta 0.03, subsample 0.8, colsample 0.8, min_child_weight 20).
+- **Augmentation:**
+  - `aug_ols` (OLS with ESPN components plus our features);
+  - `aug_resid_enet` and `aug_resid_xgb` (calibrated ESPN plus a model of its residual);
+  - `aug_xgb` (XGBoost with ESPN components plus our features).
+- All are fit to the conditional mean (squared error).
+- Betting lines and injury reports are **excluded** from all M2 models: they are
+  not point-in-time.
+
+### Feature policy
+- Every family must:
+  - state a football hypothesis;
+  - pass the point-in-time review (docs/features.md);
+  - pass the extended corruption leakage test.
+- All valid families go into the candidate models. **Families are not dropped by
+  searching ablations.** Ablations are run once on the development folds and
+  reported descriptively.
+
+### Selection rules
+- **ESPN-free challenger:** lowest pooled development MAE among the ESPN-free candidates.
+- **Augmentation challenger:** lowest pooled development MAE among the
+  augmentation candidates whose pooled development RMSE ≤ `m2_espn_cal`'s.
+  If none qualifies, take the lowest MAE and report the RMSE failure.
+- Both challengers are then **frozen** (models/registry/m2.yml) together with `m2_espn_cal`.
+
+### Pre-specified evaluation subsets and metrics
+- **Subsets** (all defined pregame, by ESPN rank within the week):
+  - all ESPN-projected WRs (**primary**);
+  - top 60 ("relevant", continuity with M1);
+  - top 36 ("startable").
+  Projection buckets are descriptive only.
+- **Metrics:**
+  - MAE (primary) and RMSE (gate);
+  - bias, Pearson correlation, weekly Spearman;
+  - pairwise ordering accuracy within the top 60;
+  - top-24 precision;
+  - large-miss rate (|error| > 10);
+  - calibration by projection bucket.
+- **Uncertainty:** paired, week-clustered bootstrap (2,000 resamples). Pooled
+  results resample weeks within season.
+
+### Historical evidence criterion (holdout 2024–2025)
+"Historical evidence of incremental signal" requires all of the following for the
+augmentation challenger vs `m2_espn_cal`:
+- pooled holdout ΔMAE 95% CI entirely below 0;
+- pooled holdout RMSE no worse;
+- ΔMAE below 0 in **each** of 2024 and 2025;
+- the development-fold pooled ΔMAE CI also below 0.
+
+### Primary prospective hypothesis (2026). Do not modify after seeing 2026 results.
+> On prospectively captured 2026 WR player-weeks, the frozen Milestone 2
+> ESPN-augmentation model will achieve lower MAE than the calibrated ESPN
+> baseline, with the paired week-clustered 95% confidence interval for ΔMAE
+> entirely below zero, while RMSE is no worse.
+
+- Evaluated **once**, at the end of the 2026 regular season, on archived runs only
+  (docs/prospective_protocol.md).
+- Comparison with raw ESPN is also reported.
+- If fewer than **10** prospective weeks have valid archived predictions for the
+  frozen M2 models at that point, the result is declared **insufficient**. The
+  criterion is not weakened.
+
+### Secondary prospective hypotheses
+1. The M2 ESPN-free challenger has lower MAE than `m1_no_espn` (CI below 0).
+2. The augmentation challenger has a higher weekly Spearman than calibrated ESPN.
+3. The primary result holds on the top-60 subset.
+4. The augmentation challenger beats calibrated ESPN in more than half of prospective weeks.
+
+The frozen M1 models (`m1_*`) are archived alongside, from 2026 Week 5.
