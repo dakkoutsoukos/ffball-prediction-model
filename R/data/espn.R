@@ -166,7 +166,9 @@ parse_espn_files <- function(raw_espn) {
   }) |>
     purrr::list_rbind() |>
     assert_unique_key(c("season", "week", "espn_id"), "espn_weekly") |>
-    assert_in_range("espn_proj", 0, 80, "espn_weekly")
+    # Deep reserves can carry tiny negative projections (projected fumble risk,
+    # e.g. -0.001 in 2018-19); they fall outside the "projection > 0" population.
+    assert_in_range("espn_proj", -2, 80, "espn_weekly")
 }
 
 empty_espn_weekly <- function() {

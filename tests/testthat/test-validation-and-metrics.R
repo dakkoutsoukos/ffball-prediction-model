@@ -26,7 +26,8 @@ test_that("team game context uses the nflverse spread sign convention", {
   sch <- tibble::tibble(
     season = 2024L, week = 1L, game_type = "REG", game_id = "g", gameday = "2024-09-08",
     gametime = "13:00", home_team = "KC", away_team = "BAL", location = "Home",
-    spread_line = 3, total_line = 47, home_rest = 7, away_rest = 7, result = NA_real_
+    spread_line = 3, total_line = 47, home_rest = 7, away_rest = 7, result = NA_real_,
+    roof = "outdoors"
   )
   path <- withr::local_tempfile(fileext = ".parquet")
   arrow::write_parquet(sch, path)

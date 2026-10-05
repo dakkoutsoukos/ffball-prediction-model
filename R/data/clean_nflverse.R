@@ -78,7 +78,8 @@ clean_team_games <- function(paths, season_type = "REG") {
         # spread_line > 0 means the home team is favored by that many points
         team_spread = if (is_home) .data$spread_line else -.data$spread_line,
         total_line = .data$total_line,
-        rest_days = if (is_home) .data$home_rest else .data$away_rest
+        rest_days = if (is_home) .data$home_rest else .data$away_rest,
+        roof = .data$roof
       )
   }
   dplyr::bind_rows(side(TRUE), side(FALSE)) |>

@@ -2,16 +2,17 @@
 # Changing a value here invalidates the downstream targets that use it.
 
 seasons:
-  first: 2019          # first season ingested (features need >= 1 prior season)
+  first: 2017          # first season ingested (M2 feature warm-up; M1 uses 2019+ only)
   last: 2025           # last completed season
 season_type: REG       # regular season only, for both features and targets
 positions: [WR]        # Milestone 1. Add RB/TE/QB here later.
 scoring_system: espn_ppr   # file name in config/scoring/
 
-# Chronological evaluation boundaries. The test season must not influence any
-# feature, preprocessing, hyperparameter, or model-selection decision.
+# Milestone 1 chronological boundaries (frozen; see models/registry/m1.yml).
+# The test season must not influence any feature, preprocessing,
+# hyperparameter, or model-selection decision.
 splits:
-  first_train_season: 2020   # 2019 is used only as feature history
+  first_train_season: 2020   # earlier seasons are feature history only
   train_last_season: 2023
   validation_season: 2024
   test_season: 2025
@@ -23,6 +24,7 @@ espn:
   # Already-cached raw files in data/raw/espn/ are used either way.
   enabled: false
   league_defaults_id: 3      # ESPN default PPR league scoring
+  first_season: 2018         # first ESPN season fetched (M1 uses 2020+ only)
   request_pause_seconds: 1.5
   max_players: 2000
 
@@ -33,3 +35,11 @@ evaluation:
   relevant_top_n: 60         # "fantasy-relevant" = top-N WRs per week by ESPN projection
   bootstrap_reps: 2000
   seed: 20261005
+
+# Milestone 2 historical development protocol (pre-registered in
+# research/experiment_log.md, E3). M1 keeps its own frozen window.
+m2:
+  first_train_season: 2018
+  dev_seasons: [2020, 2021, 2022, 2023]     # every M2 decision is made here
+  holdout_seasons: [2024, 2025]             # run once, after M2 choices are fixed
+  startable_top_n: 36

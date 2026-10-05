@@ -47,7 +47,7 @@ list(
   # ESPN is only needed for modelling seasons (the first season is feature warm-up).
   tar_target(
     espn_week_grid,
-    dplyr::filter(regular_season_weeks(raw_schedules), season >= config$splits$first_train_season)
+    dplyr::filter(regular_season_weeks(raw_schedules), season >= config$espn$first_season)
   ),
   tar_target(
     raw_espn,

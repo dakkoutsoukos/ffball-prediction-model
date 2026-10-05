@@ -77,7 +77,7 @@ build_player_week_base <- function(espn_weekly, espn_crosswalk, player_stats, ro
     dplyr::select(-"stat_team", -"stat_name", -"stat_opponent", -"roster_team", -"roster_name",
                   -"actual_pts", -"stats_position", -"roster_position") |>
     assert_unique_key(keys, "player_week_base") |>
-    assert_in_range("espn_proj", 0, 80, "player_week_base")
+    assert_in_range("espn_proj", -2, 80, "player_week_base")
 }
 
 #' Add splits and pregame-defined evaluation populations.
