@@ -37,6 +37,12 @@ test_that("team game context uses the nflverse spread sign convention", {
   expect_equal(tg$team_spread[tg$team == "BAL"], -3)
 })
 
+test_that("team codes are normalised to current franchises and unknown codes fail", {
+  expect_equal(standardize_team(c("OAK", "LV", "SD", "STL", "LA", "JAC")),
+               c("LV", "LV", "LAC", "LA", "LA", "JAX"))
+  expect_true(is.na(standardize_team("XXX")))
+})
+
 test_that("prediction_metrics computes MAE, RMSE, bias", {
   m <- prediction_metrics(actual = c(0, 10, 20), pred = c(2, 10, 14))
   expect_equal(m$mae, 8 / 3)

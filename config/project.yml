@@ -17,6 +17,11 @@ splits:
   test_season: 2025
 
 espn:
+  # ESPN content is governed by the Disney Terms of Use, which restrict
+  # automated extraction and use for benchmarking ML models. Fetching stays
+  # OFF until the project owner decides otherwise (docs/espn_projections.md).
+  # Already-cached raw files in data/raw/espn/ are used either way.
+  enabled: false
   league_defaults_id: 3      # ESPN default PPR league scoring
   request_pause_seconds: 1.5
   max_players: 2000

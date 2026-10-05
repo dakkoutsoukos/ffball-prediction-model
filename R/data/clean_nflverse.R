@@ -14,8 +14,15 @@ PLAYER_STAT_COLS <- c(
   "carries", "rushing_yards", "rushing_tds", "rushing_2pt_conversions", "rushing_fumbles_lost",
   "targets", "receptions", "receiving_yards", "receiving_tds", "receiving_2pt_conversions",
   "receiving_fumbles_lost", "receiving_air_yards", "special_teams_tds", "fumble_recovery_tds",
-  "fantasy_points_ppr"
+  "fumbles_lost_total", "fantasy_points_ppr"
 )
+
+#' Normalise team codes to current franchise abbreviations (OAK -> LV, SD -> LAC,
+#' STL -> LA). nflverse tables are not consistent about this across seasons.
+#' Unknown codes become NA so downstream assertions fail loudly.
+standardize_team <- function(x) {
+  nflreadr::clean_team_abbrs(x, current_location = TRUE, keep_non_matches = FALSE)
+}
 
 clean_player_stats <- function(paths, scoring_rules, season_type = "REG") {
   df <- read_parquet_files(paths) |>
@@ -24,12 +31,20 @@ clean_player_stats <- function(paths, scoring_rules, season_type = "REG") {
       season = as.integer(.data$season), week = as.integer(.data$week),
       game_id = .data$game_id, gsis_id = .data$player_id,
       player_name = .data$player_display_name, stats_position = .data$position,
-      team = .data$team, opponent = .data$opponent_team,
+      team = standardize_team(.data$team), opponent = standardize_team(.data$opponent_team),
       dplyr::across(dplyr::all_of(PLAYER_STAT_COLS), as.numeric)
     ) |>
     dplyr::rename(nflverse_ppr = "fantasy_points_ppr")
 
   df$fantasy_pts <- score_fantasy_points(df, scoring_rules)
+
+  # nflverse includes team-level placeholder rows ("Team") with no player id.
+  # Drop them only if they carry no fantasy production; otherwise fail.
+  no_id <- is.na(df$gsis_id)
+  if (any(df$fantasy_pts[no_id] != 0)) {
+    cli::cli_abort("player_stats: rows without a player id carry fantasy points.")
+  }
+  df <- df[!no_id, ]
 
   df |>
     assert_no_missing(c("season", "week", "gsis_id", "team", "game_id"), "player_stats") |>
@@ -53,8 +68,8 @@ clean_team_games <- function(paths, season_type = "REG") {
       dplyr::transmute(
         season = as.integer(.data$season), week = as.integer(.data$week),
         game_id = .data$game_id,
-        team = if (is_home) .data$home_team else .data$away_team,
-        opponent = if (is_home) .data$away_team else .data$home_team,
+        team = standardize_team(if (is_home) .data$home_team else .data$away_team),
+        opponent = standardize_team(if (is_home) .data$away_team else .data$home_team),
         home = is_home & .data$location != "Neutral",
         kickoff = paste(.data$gameday, .data$gametime),
         # spread_line > 0 means the home team is favored by that many points
@@ -69,6 +84,7 @@ clean_team_games <- function(paths, season_type = "REG") {
       game_index = game_index(.data$season, .data$week)
     ) |>
     dplyr::arrange(.data$season, .data$week, .data$team) |>
+    assert_no_missing(c("team", "opponent"), "team_games") |>
     assert_unique_key(c("season", "week", "team"), "team_games") |>
     assert_unique_key(c("game_id", "team"), "team_games")
 }
@@ -93,7 +109,7 @@ clean_snap_counts <- function(paths, players, season_type = "REG") {
     dplyr::filter(.data$game_type == !!season_type, .data$offense_snaps > 0) |>
     dplyr::transmute(
       season = as.integer(.data$season), week = as.integer(.data$week),
-      pfr_id = .data$pfr_player_id, snap_team = .data$team,
+      pfr_id = .data$pfr_player_id, snap_team = standardize_team(.data$team),
       offense_snaps = as.numeric(.data$offense_snaps),
       snap_share = as.numeric(.data$offense_pct)
     ) |>
@@ -104,6 +120,37 @@ clean_snap_counts <- function(paths, players, season_type = "REG") {
   out |>
     dplyr::select(-"pfr_id") |>
     assert_unique_key(c("season", "week", "gsis_id"), "snap_counts")
+}
+
+#' Weekly roster entries (team, position, game-day status) per player-week.
+#' nflverse occasionally assigns one gsis_id to two players in the same week;
+#' such keys are resolved toward the row whose team matches the player's stat
+#' line that week, else the ACT row, else dropped.
+clean_rosters_weekly <- function(paths, stats, season_type = "REG") {
+  rw <- read_parquet_files(paths) |>
+    dplyr::filter(.data$game_type == !!season_type, !is.na(.data$gsis_id)) |>
+    dplyr::transmute(
+      season = as.integer(.data$season), week = as.integer(.data$week),
+      gsis_id = .data$gsis_id, roster_name = .data$full_name,
+      roster_team = standardize_team(.data$team), roster_position = .data$position,
+      roster_status = .data$status, roster_espn_id = .data$espn_id
+    )
+  stat_team <- dplyr::select(stats, "season", "week", "gsis_id", stat_team = "team")
+  rw |>
+    dplyr::left_join(stat_team, by = c("season", "week", "gsis_id")) |>
+    dplyr::mutate(
+      priority = dplyr::case_when(
+        !is.na(.data$stat_team) & .data$stat_team == .data$roster_team ~ 1L,
+        .data$roster_status == "ACT" ~ 2L,
+        TRUE ~ 3L
+      )
+    ) |>
+    dplyr::arrange(.data$priority) |>
+    dplyr::mutate(n_key = dplyr::n(), best = .data$priority == min(.data$priority),
+                  n_best = sum(.data$best), .by = c("season", "week", "gsis_id")) |>
+    dplyr::filter(.data$best, .data$n_best == 1) |>
+    dplyr::select(-"stat_team", -"priority", -"n_key", -"best", -"n_best") |>
+    assert_unique_key(c("season", "week", "gsis_id"), "rosters_weekly")
 }
 
 #' Final weekly injury-report designation (Out/Doubtful/Questionable).
@@ -140,7 +187,7 @@ clean_ff_opportunity <- function(paths, season_type = "REG") {
 #' Red-zone and end-zone targets per player-game, aggregated in DuckDB
 #' directly from the play-by-play parquet files (never loaded fully into R).
 pbp_target_usage <- function(pbp_paths, season_type = "REG") {
-  con <- DBI::dbConnect(duckdb::duckdb())
+  con <- DBI::dbConnect(duckdb::duckdb(shared_home = FALSE))
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
   files <- paste0("'", normalizePath(pbp_paths, winslash = "/"), "'", collapse = ", ")
   sql <- sprintf("
@@ -156,5 +203,7 @@ pbp_target_usage <- function(pbp_paths, season_type = "REG") {
       AND receiver_player_id IS NOT NULL
     GROUP BY ALL", files, season_type)
   tibble::as_tibble(DBI::dbGetQuery(con, sql)) |>
+    dplyr::mutate(team = standardize_team(.data$team)) |>
+    assert_no_missing("team", "pbp_target_usage") |>
     assert_unique_key(c("season", "week", "gsis_id"), "pbp_target_usage")
 }
