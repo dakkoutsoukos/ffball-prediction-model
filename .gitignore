@@ -65,3 +65,6 @@ desktop.ini
 
 /.quarto/
 **/*.quarto_ipynb
+
+# Owner-specific config overrides (e.g. ESPN opt-in); never published
+config/local.yml

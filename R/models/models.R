@@ -63,7 +63,13 @@ spec_linear <- function(name, features, penalty = NULL, mixture = 0) {
       mod <- if (is.null(penalty)) {
         parsnip::linear_reg() |> parsnip::set_engine("lm")
       } else {
-        parsnip::linear_reg(penalty = penalty, mixture = mixture) |> parsnip::set_engine("glmnet")
+        # glmnet's default lambda path can stop above small penalties, in which
+        # case predictions silently use the path's smallest lambda (more
+        # shrinkage than requested). Supplying an explicit path that contains
+        # the requested penalty makes predictions exact.
+        path <- sort(unique(c(10^seq(-5, 2, length.out = 71), penalty)), decreasing = TRUE)
+        parsnip::linear_reg(penalty = penalty, mixture = mixture) |>
+          parsnip::set_engine("glmnet", path_values = path)
       }
       workflows::workflow(rec, mod) |> parsnip::fit(data = d)
     },

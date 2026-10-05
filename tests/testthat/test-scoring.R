@@ -17,10 +17,13 @@ test_that("yardage is fractional and negative yards subtract", {
 })
 
 test_that("fumbles lost, 2pt conversions, and return TDs are scored", {
-  line <- blank_line(receptions = 3, receiving_yards = 30, receiving_fumbles_lost = 1,
+  line <- blank_line(receptions = 3, receiving_yards = 30, fumbles_lost_total = 1,
                      receiving_2pt_conversions = 1, special_teams_tds = 1)
   expect_equal(score_fantasy_points(line, rules), 3 + 3 - 2 + 2 + 6)
-  expect_equal(score_fantasy_points(blank_line(sack_fumbles_lost = 1, rushing_fumbles_lost = 1), rules), -4)
+  # ESPN penalises every fumble lost, including on kick/punt returns.
+  expect_equal(score_fantasy_points(blank_line(fumbles_lost_total = 2), rules), -4)
+  expect_false(any(c("sack_fumbles_lost", "rushing_fumbles_lost", "receiving_fumbles_lost") %in%
+                     names(rules$weights)))   # never double-count fumble components
 })
 
 test_that("QB passing line uses 4-point passing TDs and -2 interceptions", {

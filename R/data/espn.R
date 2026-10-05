@@ -118,8 +118,21 @@ parse_espn_week <- function(json, season, week) {
           identical(as.integer(s$statSplitTypeId), 1L) &&
           identical(as.integer(s$statSourceId), as.integer(source_id))
       }, pl$stats %||% list())
-      if (length(hits) > 1) cli::cli_abort("ESPN player {pl$id}: {length(hits)} stat entries for source {source_id}.")
-      if (length(hits) == 0) NULL else hits[[1]]
+      if (length(hits) <= 1) return(if (length(hits) == 0) NULL else hits[[1]])
+      # Actuals are keyed by game (externalId = ESPN game id). A player moved
+      # between teams mid-week can carry an extra, empty game entry (seen once
+      # in 2018-2025: 2020 W8). Per-game actuals are summed. Duplicate
+      # projections have no such explanation and fail loudly.
+      if (source_id != 0L) {
+        cli::cli_abort("ESPN player {pl$id}: {length(hits)} projection entries for {season} week {week}.")
+      }
+      ids <- unique(unlist(lapply(hits, function(h) names(h$stats))))
+      list(
+        appliedTotal = sum(vapply(hits, function(h) as.numeric(h$appliedTotal %||% 0), numeric(1))),
+        stats = stats::setNames(lapply(ids, function(id) {
+          sum(vapply(hits, function(h) as.numeric(h$stats[[id]] %||% 0), numeric(1)))
+        }), ids)
+      )
     }
     stat_val <- function(entry, id) {
       if (is.null(entry)) return(NA_real_)
@@ -168,17 +181,22 @@ empty_espn_weekly <- function() {
 
 # --- Forward archive of live projections ----------------------------------------
 
-#' Snapshot ESPN's *current* projections for the live scoring period.
+#' Snapshot ESPN's projections as they stand *right now* for a live week.
 #' Writes data/snapshots/espn/season=S/week=WW/captured_at=<UTC>.parquet (+ raw
 #' gzipped JSON). Each capture is a genuine point-in-time record; running it
 #' repeatedly through the week (e.g. Tue, Thu, Sat, Sun 11:00 ET) builds the
 #' pristine archive that historical retrieval cannot guarantee.
-snapshot_espn_projections <- function(position = "WR", league_defaults_id = 3,
+#' `week = NULL` uses ESPN's current scoring period (which rolls over on
+#' Tuesdays); pass a week number to capture an upcoming week.
+snapshot_espn_projections <- function(position = "WR", league_defaults_id = 3, week = NULL,
                                       root = "data/snapshots/espn", enabled = FALSE) {
   stop_if_espn_disabled(enabled)
   status <- espn_request(ESPN_API) |> httr2::req_perform() |> httr2::resp_body_json()
   season <- as.integer(status$currentSeason$id %||% status$seasonId)
-  week <- as.integer(status$currentScoringPeriod$id)
+  week <- as.integer(week %||% status$currentScoringPeriod$id)
+  if (length(season) != 1 || is.na(season) || length(week) != 1 || is.na(week)) {
+    cli::cli_abort("Could not determine the live ESPN season/week.")
+  }
   captured_at <- format(Sys.time(), "%Y%m%dT%H%M%SZ", tz = "UTC")
 
   url <- sprintf("%s/seasons/%d/segments/0/leaguedefaults/%d?scoringPeriodId=%d&view=kona_player_info",
@@ -289,7 +307,7 @@ validate_scoring_against_espn <- function(player_stats, espn_weekly, espn_crossw
       ),
     mismatches = dplyr::filter(cmp, abs(.data$diff) >= tol) |>
       dplyr::select("season", "week", "gsis_id", "player_name", "fantasy_pts", "espn_actual",
-                    "nflverse_ppr", "receiving_fumbles_lost", "rushing_fumbles_lost",
+                    "nflverse_ppr", "fumbles_lost_total", "receiving_fumbles_lost",
                     "fumble_recovery_tds", "special_teams_tds", "receiving_2pt_conversions")
   )
 }

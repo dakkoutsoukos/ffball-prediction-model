@@ -104,6 +104,12 @@ The report is at `reports/milestone1_report.html`. Tests:
 testthat::test_dir("tests/testthat")
 ```
 
+**ESPN (opt-in).** ESPN fetching is off by default because of ESPN's terms of
+use ([docs/espn_projections.md](docs/espn_projections.md)). To opt in for your
+own private research, create the git-ignored file `config/local.yml` containing
+`espn: {enabled: true}`, then run `tar_make()`. Without it, the pipeline runs
+the ESPN-free experiment on the game-day-active population.
+
 Raw downloads are cached in `data/raw/` and never silently refreshed. To pick up
 nflverse stat corrections, delete the relevant files (or call
 `fetch_nflverse(..., refresh = TRUE)`) and rerun.

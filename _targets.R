@@ -23,7 +23,9 @@ build_report <- nzchar(find_quarto()) && file.exists(report_file)
 list(
   # ---- Configuration ------------------------------------------------------
   tar_target(config_file, "config/project.yml", format = "file"),
-  tar_target(config, read_project_config(config_file)),
+  # Always re-read so the optional git-ignored config/local.yml is honoured;
+  # downstream targets rebuild only if the resulting value changes.
+  tar_target(config, read_project_config(config_file), cue = tar_cue(mode = "always")),
   tar_target(seasons, config$seasons_all),
   tar_target(
     scoring_file,
@@ -42,7 +44,11 @@ list(
   tar_target(raw_pbp, fetch_nflverse_pbp(seasons), pattern = map(seasons), format = "file"),
   tar_target(raw_players, fetch_nflverse("players"), format = "file"),
   tar_target(raw_ff_playerids, fetch_nflverse("ff_playerids"), format = "file"),
-  tar_target(espn_week_grid, regular_season_weeks(raw_schedules)),
+  # ESPN is only needed for modelling seasons (the first season is feature warm-up).
+  tar_target(
+    espn_week_grid,
+    dplyr::filter(regular_season_weeks(raw_schedules), season >= config$splits$first_train_season)
+  ),
   tar_target(
     raw_espn,
     fetch_espn_weeks(espn_week_grid, position = "WR",

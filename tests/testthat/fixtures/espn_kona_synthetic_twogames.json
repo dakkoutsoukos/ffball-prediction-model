@@ -1,0 +1,16 @@
+{
+  "_comment": "SYNTHETIC test fixture: player 1 has two per-game actual entries in one week (mid-week team change); player 2 has a duplicated projection.",
+  "players": [
+    {"id": 9000010, "player": {"id": 9000010, "fullName": "Echo Traded", "defaultPositionId": 3, "proTeamId": 1,
+      "stats": [
+        {"seasonId": 2020, "scoringPeriodId": 8, "statSourceId": 0, "statSplitTypeId": 1, "externalId": "401000001", "appliedTotal": 1.5, "stats": {"53": 1, "42": 5}},
+        {"seasonId": 2020, "scoringPeriodId": 8, "statSourceId": 1, "statSplitTypeId": 1, "externalId": "20208", "appliedTotal": 0, "stats": {}},
+        {"seasonId": 2020, "scoringPeriodId": 8, "statSourceId": 0, "statSplitTypeId": 1, "externalId": "401000002", "appliedTotal": 0, "stats": {}}
+      ]}},
+    {"id": 9000011, "player": {"id": 9000011, "fullName": "Foxtrot Doubled", "defaultPositionId": 3, "proTeamId": 2,
+      "stats": [
+        {"seasonId": 2020, "scoringPeriodId": 8, "statSourceId": 1, "statSplitTypeId": 1, "externalId": "20208", "appliedTotal": 5, "stats": {}},
+        {"seasonId": 2020, "scoringPeriodId": 8, "statSourceId": 1, "statSplitTypeId": 1, "externalId": "20208", "appliedTotal": 6, "stats": {}}
+      ]}}
+  ]
+}

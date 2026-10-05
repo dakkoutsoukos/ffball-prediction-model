@@ -1,8 +1,9 @@
 # ESPN historical projections: investigation and status
 
-**Status (2026-10-05): technically available. Not fetched, pending a terms-of-use decision by the project owner.**
-The pipeline has a complete, tested ESPN interface behind `espn.enabled` in
-`config/project.yml`. It defaults to `false`.
+**Status (2026-10-05): fetched for 2020–2025 after the project owner opted in for
+private, non-commercial research, accepting the terms-of-use risk in §3.**
+The opt-in lives in a git-ignored `config/local.yml`. The committed default in
+`config/project.yml` remains `enabled: false`, and no ESPN data is committed.
 
 ## 1. Can historical pregame ESPN projections be obtained?
 
@@ -80,10 +81,15 @@ During the investigation, about 57 exploratory requests were made to establish t
 facts above. Their samples live only in a temporary scratch directory, never in
 this repository.
 
-### If the owner decides to proceed
-1. Set `espn.enabled: true` in `config/project.yml`.
-2. Run `targets::tar_make()`. About 130 requests are made at 1.5 s intervals, and
-   raw responses are cached immutably under `data/raw/espn/`, which is git-ignored.
+### Opting in
+The committed default stays `enabled: false`, so anyone cloning this public
+repository makes their own decision.
+
+1. Create the git-ignored file `config/local.yml` containing
+   `espn: {enabled: true}`. It is deep-merged over `config/project.yml`.
+2. Run `targets::tar_make()`. About 107 requests are made at 1.5 s intervals
+   (2020–2025 regular-season weeks, the modelling seasons only). Raw responses
+   are cached immutably under `data/raw/espn/`, which is git-ignored.
 3. The pipeline then automatically:
    - switches the evaluation population to "ESPN projected > 0";
    - adds the ESPN benchmark, ESPN-augmented models and calibration diagnostics;
@@ -102,6 +108,10 @@ Running it a few times per week (Tue, Thu before TNF, Sat, Sun 11:00 ET) builds 
 genuinely point-in-time archive with known capture times. Historical retrieval
 cannot guarantee that. It is subject to the same terms-of-use decision and is
 disabled by the same flag.
+
+The first capture was taken on 2026-10-05 at 19:40 UTC: 2026 Week 5, 382 WRs, 152 with a
+projection above 0 (`Rscript scripts/snapshot_espn.R 5`). Recurring captures are
+not scheduled. The owner can run them manually or with Windows Task Scheduler.
 
 ## 4. Alternatives if ESPN is not used
 

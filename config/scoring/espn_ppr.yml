@@ -17,8 +17,9 @@ weights:
   receiving_yards: 0.1           # 1 point per 10 yards
   receiving_tds: 6
   receiving_2pt_conversions: 2
-  sack_fumbles_lost: -2          # all fumbles lost count, whatever the play type
-  rushing_fumbles_lost: -2
-  receiving_fumbles_lost: -2
+  fumbles_lost_total: -2         # ALL fumbles lost, including on kick/punt returns
+                                 # (verified vs ESPN actuals; the sack/rush/rec
+                                 # components alone miss return fumbles)
   special_teams_tds: 6           # kick/punt return and blocked-kick TDs
-  fumble_recovery_tds: 6         # offensive fumble recovered for a TD
+  fumble_recovery_tds: 6         # fumble recovered for a TD (ESPN credits offensive
+                                 # recoveries; not special-teams coverage ones - see docs/scoring.md)

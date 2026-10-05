@@ -118,14 +118,16 @@ audit_player_week <- function(player_week, base, espn_weekly, espn_crosswalk, po
     dplyr::filter(.data$espn_position_id %in% unname(ESPN_POSITION_IDS[positions])) |>
     dplyr::left_join(dplyr::select(espn_crosswalk, "espn_id", "match_method"), by = "espn_id")
   list(
+    # Output names are prefixed n_ so they never mask the input columns that
+    # later expressions in the same summarise() refer to.
     by_season = player_week |>
       dplyr::summarise(
-        rows = dplyr::n(), pop_espn = sum(.data$pop_espn), pop_active = sum(.data$pop_active),
-        relevant = sum(.data$relevant), with_stat_line = sum(.data$has_stat_line),
-        espn_projected_but_no_stat_line = sum(.data$pop_espn & !.data$has_stat_line),
-        active_with_stat_line = sum(.data$pop_active & .data$has_stat_line),
-        stat_line_not_espn_projected = sum(.data$has_stat_line & !.data$pop_espn),
-        no_history = sum(!.data$has_history),
+        n_rows = dplyr::n(), n_pop_espn = sum(.data$pop_espn), n_pop_active = sum(.data$pop_active),
+        n_relevant = sum(.data$relevant), n_with_stat_line = sum(.data$has_stat_line),
+        n_espn_projected_no_stat_line = sum(.data$pop_espn & !.data$has_stat_line),
+        n_espn_projected_actual_zero = sum(.data$pop_espn & .data$actual == 0),
+        n_stat_line_not_espn_projected = sum(.data$has_stat_line & !.data$pop_espn),
+        n_pop_espn_no_history = sum(.data$pop_espn & !.data$has_history),
         .by = c("season", "split")
       ),
     excluded_no_game = base |>

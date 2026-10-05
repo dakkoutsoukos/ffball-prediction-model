@@ -89,3 +89,14 @@ test_that("season_split assigns chronological splits", {
   expect_equal(season_split(2019:2025, splits),
                c("history", rep("train", 4), "validation", "test"))
 })
+
+test_that("ridge with a negligible penalty reproduces OLS predictions", {
+  set.seed(7)
+  d <- tibble::tibble(x1 = rnorm(300), x2 = rnorm(300), x3 = runif(300) > 0.5)
+  d$actual <- 2 + 3 * d$x1 - d$x2 + 1.5 * d$x3 + rnorm(300)
+  ols <- spec_linear("ols", c("x1", "x2", "x3"))
+  ridge <- spec_linear("ridge", c("x1", "x2", "x3"), penalty = 1e-5)
+  p_ols <- ols$predict(ols$fit(d), d)
+  p_ridge <- ridge$predict(ridge$fit(d), d)
+  expect_lt(max(abs(p_ols - p_ridge)), 0.01)
+})

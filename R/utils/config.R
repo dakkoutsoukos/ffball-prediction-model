@@ -1,8 +1,14 @@
 # Project configuration ------------------------------------------------------
 
 #' Read and lightly validate config/project.yml.
-read_project_config <- function(path = "config/project.yml") {
+#'
+#' A git-ignored `config/local.yml`, if present, is deep-merged on top. It
+#' holds machine- or owner-specific choices that must not be published, such
+#' as opting in to ESPN fetching (`espn: {enabled: true}`).
+read_project_config <- function(path = "config/project.yml",
+                                local_path = file.path(dirname(path), "local.yml")) {
   cfg <- yaml::read_yaml(path)
+  if (file.exists(local_path)) cfg <- utils::modifyList(cfg, yaml::read_yaml(local_path))
   cfg$seasons_all <- seq.int(cfg$seasons$first, cfg$seasons$last)
 
   s <- cfg$splits

@@ -26,6 +26,18 @@ test_that("zero projections, missing projections and positions are preserved", {
   expect_equal(nrow(out), 4)
 })
 
+test_that("per-game actual entries in one week are summed; duplicate projections fail", {
+  doc <- jsonlite::fromJSON(
+    paste(readLines(testthat::test_path("fixtures", "espn_kona_synthetic_twogames.json")), collapse = "\n"),
+    simplifyVector = FALSE
+  )
+  one <- function(i) { d <- doc; d$players <- d$players[i]; jsonlite::toJSON(d, auto_unbox = TRUE) }
+  out <- parse_espn_week(one(1), 2020, 8)
+  expect_equal(out$espn_actual, 1.5)
+  expect_equal(out$espn_proj, 0)
+  expect_error(parse_espn_week(one(2), 2020, 8), "projection entries")
+})
+
 test_that("the request filter asks for weekly projected + actual splits for one slot", {
   f <- jsonlite::fromJSON(espn_filter_header(5, ESPN_SLOT_IDS[["WR"]]))
   expect_equal(f$players$filterSlotIds$value, 4)
