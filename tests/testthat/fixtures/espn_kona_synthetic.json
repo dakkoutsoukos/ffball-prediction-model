@@ -1,0 +1,48 @@
+{
+  "_comment": "SYNTHETIC test fixture. Structure mirrors ESPN kona_player_info; all players and values are invented.",
+  "players": [
+    {
+      "id": 9000001,
+      "player": {
+        "id": 9000001, "fullName": "Alpha Receiver", "defaultPositionId": 3, "proTeamId": 12,
+        "stats": [
+          {"seasonId": 2024, "scoringPeriodId": 5, "statSourceId": 1, "statSplitTypeId": 1,
+           "externalId": "20245", "appliedTotal": 14.5,
+           "stats": {"53": 5.2, "58": 7.9, "42": 70.1, "43": 0.45}},
+          {"seasonId": 2024, "scoringPeriodId": 5, "statSourceId": 0, "statSplitTypeId": 1,
+           "externalId": "401671000", "appliedTotal": 21.3,
+           "stats": {"53": 6, "58": 9, "42": 93, "43": 1}},
+          {"seasonId": 2023, "scoringPeriodId": 5, "statSourceId": 1, "statSplitTypeId": 1,
+           "externalId": "20235", "appliedTotal": 99.0, "stats": {"53": 99}}
+        ]
+      }
+    },
+    {
+      "id": 9000002,
+      "player": {
+        "id": 9000002, "fullName": "Bravo Ruled-Out", "defaultPositionId": 3, "proTeamId": 4,
+        "stats": [
+          {"seasonId": 2024, "scoringPeriodId": 5, "statSourceId": 1, "statSplitTypeId": 1,
+           "externalId": "20245", "appliedTotal": 0, "stats": {}}
+        ]
+      }
+    },
+    {
+      "id": 9000003,
+      "player": {
+        "id": 9000003, "fullName": "Charlie Unprojected", "defaultPositionId": 3, "proTeamId": 7,
+        "stats": [
+          {"seasonId": 2024, "scoringPeriodId": 5, "statSourceId": 0, "statSplitTypeId": 1,
+           "externalId": "401671001", "appliedTotal": 8.7, "stats": {"53": 3, "42": 57}}
+        ]
+      }
+    },
+    {
+      "id": 9000004,
+      "player": {
+        "id": 9000004, "fullName": "Delta Tightend", "defaultPositionId": 4, "proTeamId": 7,
+        "stats": []
+      }
+    }
+  ]
+}

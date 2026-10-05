@@ -47,7 +47,7 @@ summarise_metrics <- function(preds, by = character()) {
     dplyr::group_by(dplyr::across(dplyr::all_of(c("model", by)))) |>
     dplyr::group_modify(function(d, k) {
       dplyr::mutate(prediction_metrics(d$actual, d$pred), rank_cor = weekly_rank_cor(d))
-    }) |>
+    }, .keep = TRUE) |>
     dplyr::ungroup()
 }
 

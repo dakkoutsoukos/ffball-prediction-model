@@ -1,0 +1,201 @@
+---
+title: "Milestone 1 — Weekly WR projections"
+subtitle: "Point-in-time dataset, benchmark, and chronological evaluation"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(targets)
+library(dplyr)
+library(ggplot2)
+
+config <- tar_read(config)
+audit <- tar_read(dataset_audit)
+scoring_espn <- tar_read(scoring_validation)
+leak <- tar_read(leakage_check)
+ev_val <- tar_read(evaluation_validation)
+selection <- tar_read(model_selection)
+ev_test <- tar_read(evaluation_test)
+headline <- tar_read(headline)
+stats <- tar_read(player_stats)
+
+has_espn <- identical(ev_val$population, "espn")
+val_season <- config$splits$validation_season
+test_season <- config$splits$test_season
+
+# Categorical slots in fixed order (dataviz reference palette).
+PAL <- c("#2a78d6", "#eb6834", "#1baf7a")
+theme_report <- theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+    axis.text = element_text(colour = "#52514e"),
+    plot.title.position = "plot",
+    legend.position = "top", legend.justification = "left"
+  )
+fmt <- function(df, digits = 3) {
+  knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+}
+```
+
+## Scope
+
+- **Population:** ``r ev_val$population``.
+  `espn` means WR player-weeks with an ESPN pregame projection above 0.
+  `active` means WRs on the game-day active roster, the ESPN-free population.
+- **Benchmark:** ``r ev_val$baseline``.
+- **Splits:** train `r config$splits$first_train_season`–`r config$splits$train_last_season`,
+  validation `r val_season`, test `r test_season` (untouched until the model was selected).
+- **Scoring:** `r config$scoring_system`, computed from nflverse stats with our own tested code.
+
+```{r espn-status, results = "asis"}
+if (!has_espn) {
+  cat("::: {.callout-warning}\n## ESPN benchmark not yet evaluated\n",
+      "ESPN fetching is disabled pending a terms-of-use decision (see `docs/espn_projections.md`).",
+      "Every result below compares our models to the **naive trailing-average baseline** on the",
+      "active-roster population, **not to ESPN**. Nothing here shows that ESPN was beaten.\n:::\n")
+}
+```
+
+## Data coverage
+
+```{r coverage}
+fmt(audit$by_season, 0)
+```
+
+Rows whose team had no game that week are excluded; there were
+`r sum(audit$excluded_no_game$rows)` such rows in total.
+
+## Scoring validation
+
+```{r scoring}
+off <- filter(stats, stats_position %in% c("QB", "RB", "WR", "TE"))
+tibble(
+  reference = "nflverse fantasy_points_ppr",
+  player_weeks = nrow(off),
+  share_identical = mean(abs(off$fantasy_pts - off$nflverse_ppr) < 0.011),
+  n_different = sum(abs(off$fantasy_pts - off$nflverse_ppr) >= 0.011)
+) |> fmt(4)
+```
+
+All differences against nflverse come from offensive fumble-recovery TDs,
+which ESPN scores and nflverse does not.
+
+```{r scoring-espn, results = "asis"}
+if (isTRUE(scoring_espn$available)) {
+  print(knitr::kable(mutate(scoring_espn$summary, across(where(is.double), ~ round(.x, 4)))))
+} else {
+  cat("ESPN actual totals are unavailable (ESPN disabled), so validation against ESPN is pending.\n")
+}
+```
+
+## Leakage checks
+
+The empirical check corrupted every outcome at or after `r leak$n_cutoffs`
+random cutoff weeks and recomputed that week's features.
+**Leaking features found: `r leak$leaking_features`.**
+The pipeline aborts if this is ever non-zero. The unit tests in
+`tests/testthat/` cover windowing, as-of joins and season boundaries.
+
+## Validation season (`r val_season`)
+
+Candidates were fit on the training seasons. Under the rolling protocol they are
+re-fit every week on all prior weeks. All models are compared on identical
+player-weeks.
+
+```{r validation}
+ev_val$overall |>
+  select(protocol, model, n, mae, rmse, bias, cor, rank_cor) |>
+  arrange(protocol, mae) |>
+  fmt()
+```
+
+**Selected by the pre-registered rule** (lowest rolling MAE, excluding
+diagnostics): **``r selection$model``**.
+
+## Test season (`r test_season`)
+
+```{r test}
+ev_test$overall |>
+  select(protocol, model, n, mae, rmse, bias, cor, rank_cor) |>
+  arrange(protocol, mae) |>
+  fmt()
+```
+
+**Headline (rolling protocol):** paired, week-clustered bootstrap of
+MAE(model) − MAE(``r headline$baseline``). Negative values favour the model.
+
+```{r headline}
+headline$bootstrap |>
+  select(model, baseline, subset, n, n_weeks, mae_diff, ci_low, ci_high, weeks_model_better) |>
+  fmt()
+```
+
+Pre-registered criterion: the CI must lie entirely below 0 **and** RMSE must not
+be worse. Result: **`r if (headline$beats_baseline) "met" else "not met"`**
+against ``r headline$baseline``.
+
+## Error analysis
+
+```{r weekly-mae, fig.height = 3.6, fig.width = 8}
+show <- unique(c(if (has_espn) "espn", selection$model, "naive_roll8"))
+wk <- ev_test$by_week |>
+  filter(protocol == "rolling", model %in% show) |>
+  mutate(model = factor(model, levels = show))
+ggplot(wk, aes(week, mae, colour = model)) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  scale_colour_manual(values = PAL[seq_along(show)], name = NULL) +
+  scale_x_continuous(breaks = seq(1, 18, 2)) +
+  labs(title = paste("Weekly MAE,", test_season, "(rolling protocol)"),
+       x = "Week", y = "MAE (PPR points)") +
+  theme_report
+```
+
+```{r residuals, fig.height = 3.2, fig.width = 8}
+res <- ev_test$residuals |> filter(protocol == "rolling") |> arrange(q50)
+ggplot(res, aes(y = reorder(model, q50))) +
+  geom_vline(xintercept = 0, colour = "#b5b4af", linewidth = 0.4) +
+  geom_linerange(aes(xmin = q05, xmax = q95), colour = "#9ec5f4", linewidth = 0.7) +
+  geom_linerange(aes(xmin = q25, xmax = q75), colour = PAL[1], linewidth = 2) +
+  geom_point(aes(x = q50), colour = "#0d366b", size = 2.2) +
+  labs(title = "Prediction error (prediction − actual), test season",
+       subtitle = "Dot: median. Thick bar: 25th–75th percentile. Thin bar: 5th–95th.",
+       x = "PPR points", y = NULL) +
+  theme_report
+```
+
+The median error is positive while the mean error (bias) is close to 0.
+Weekly WR scoring is right-skewed, so a forecast of expected points sits above
+the typical (median) outcome. MAE is minimised by the conditional *median*, so
+MAE alone can be improved simply by shrinking projections. This is why the
+headline criterion also requires RMSE not to get worse.
+
+```{r buckets, results = "asis"}
+if (has_espn && nrow(ev_test$by_bucket) > 0) {
+  cat("### By ESPN projection range\n\n")
+  ev_test$by_bucket |>
+    filter(protocol == "rolling", model %in% show) |>
+    select(model, proj_bucket, n, mae, rmse, bias) |>
+    arrange(proj_bucket, mae) |>
+    fmt() |>
+    print()
+}
+```
+
+## Limitations
+
+See `README.md` and `docs/` for the full list. In particular:
+
+- `r if (!has_espn) "**No ESPN comparison has been run.**" else "ESPN projections were retrieved retroactively. Archived captures support that they are final pregame values (see docs/espn_projections.md)."`
+- Closing betting lines are only valid for a kickoff-time prediction.
+- Injury designations have no capture timestamp.
+- One test season gives only 18 weekly clusters. Whether gains repeat across seasons still has to be shown with the 2026 season as a new holdout.

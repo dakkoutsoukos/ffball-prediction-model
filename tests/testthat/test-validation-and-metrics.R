@@ -51,6 +51,14 @@ test_that("prediction_metrics computes MAE, RMSE, bias", {
   expect_equal(m$n, 3)
 })
 
+test_that("summarise_metrics works when grouping by season", {
+  preds <- tidyr::expand_grid(model = c("a", "b"), season = 2024, week = 1:2, gsis_id = c("x", "y", "z")) |>
+    dplyr::mutate(actual = rep(c(1, 5, 9), 4), pred = actual + ifelse(model == "a", 1, 2))
+  out <- summarise_metrics(preds, by = "season")
+  expect_equal(out$mae, c(1, 2))
+  expect_equal(out$rank_cor, c(1, 1))
+})
+
 test_that("align_predictions compares models on identical player-weeks", {
   preds <- tibble::tibble(
     model = c("a", "a", "b"), season = 2024, week = 1, gsis_id = c("x", "y", "x"),

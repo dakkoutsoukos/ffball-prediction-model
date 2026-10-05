@@ -65,3 +65,68 @@ MAE gain bought by shrinking projections is not counted as better projection.
    independent signals usually helps.
 4. D2 has a lower MAE than ESPN even though it only rescales ESPN. That would
    show part of any "MAE win" is about distributional targeting, not information.
+
+---
+
+## 2026-10-05 — E1: ESPN-free run (active-roster population)
+
+**Why this run.** ESPN fetching is disabled pending a terms-of-use decision
+(docs/espn_projections.md). The pre-registered pipeline falls back to the
+**game-day active WR population** (`pop_active`). The benchmark is `naive_roll8`,
+not ESPN. ESPN-dependent candidates (M0, M5, M6, D1, D2) were not run.
+
+**Dataset version.** Commit after `0783da2`. Raw nflverse files were retrieved
+2026-10-05 (see `raw_manifest`). Population sizes: 11,210 train player-weeks
+(2020–2023), 2,837 validation (2024), 2,836 test (2025).
+
+**Features.**
+- History: trailing 3/8-game PPR, season-to-date, previous season, career games, absence and team-change flags.
+- Usage: trailing targets, target share, air-yards share, snap share, red-zone targets, xFP, team pass attempts.
+- Matchup: home, opponent WR points allowed.
+- Vegas: implied total, spread, total (closing).
+- Injury: Questionable/Doubtful.
+
+**Leakage check.** The empirical corruption test on the real dataset found 0 leaking features.
+
+### Validation (2024): used for selection
+
+| model | protocol | MAE | RMSE | bias | corr |
+|---|---|---|---|---|---|
+| ols_usage | rolling | **4.153** | 5.932 | −0.12 | 0.642 |
+| ols_usage_vegas | rolling | 4.159 | 5.934 | −0.12 | 0.641 |
+| ridge_usage | rolling | 4.160 | 5.933 | −0.11 | 0.642 |
+| ols_usage_vegas_injury (exploratory) | rolling | 4.160 | 5.929 | −0.11 | 0.642 |
+| naive_roll8 | rolling | 4.183 | 6.121 | −0.01 | 0.619 |
+
+- The ridge penalty curve was flat (MAE 4.164 for penalties from 0.001 to 0.35), so there is little to shrink with about 11k rows and 17 features.
+- **Selected (pre-registered rule): `ols_usage`.**
+- Vegas and injury features did **not** improve validation MAE, so they were not adopted.
+- ols_usage vs naive on validation: ΔMAE −0.030, 95% CI [−0.099, 0.034].
+
+### Test (2025): opened once, after selection
+
+| model | protocol | MAE | RMSE | bias | corr | rank corr |
+|---|---|---|---|---|---|---|
+| **ols_usage** | rolling | **3.957** | 5.560 | +0.26 | 0.637 | 0.676 |
+| ols_usage_vegas | rolling | 3.967 | 5.556 | +0.28 | 0.638 | 0.675 |
+| ridge_usage | rolling | 3.968 | 5.556 | +0.27 | 0.638 | 0.676 |
+| naive_roll8 | rolling | 4.050 | 5.791 | +0.36 | 0.616 | 0.654 |
+
+Headline: ols_usage − naive_roll8, rolling. ΔMAE **−0.092**, 95% week-clustered
+bootstrap CI **[−0.152, −0.040]**. RMSE is better (5.56 vs 5.79), and the model is
+better in 72% of weeks. **Criterion met against the naive baseline.**
+
+**Observations.**
+- Most of the gain over naive comes in **weeks 1–4**, when the 8-game window is mostly stale prior-season games. From mid-season the two are close.
+- The median error is about +1 point for every mean-targeting model. WR scoring is right-skewed, so MAE rewards median-targeting. RMSE is the cleaner signal of better expected-points forecasts here.
+- Static and rolling protocols give nearly identical results. Weekly refitting adds little for a linear model with this much history.
+
+**Conclusion.** A simple, honest usage regression beats naive history out of
+sample by about 0.09 PPR points of MAE, a small but statistically clear margin.
+**This says nothing about ESPN.** Whether we can beat ESPN is still untested.
+
+**Next step.** Run the ESPN comparison once the owner decides on ESPN terms of use.
+The pre-registered candidates M0, M5, M6, D1 and D2 activate automatically. The
+2025 test season has now been opened for the non-ESPN models. No model or feature
+choice was changed after seeing it, and future feature work should be judged on
+validation and then on 2026 as a fresh holdout.

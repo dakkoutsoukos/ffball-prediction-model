@@ -1,0 +1,2 @@
+project:
+  execute-dir: project   # report code runs from the project root (targets store, renv)
