@@ -11,7 +11,12 @@ The `raw_manifest` target collects all of them. Raw files are immutable: an
 existing file is reused unless deliberately refreshed. No data is committed to
 Git, and `targets::tar_make()` re-downloads everything from scratch.
 
-Current raw inputs were retrieved on **2026-10-05** for seasons **2019–2025**, about 160 MB in total.
+Current raw inputs were retrieved on **2026-10-05**:
+- nflverse seasons **2017–2025**, about 200 MB. 2017 is feature warm-up for M2,
+  and M1 still uses only 2019+.
+- ESPN seasons **2018–2025**.
+
+The in-progress **2026** season lives in a separate live layer (below).
 
 ## nflverse (primary source)
 
@@ -47,7 +52,42 @@ See [espn_projections.md](espn_projections.md).
 | Provider | Endpoint | Fields | History | As-of | Status |
 |---|---|---|---|---|---|
 | ESPN fantasy API (public, no auth) | `lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{S}/segments/0/leaguedefaults/3?scoringPeriodId={W}&view=kona_player_info` | Weekly projected and actual PPR `appliedTotal`, projected receptions/targets/yards/TDs | 2018– (we use 2020–2025) | Final pregame projection, retrieved retroactively on 2026-10-05. Supported by Wayback captures of real API responses. | Fetched after the owner's opt-in (`config/local.yml`, git-ignored). 107 raw responses are cached in `data/raw/espn/`. The committed default is off. **Never commit ESPN data.** Disney Terms of Use apply. |
-| ESPN live snapshots | same endpoint, current/upcoming week | as above + `captured_at_utc` | from 2026 W5 | **True point-in-time** (capture timestamp) | One capture so far (2026-10-05 19:40 UTC, W5). `data/snapshots/espn/`, git-ignored. |
+| ESPN live snapshots | same endpoint, current/upcoming week | as above + `captured_at_utc`, live team (mapped from ESPN `proTeamId`), source URL, scoring id, raw-file SHA-256 | from 2026 W5 | **True point-in-time** (capture timestamp) | Write-once files in `data/snapshots/espn/` (git-ignored). Hashes go in the committed `archive/espn_snapshot_manifest.csv`. First capture 2026-10-05 19:40 UTC (W5). |
+| ESPN completed 2026 weeks | `leaguedefaults/3` as above | weekly projections and actuals | 2026 W1–W3 so far | Retrieved after **all** of a week's games were final. **Training rows only**, never the prospective benchmark | `fetch_espn_completed_weeks()` |
+
+ESPN request log, all on 2026-10-05:
+- 107 requests for 2020–2025;
+- 34 for 2018–2019;
+- 3 for 2026 W1–W3;
+- 1 test request;
+- 2 for the live snapshot;
+- about 57 exploratory requests before the opt-in.
+
+## Live 2026 layer and archives
+
+| Item | Where | Semantics |
+|---|---|---|
+| Live nflverse retrievals (stats, schedules, rosters, snaps, injuries, xFP, pbp, player and ID maps) | `data/raw/nflverse_live/<dataset>/season=2026/retrieved_at=<UTC>.parquet` (+ JSON sidecar with SHA-256) | A new immutable file on every retrieval, so the data available at any prediction time can be reconstructed |
+| Prospective predictions | `data/archive/predictions/season=S/week=WW/run=<UTC>/predictions.parquet` + `run_meta.json` | Write-once. Contains ESPN projections, so it is git-ignored |
+| Prediction manifest | `archive/prediction_manifest.csv` (**committed**) | Append-only SHA-256 hashes of every run, plus commit, snapshot hash and times. It is pushed before kickoff as tamper evidence |
+| Snapshot manifest | `archive/espn_snapshot_manifest.csv` (**committed**) | Append-only hashes of every ESPN snapshot |
+| M1 historical predictions | `data/archive/m1_backtest/` | Local copy of the frozen M1 rolling predictions behind its fingerprint |
+
+**Back up `data/archive/` and `data/snapshots/` privately** (they are not in Git).
+The committed manifests prove what existed and when, but the files themselves
+are needed to score the prospective record.
+
+## Milestone 2 play-by-play aggregates
+
+Computed in DuckDB from the nflverse play-by-play files (`R/data/pbp_features.R`)
+and used **lagged only**:
+- receiver detail per player-game (deep targets with air yards ≥ 20, yards after catch);
+- team per game (plays, dropbacks, neutral-situation pass rate, pass EPA per dropback);
+- defence per game (dropbacks faced, pass EPA allowed);
+- QB per team-game (dropbacks, EPA, starter = dropback leader).
+
+The EPA and win-probability fields come from nflfastR's fixed models, applied
+retroactively. Their training years are not documented in the data.
 
 ## Derived data
 

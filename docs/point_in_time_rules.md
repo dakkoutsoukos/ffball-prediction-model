@@ -65,6 +65,21 @@ Each input is classified by when it becomes known:
   - in the targets pipeline on the **real** dataset (`leakage_check` target). The
     pipeline fails if any feature leaks.
 - Backtests assert `max(train game_index) < min(test game_index)`.
+- **Milestone 2 generic check** (`check_leakage_generic()`, target `leakage_check_m2`):
+  - At each cutoff, every column of **all seven** history tables is corrupted from the cutoff on:
+    player games, team volume, defence allowances, receiver detail, team play-by-play,
+    defence play-by-play and QB games. Numbers are shifted, ids rewritten and flags flipped.
+  - Only `season`, `week` and `game_index` keep rows in place.
+  - Static inputs are not corrupted, because they are known in advance: the schedule
+    (opponent, home, rest, roof) and player bio (draft slot, birth date).
+  - A unit test proves it flags a same-week starting-QB feature.
+- **QB context is lagged by design.** The starter is defined as the dropback leader,
+  which is known only after a game, so only the *previous* game's starter is used.
+- **Prospective runs** add three guards:
+  - training rows come only from games with a final score;
+  - live inputs are dated, immutable retrievals;
+  - a prediction counts only if it was archived, with an ESPN snapshot, before
+    that game's kickoff (docs/prospective_protocol.md).
 
 ## Known residual risks
 

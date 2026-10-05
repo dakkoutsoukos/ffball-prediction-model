@@ -18,6 +18,7 @@ tar_source("R")
 
 # Quarto ships with RStudio; find_quarto() also checks RStudio's bundled copy.
 report_file <- "reports/milestone1_report.qmd"
+report2_file <- "reports/milestone2_report.qmd"
 build_report <- nzchar(find_quarto()) && file.exists(report_file)
 
 list(
@@ -253,6 +254,9 @@ list(
                              list(data = list(history_start_season = 2017, min_train_season = 2018)))
   }),
 
-  # ---- Report -------------------------------------------------------------
-  if (build_report) tar_quarto(report, report_file, quiet = TRUE)
+  # ---- Reports ------------------------------------------------------------
+  if (build_report) tar_quarto(report, report_file, quiet = TRUE),
+  # Always re-render: its prospective section reads the live archive.
+  if (build_report && file.exists(report2_file))
+    tar_quarto(report_m2, report2_file, quiet = TRUE, cue = tar_cue(mode = "always"))
 )

@@ -1,0 +1,275 @@
+---
+title: "Milestone 2 — Incremental signal beyond ESPN"
+subtitle: "Weekly WR PPR projections: development, historical holdout, and the 2026 prospective record"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(targets)
+library(dplyr)
+library(ggplot2)
+suppressMessages(tar_source("R"))
+
+cfg <- tar_read(config)
+sel <- tar_read(m2_selection)
+cal <- tar_read(m2_cal_choice)
+dev_tab <- tar_read(m2_dev_tables)
+dev_cmp <- tar_read(m2_dev_comparisons)
+dev_al <- tar_read(m2_dev_aligned)
+ho_tab <- tar_read(m2_holdout_tables)
+ho_cmp <- tar_read(m2_holdout_comparisons)
+ho_al <- tar_read(m2_holdout_aligned)
+abl <- bind_rows(tar_read(m2_ablation_nf), tar_read(m2_ablation_aug))
+repr <- tar_read(m2_representation)
+resid <- tar_read(m2_residual_study)
+leak_m2 <- tar_read(leakage_check_m2)
+fp_m1 <- tar_read(m1_fingerprint_check)
+fp_m2 <- tar_read(m2_fingerprint_check)
+
+PAL <- c("#2a78d6", "#eb6834", "#1baf7a")
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        axis.text = element_text(colour = "#52514e"), plot.title.position = "plot",
+        legend.position = "top", legend.justification = "left")
+fmt <- function(df, digits = 3) knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+cmp_view <- function(x, models, baselines, subsets = "all") {
+  x |> filter(model %in% models, baseline %in% baselines, subset %in% subsets) |>
+    select(model, baseline, subset, n, n_weeks, mae_diff, ci_low, ci_high, weeks_better, rmse_model, rmse_baseline)
+}
+pooled <- function(tab, models, subset = "all") {
+  tab |> filter(.data$subset == !!subset, season == "pooled", model %in% models) |>
+    select(model, n, mae, rmse, bias, rank_cor, pairwise_acc_top60, top24_precision, large_miss_rate) |>
+    arrange(mae)
+}
+```
+
+## Summary
+
+- **Benchmarks:** raw ESPN, then calibrated ESPN (``r cal$model`` → `m2_espn_cal`).
+  The headline comparison is **ESPN + our information (`m2_espn_aug`) vs calibrated ESPN**.
+- **Protocol** (pre-registered, experiment log E3):
+  - Development folds 2020–2023 with weekly expanding refits from 2018. All decisions were made there.
+  - Frozen on 2026-10-05 (`models/registry/m2.yml`).
+  - Historical holdout 2024–2025, run once.
+  - 2026 is prospective.
+- **Integrity:**
+  - M2 leakage check: `r leak_m2$leaking_features` leaking features (`r leak_m2$n_cutoffs` random cutoffs, all history tables corrupted).
+  - Frozen M1 fingerprint: **`r fp_m1$status`**.
+  - Frozen M2 fingerprint: **`r fp_m2$status`**.
+
+::: {.callout-important}
+## Bottom line
+No repeatable edge over **calibrated** ESPN has been demonstrated.
+
+- The M2 augmentation model was marginally better on development folds, but the
+  confidence interval included 0.
+- It was slightly worse on the 2024–2025 holdout, and significantly worse among
+  fantasy-relevant WRs.
+- The only robust gain over raw ESPN is simple calibration, which carries no player-level information.
+- The ESPN-free model improved modestly over M1 but remains well behind ESPN.
+- The 2026 prospective record has started (Week 5 is archived) but has no completed weeks yet.
+:::
+
+## A. Did the independent (ESPN-free) model improve?
+
+Pooled metrics on identical player-weeks (all ESPN-projected WRs).
+
+Development folds 2020–2023:
+
+```{r a-tables}
+pooled(dev_tab, c("nf_ols", "nf_enet", "nf_xgb", "m1spec_no_espn", "naive_roll8", "espn", cal$model)) |> fmt()
+```
+
+Holdout 2024–2025:
+
+```{r a-holdout}
+pooled(ho_tab, c("m2_no_espn", "m1_no_espn", "naive_roll8", "espn", "m2_espn_cal")) |> fmt()
+cmp_view(ho_cmp, "m2_no_espn", c("m1_no_espn", "m2_espn_cal"), c("all", "relevant")) |> fmt(4)
+```
+
+The M2 ESPN-free model (`m2_no_espn`, OLS on the M2 feature set) has slightly
+lower MAE and clearly lower RMSE than M1's. The MAE difference is not
+significant in either the development folds or the holdout. It still trails
+calibrated ESPN by about 0.15–0.19 PPR points of MAE.
+
+## B. Did we discover information beyond ESPN?
+
+```{r b-holdout}
+pooled(ho_tab, c("espn", "m2_espn_cal", "m1_espn_recal", "m1_espn_plus", "m2_espn_aug")) |> fmt()
+```
+
+**Headline: M2 ESPN + features vs calibrated ESPN.** Paired, week-clustered
+bootstrap, stratified by season. Negative values favour the model.
+
+```{r b-headline}
+bind_rows(
+  mutate(cmp_view(dev_cmp, sel$aug, cal$model, c("all", "relevant", "startable")), stage = "development 2020–23"),
+  mutate(cmp_view(ho_cmp, "m2_espn_aug", "m2_espn_cal", c("all", "relevant", "startable")), stage = "holdout 2024–25")
+) |> relocate(stage) |> fmt(4)
+```
+
+Context comparisons on the holdout:
+
+```{r b-context}
+bind_rows(
+  cmp_view(ho_cmp, "m2_espn_cal", "espn"),
+  cmp_view(ho_cmp, "m2_espn_aug", c("espn", "m1_espn_plus")),
+  cmp_view(ho_cmp, "m1_espn_plus", "m2_espn_cal")
+) |> fmt(4)
+```
+
+Calibration alone beats raw ESPN by about 0.05 MAE on the holdout. The M1
+ESPN-plus model is statistically tied with calibrated ESPN. The M2 augmentation
+model orders players very slightly better, but it adds positive bias and loses on
+MAE.
+
+## C. What new features actually mattered?
+
+Descriptive ablations on static development folds. Δ = MAE without the family
+minus MAE with all families, so positive means the family helped. These were
+**not** used to select features.
+
+```{r c-ablation, fig.height = 3.8, fig.width = 8}
+ab <- abl |> mutate(model = recode(model, nf_ols = "ESPN-free (nf_ols)",
+                                   aug_resid_enet = "ESPN augmentation (aug_resid_enet)"))
+ggplot(ab, aes(delta_mae, reorder(family, delta_mae))) +
+  geom_vline(xintercept = 0, colour = "#b5b4af", linewidth = 0.4) +
+  geom_col(fill = PAL[1], width = 0.6) +
+  facet_wrap(~model) +
+  labs(title = "Change in MAE when a feature family is removed",
+       x = "Δ MAE (positive = family helped)", y = NULL) +
+  theme_report
+```
+
+```{r c-repr}
+repr |> fmt(4)
+```
+
+For the ESPN-free model, opportunity, role-change and history features carry the
+signal. On top of calibrated ESPN, no family moves MAE by more than about 0.005.
+Replacing M1's trailing 3/8-game windows with exponentially weighted means plus
+trend terms is the largest single representation gain (about −0.05 MAE for an
+ESPN-free OLS).
+
+## D. Did the improvement generalise historically?
+
+```{r d-seasonal, fig.height = 3.4, fig.width = 8}
+season_boot <- function(al, model, base, seasons) {
+  purrr::map(seasons, function(s) {
+    b <- pooled_bootstrap(filter(al, season == s), model, base, 1000, cfg$evaluation$seed)
+    mutate(b, season = s)
+  }) |> purrr::list_rbind()
+}
+sb <- bind_rows(
+  mutate(season_boot(dev_al, sel$aug, cal$model, 2020:2023), stage = "development"),
+  mutate(season_boot(ho_al, "m2_espn_aug", "m2_espn_cal", 2024:2025), stage = "holdout")
+)
+ggplot(sb, aes(factor(season), mae_diff, colour = stage)) +
+  geom_hline(yintercept = 0, colour = "#b5b4af", linewidth = 0.4) +
+  geom_linerange(aes(ymin = ci_low, ymax = ci_high), linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  scale_colour_manual(values = PAL[1:2], name = NULL) +
+  labs(title = "ESPN augmentation vs calibrated ESPN, by season",
+       subtitle = "ΔMAE with 95% week-bootstrap interval; below 0 favours the augmentation model",
+       x = NULL, y = "Δ MAE (PPR points)") +
+  theme_report
+sb |> select(stage, season, n, mae_diff, ci_low, ci_high, weeks_better) |> fmt(4)
+```
+
+The augmentation gain was small and positive in every development season, then
+reversed in both holdout seasons. That pattern fits a weak signal partly fitted to
+the development period, not a durable edge.
+
+## E. What happened prospectively in 2026?
+
+```{r e-prospective}
+man <- readr::read_csv(PREDICTION_MANIFEST, col_types = readr::cols(.default = "c"))
+ver <- verify_prediction_archive()
+man |>
+  left_join(select(ver, run_id, verified), by = "run_id") |>
+  select(run_id, week, lineages, n_rows, predicted_at_utc, first_kickoff_utc, snapshot_captured_at_utc, git_commit, verified) |>
+  mutate(git_commit = substr(git_commit, 1, 7)) |>
+  knitr::kable()
+off <- official_predictions(ver)
+live_sched <- latest_live_file("schedules", 2026)
+live_stats <- latest_live_file("player_stats", 2026)
+tg26 <- clean_team_games(live_sched)
+st26 <- clean_player_stats(live_stats, read_scoring_rules(cfg$scoring_system))
+pros <- score_prospective(off, st26, filter(tg26, week >= 5))
+```
+
+**Completed prospective weeks: `r pros$weeks_complete`.**
+`r if (pros$weeks_complete == 0) "No archived week has been played yet, so there is no prospective result. Week 5 is archived; its games begin Thursday 2026-10-08. The primary hypothesis is evaluated once, at the end of the 2026 regular season, and needs at least 10 completed archived weeks." else ""`
+
+Prospective results only ever use archived, hash-verified predictions made before
+each game's kickoff (docs/prospective_protocol.md). No backtest numbers appear in
+this section.
+
+## F. Where does the model still fail?
+
+What calibrated ESPN misses (development folds, exploratory). Mean residual
+(actual − calibrated ESPN) by group, with 95% intervals from week-level means:
+
+```{r f-resid, fig.height = 4.2, fig.width = 8}
+rs <- resid |>
+  filter(factor %in% c("target_share_trend_q5", "xfp_trend_q5", "played_team_prev_game", "projection_bucket")) |>
+  mutate(factor = recode(factor, target_share_trend_q5 = "Target-share trend (quintile)",
+                         xfp_trend_q5 = "xFP trend (quintile)",
+                         played_team_prev_game = "Played team's previous game",
+                         projection_bucket = "ESPN projection range"),
+         group = factor(group, levels = c("[0,5)", "[5,10)", "[10,15)", "[15,Inf)", "FALSE", "TRUE", 1:5)))
+ggplot(rs, aes(mean_resid, group)) +
+  geom_vline(xintercept = 0, colour = "#b5b4af", linewidth = 0.4) +
+  geom_linerange(aes(xmin = ci_low, xmax = ci_high), colour = PAL[1], linewidth = 0.8) +
+  geom_point(colour = "#0d366b", size = 2) +
+  facet_wrap(~factor, scales = "free_y") +
+  labs(title = "Where calibrated ESPN errs (development seasons)",
+       subtitle = "Below 0 = over-projected", x = "Mean residual (PPR points)", y = NULL) +
+  theme_report
+```
+
+- **ESPN over-reacts to recent role change.** WRs whose target share or xFP has
+  recently **risen** are over-projected, and those whose share has fallen are
+  under-projected.
+- **Players returning from a missed game are over-projected** by about 0.6 points.
+- A residual model with these features did not generalise to 2024–2025. The
+  patterns may be season-specific, or too weak relative to noise.
+
+Calibration and large misses on the holdout, by ESPN projection range:
+
+```{r f-buckets}
+ho_al |>
+  filter(model %in% c("espn", "m2_espn_cal", "m2_espn_aug")) |>
+  mutate(bucket = cut(espn_proj, PROJECTION_BUCKETS, right = FALSE)) |>
+  summarise(n = n(), mean_pred = mean(pred), mean_actual = mean(actual), mae = mean(abs(pred - actual)),
+            large_miss = mean(abs(pred - actual) > 10), .by = c(bucket, model)) |>
+  arrange(bucket, model) |> fmt()
+```
+
+The largest remaining errors are boom weeks (long TDs, blow-up games) that no
+pregame information anticipates. About 8% of player-weeks miss by more than 10
+points under every model.
+
+## G. Is there evidence of a repeatable edge?
+
+**No repeatable edge: calibrated ESPN remains at least as good as our best model.**
+
+- Pre-registered historical criterion: **not met**.
+  - The development CI included 0.
+  - The holdout ΔMAE was positive in both seasons.
+- Prospective evidence: **none yet** (0 completed weeks).
+- Positive results:
+  - a measurable and replicated benefit from calibrating ESPN;
+  - modest improvement of the ESPN-free model;
+  - a clean, hash-committed prospective record running from Week 5;
+  - exploratory evidence that ESPN over-reacts to recent role changes, a hypothesis
+    to test prospectively, not a finding to act on.

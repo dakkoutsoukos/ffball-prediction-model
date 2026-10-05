@@ -2,24 +2,50 @@
 
 A reproducible R research pipeline for **weekly fantasy football projections**.
 The long-term goal is projections and decision tools that beat ESPN's.
-Milestone 1 builds the foundation for one question:
+The current question:
 
-> Can we predict weekly **WR** full-PPR fantasy points more accurately than ESPN's pregame projections?
+> Do our football features add **repeatable, prospective** information about weekly
+> **WR** full-PPR scoring beyond a **calibrated** ESPN projection?
 
-## Status: Milestone 1
+## Status: Milestone 2
 
 | Component | State |
 |---|---|
-| Reproducible project (renv, targets, tests) | ✅ |
-| WR player-week dataset, 2019–2025 (nflverse + ESPN) | ✅ about 2,450–2,600 ESPN-projected WR player-weeks per season, keyed on GSIS id |
-| ESPN-PPR scoring, configurable and validated | ✅ matches **ESPN's own actual totals on 99.96%** of 14,628 WR player-weeks |
-| Point-in-time features + automated leakage checks | ✅ 0 leaking features on the real dataset |
-| Chronological evaluation (static + weekly rolling-origin) | ✅ |
-| Historical ESPN pregame projections, 2020–2025 | ✅ public API, owner opt-in, verified pregame against Wayback captures. See [docs/espn_projections.md](docs/espn_projections.md). |
-| ESPN held-out benchmark | ✅ |
-| Baselines and ESPN comparison | ✅ pre-registered. See the results below. |
+| Frozen, fingerprinted M1 and M2 model lineages ([docs/models.md](docs/models.md)) | ✅ M1 and M2 predictions re-verified identical |
+| M2 feature engine, 9 families ([docs/features.md](docs/features.md)) | ✅ 0 leaking features under all-table corruption |
+| Benchmark hierarchy: raw ESPN → calibrated ESPN → ESPN-free → ESPN + ours | ✅ |
+| Pre-registered development protocol (2020–23), one-time holdout (2024–25) | ✅ (experiment log E3–E5) |
+| 2026 prospective archive: ESPN snapshots + predictions, hash manifests committed before kickoff ([docs/prospective_protocol.md](docs/prospective_protocol.md)) | ✅ from Week 5 |
+| Report | `reports/milestone2_report.html` (rendered by the pipeline) |
 
-### Results (pre-registered; 2024 used for selection, 2025 opened once)
+### Milestone 2 results (WR player-weeks with an ESPN projection > 0, weekly rolling refits)
+
+| Model | Dev 2020–23 MAE | Holdout 2024–25 MAE | Holdout RMSE | Holdout ΔMAE vs calibrated ESPN [95% CI] |
+|---|---|---|---|---|
+| Raw ESPN | 4.469 | 4.190 | 5.835 | +0.046 [+0.033, +0.060] |
+| **Calibrated ESPN (`m2_espn_cal`)** | 4.449 | **4.144** | 5.816 | — |
+| ESPN + our features (`m2_espn_aug`, frozen) | **4.437** | 4.154 | 5.816 | **+0.010 [−0.006, +0.027]** |
+| M1 ESPN + features (`m1_espn_plus`, frozen) | — | 4.144 | 5.810 | −0.001 [−0.016, +0.014] |
+| ESPN-free M2 (`m2_no_espn`) | 4.59 | 4.333 | 5.988 | +0.188 |
+| ESPN-free M1 (`m1_no_espn`) | 4.61* | 4.340 | 6.016 | — |
+
+\*M1's ESPN-free feature set refit under the M2 protocol.
+
+**Bottom line: no repeatable edge over calibrated ESPN.**
+- The augmentation model's small development gain (−0.012, CI spanning 0, better
+  in 4 of 4 seasons) **reversed on the holdout**. It was slightly worse in both
+  seasons and significantly worse among the top-60 and top-36 WRs.
+- **Calibrating ESPN** is the one robust improvement over raw ESPN. It carries no player information.
+- The ESPN-free model improved modestly over M1 (RMSE 6.016 → 5.988), but
+  remains about 0.19 MAE behind ESPN.
+- **2026 prospective:**
+  - Week 5 is archived for both frozen lineages.
+  - No archived week has been played yet.
+  - The pre-registered primary test runs at the end of the 2026 season and needs at least 10 completed weeks.
+
+<details><summary>Milestone 1 results (archived)</summary>
+
+### Milestone 1 results (pre-registered; 2024 used for selection, 2025 opened once)
 
 Population: WR player-weeks with an ESPN pregame projection above 0. Actual = 0 when the player
 recorded no stats. Weekly rolling refit.
@@ -44,6 +70,23 @@ A repeatable edge over ESPN has **not** been demonstrated yet. 2026 is the next
 untouched holdout. Details: [research/experiment_log.md](research/experiment_log.md)
 and the rendered report.
 
+</details>
+
+## Weekly prospective runbook (2026)
+
+On a clean, committed tree, before each slate's kickoff (Thu ~17:00 ET, Sun
+~08:00/11:30 ET, Mon ~17:00 ET):
+
+```bash
+Rscript scripts/weekly_run.R 2026 <week> m1,m2      # snapshot ESPN, refresh live data, archive predictions
+git add archive/*.csv && git commit -m "Prospective run 2026 W<week>" && git push   # BEFORE kickoff
+```
+
+The latest run before each game's kickoff is the official prediction for that game.
+After the season, `score_prospective()` scores only archived, hash-verified runs
+(R/live/prospective_eval.R). Back up `data/archive/` and `data/snapshots/`
+privately: they hold ESPN-derived data and are not in Git.
+
 ## Architecture
 
 The pipeline is a [`targets`](https://docs.ropensci.org/targets/) DAG (`_targets.R`); no script needs to be run by hand in a set order.
@@ -66,18 +109,21 @@ exported to `data/processed/player_week_wr.parquet` and a DuckDB file
 (`ffball.duckdb`, table `player_week_wr`) for ad-hoc SQL.
 
 ```
-R/data/        ingestion (nflverse, ESPN), cleaning, scoring, player-week assembly
-R/features/    point-in-time feature engine + leakage check
-R/models/      model specs (tidymodels recipes/parsnip, glmnet) and candidate set
-R/evaluation/  metrics, chronological backtests, bootstrap, model selection
+R/data/        ingestion (nflverse, ESPN), cleaning, scoring, play-by-play aggregates, player-week assembly
+R/features/    point-in-time feature engines (M1 frozen; M2 extends it) + leakage checks
+R/models/      model specs (tidymodels, glmnet, xgboost), frozen-lineage registry, M2 candidates
+R/evaluation/  metrics, chronological backtests, bootstraps, M2 protocol and studies
+R/live/        live 2026 data layer, prospective runs, archive verification and scoring
 R/utils/       config and validation helpers
-config/        project.yml (seasons, splits, flags) and scoring/*.yml
-tests/         testthat suite (scoring, lagging, rolling windows, joins, ESPN parsing, metrics)
-docs/          provenance, point-in-time rules, schema, scoring, ESPN investigation, prior work
-research/      experiment log (pre-registration + results)
-reports/       Quarto report rendered by the pipeline
-scripts/       one-off entry points (ESPN live snapshot, disabled by default)
-data/          raw / interim / processed / snapshots (all git-ignored)
+models/        frozen registries (m1.yml, m2.yml) and prediction fingerprints
+archive/       committed append-only SHA-256 manifests (prospective predictions, ESPN snapshots)
+config/        project.yml (seasons, protocols, flags) and scoring/*.yml
+tests/         testthat suite (scoring, leakage, features, models, registry, live, prospective scoring)
+docs/          models, features, prospective protocol, provenance, point-in-time rules, schema, ESPN, prior work
+research/      experiment log (pre-registrations E3 + results E1-E5)
+reports/       Quarto reports (Milestones 1 and 2) rendered by the pipeline
+scripts/       weekly prospective run, ESPN snapshot (ESPN opt-in required)
+data/          raw / live / snapshots / archive / processed (all git-ignored)
 ```
 
 Adding RB/TE/QB is designed to be a configuration change: `positions` in
@@ -104,13 +150,15 @@ Windows, call it by full path, for example
 ## Run
 
 ```r
-targets::tar_make()                      # downloads ~160 MB on first run, then builds everything
+targets::tar_make()                      # downloads ~200 MB on first run, then builds everything
 targets::tar_visnetwork()                # view the DAG
-targets::tar_read(evaluation_test)       # metrics tables
+targets::tar_read(m2_holdout_comparisons) # Milestone 2 holdout comparisons
+targets::tar_read(m2_fingerprint_check)  # frozen-model integrity (also m1_fingerprint_check)
 targets::tar_read(dataset_audit)         # coverage, exclusions, missingness, ID matching
 ```
 
-The report is at `reports/milestone1_report.html`. Tests:
+The reports are at `reports/milestone1_report.html` and
+`reports/milestone2_report.html`. Tests:
 
 ```r
 testthat::test_dir("tests/testthat")
@@ -139,7 +187,7 @@ The main source is [nflverse](https://github.com/nflverse/nflverse-data) (CC-BY 
 - player ID maps
 
 ESPN's public fantasy API serves weekly projections and actuals for 2018 onward
-(currently disabled). Each source's fields, history, as-of semantics, license
+(opt-in only). Each source's fields, history, as-of semantics, license
 and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 **No data is committed to this repository.**
 
@@ -148,10 +196,13 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 - **No future information.** Features use only games strictly before the target
   week, and an automated corruption test proves it on the real data
   ([docs/point_in_time_rules.md](docs/point_in_time_rules.md)).
-- **Chronological splits.**
-  - Train 2020–2023, validate 2024, test 2025.
-  - The primary protocol refits every week on all prior weeks.
-  - The test season never influences features, preprocessing, hyperparameters or model choice. The targets DAG separates the development and test paths.
+- **Chronological protocol** ([docs/models.md](docs/models.md)).
+  - All M2 decisions were made on development folds 2020–2023.
+  - The 2024–2025 holdout was run once, after freezing.
+  - **2026 is prospective only.** Every protocol refits weekly on all prior weeks.
+  - Frozen models are versioned lineages with prediction fingerprints.
+- **Compare against calibrated ESPN, not just raw ESPN.** A simple recalibration
+  of ESPN's level is a free improvement and must not be mistaken for player-level information.
 - **Pregame-defined populations.** Rows are never selected because a player
   recorded stats. Players who were expected to play and scored 0 count as 0.
 - **Identical observations.** All models are scored on the same player-weeks, and exclusions are counted.
@@ -169,24 +220,31 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 2. **ESPN history was retrieved after the fact.** Wayback captures support final-pregame
    values for 2019, 2023 and 2026, but 2020–2022 and 2024–2025 could not be checked
    directly.
-3. **No repeatable edge over ESPN yet.** The 2025 gain did not appear in 2024, and two
-   seasons give only 36 weekly clusters. 2026 is the fresh holdout.
-4. Betting lines are approximately **closing** lines, valid only for kickoff-time predictions.
-5. Injury designations have no capture timestamps.
-6. There are no route or participation features. That data is published only after each season.
-7. The ID history starts in 2019, so `career_games` undercounts veterans.
-8. 20 ESPN-projected WR rows (0.13%) are excluded because of an ambiguous ID (two "DJ Turner"s).
-9. The 2025 test season has now been used: once for the ESPN-free experiment, once
-   for the ESPN comparison. Future model changes must not be judged on it.
+3. **No repeatable edge over calibrated ESPN.** Neither development (2020–23) nor
+   holdout (2024–25) evidence supports one. All historical seasons have now been
+   used for development or holdout, so only 2026 is clean.
+4. **The prospective record depends on running the weekly script.** It has 0
+   completed weeks so far. If runs are missed, those weeks simply have no
+   prospective record.
+5. Betting lines (closing) and injury reports (untimestamped) are excluded from
+   M2. Only the frozen `m1_espn_plus` uses lines.
+6. There are no route or participation features. That data is published only after
+   each season. QB context is lagged one game by design.
+7. 20 ESPN-projected WR rows (0.13%) are excluded because of an ambiguous ID (two "DJ Turner"s).
+8. The newly added 2018 ESPN season has no archived captures to verify its
+   pregame values against. 2019 does, and it matched exactly.
 
 ## Roadmap
 
-1. **Next:** freeze the current models and evaluate them on **2026** as an untouched
-   holdout, rolling week by week. Archive live ESPN snapshots weekly
-   (`scripts/snapshot_espn.R`) so the 2026 benchmark is point-in-time by construction.
-2. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
-3. Extend to RB/TE/QB.
-4. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.
+1. **Keep the 2026 prospective record running** (weekly runbook above) and score it
+   once at season end with the pre-registered test.
+2. **M3 challenger (pre-register first):** test whether ESPN *over-reacts* to recent
+   role changes and to players returning from absence. This is the exploratory
+   residual finding in E5. Test it prospectively with a constrained model, such as a
+   few signed, shrunk adjustments to calibrated ESPN, rather than a flexible residual model.
+3. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
+4. Extend to RB/TE/QB.
+5. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.
 
 ## Prior work
 
