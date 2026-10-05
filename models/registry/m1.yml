@@ -1,0 +1,67 @@
+# FROZEN - Milestone 1 model lineage. Do not edit.
+# A new model must be registered under a new id in a new file; these entries
+# are the reproducible reference for every later comparison.
+# tests/testthat/test-registry.R and the `m1_fingerprint_check` target detect
+# accidental changes to the definitions or to their predictions.
+lineage: M1
+frozen_commit: 9663ca7
+frozen_at_utc: "2026-10-05T19:45:00Z"
+selection_rationale: >
+  Pre-registered rule (research/experiment_log.md, E2): lowest 2024 rolling MAE
+  among non-diagnostic candidates on the ESPN population selected ols_espn_plus.
+  The ESPN-free and benchmark models are frozen alongside it for comparison.
+known_issues:
+  - m1_espn_plus uses closing betting lines (implied_team_total, team_spread,
+    total_line). Historically these were closing values; in prospective runs it
+    receives the line available at prediction time (point-in-time, but a
+    train/serve mismatch). Kept unchanged because the model is frozen.
+data:
+  history_start_season: 2019     # feature history uses games from 2019 onward only
+  min_train_season: 2020
+  population: pop_espn           # ESPN pregame projection > 0
+  scoring: espn_ppr              # config/scoring/espn_ppr.yml (fumbles_lost_total)
+  feature_windows: [3, 8]
+  feature_engine: add_point_in_time_features   # R/features/point_in_time.R
+training_procedure: >
+  Expanding window. Before each target week, refit on every eligible row
+  (population above, season >= min_train_season) whose game_index is strictly
+  less than the target week's; predict the target week.
+preprocessing: >
+  tidymodels recipe fitted on training rows only: step_indicate_na(all
+  predictors), step_impute_median, step_zv, step_normalize. Logical features
+  are coerced to 0/1.
+models:
+  m1_espn_raw:
+    legacy_name: espn
+    type: espn_raw
+    features: [espn_proj]
+  m1_espn_recal:
+    legacy_name: espn_recal_l2
+    type: espn_recal_l2           # lm(actual ~ espn_proj)
+    features: [espn_proj]
+  m1_espn_plus:
+    legacy_name: ols_espn_plus
+    type: linear_ols
+    features: [espn_proj, fantasy_pts_roll3, fantasy_pts_roll8, season_pts_mean,
+               prev_season_pts_mean, log_career_games, played_team_prev_game,
+               changed_team, targets_roll3, targets_roll8, target_share_roll8,
+               air_yards_share_roll8, snap_share_roll3, rz_targets_roll8, xfp_roll8,
+               team_pass_att_roll8, home, opp_pts_allowed_roll, implied_team_total,
+               team_spread, total_line]
+  m1_no_espn:
+    legacy_name: ols_usage
+    type: linear_ols
+    features: [fantasy_pts_roll3, fantasy_pts_roll8, season_pts_mean,
+               prev_season_pts_mean, log_career_games, played_team_prev_game,
+               changed_team, targets_roll3, targets_roll8, target_share_roll8,
+               air_yards_share_roll8, snap_share_roll3, rz_targets_roll8, xfp_roll8,
+               team_pass_att_roll8, home, opp_pts_allowed_roll]
+  m1_naive:
+    legacy_name: naive_roll8
+    type: naive
+    k: 8
+fingerprint: models/fingerprints/m1_rolling_2024_2025.csv
+environment:
+  r_version: 4.5.1
+  key_packages: {dplyr: lockfile, recipes: lockfile, parsnip: lockfile, workflows: lockfile}
+  lockfile: renv.lock at frozen_commit

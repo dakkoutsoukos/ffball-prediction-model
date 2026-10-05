@@ -111,11 +111,35 @@ list(
     format = "file"
   ),
 
-  # ---- Models: development (train + validation only) ----------------------
+  # ---- Frozen Milestone 1 lineage (models/registry/m1.yml) ----------------
+  # M1 sees data exactly as it did when frozen (feature history from 2019), so
+  # extending the data window for later milestones cannot alter it. The
+  # fingerprint check fails the pipeline if M1 predictions change on the same
+  # data version.
+  tar_target(m1_registry_file, "models/registry/m1.yml", format = "file"),
+  tar_target(m1_registry, read_registry("m1", dirname(m1_registry_file))),
+  tar_target(
+    player_week_m1,
+    lineage_player_week(m1_registry, player_week_base, player_games, team_volume, defense_allowed,
+                        team_games, config$splits, config$evaluation$relevant_top_n),
+    format = "parquet"
+  ),
+  tar_target(m1_frame, frozen_frame(m1_registry, player_week_m1, max_season = 2025)),
+  tar_target(m1_specs, registry_specs(m1_registry)),
+  tar_target(
+    m1_rolling,
+    frozen_rolling_predictions(m1_frame, m1_specs, 2024:2025, m1_registry$data$min_train_season),
+    format = "parquet"
+  ),
+  tar_target(m1_fingerprint_file, m1_registry$fingerprint, format = "file"),
+  tar_target(m1_fingerprint_check,
+             check_frozen_fingerprint(m1_rolling, m1_fingerprint_file, raw_manifest, m1_registry)),
+
+  # ---- Milestone 1 experiment (E1/E2), on the M1 data vintage --------------
   # Nothing in this block depends on test-season rows; see tar_visnetwork().
   tar_target(model_data, {
     leakage_check  # the dataset must pass the leakage check before modelling
-    modelling_frame(player_week)
+    modelling_frame(player_week_m1)
   }),
   tar_target(model_data_dev, dev_frame(model_data)),
   tar_target(penalty_tuning, tune_penalties(model_data_dev, config$splits)),
