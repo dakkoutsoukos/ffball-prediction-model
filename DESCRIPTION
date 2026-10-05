@@ -20,6 +20,7 @@ Imports:
     jsonlite,
     knitr,
     nflreadr,
+    openssl,
     parsnip,
     purrr,
     quarto,
@@ -36,5 +37,6 @@ Imports:
     tidyr,
     withr,
     workflows,
+    xgboost,
     yaml
 Encoding: UTF-8

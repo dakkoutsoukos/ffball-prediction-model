@@ -164,6 +164,45 @@ list(
   tar_target(evaluation_test, evaluate_predictions(predictions_test, model_data, config$evaluation)),
   tar_target(headline, headline_result(evaluation_test, model_selection)),
 
+  # ---- Milestone 2: features ----------------------------------------------
+  tar_target(pbp_receiver, pbp_receiver_detail(raw_pbp)),
+  tar_target(pbp_team, pbp_team_game(raw_pbp)),
+  tar_target(pbp_defense, pbp_defense_game(raw_pbp)),
+  tar_target(pbp_qb, pbp_qb_game(raw_pbp)),
+  tar_target(m2_hist, m2_histories(player_games, team_volume, defense_allowed, pbp_receiver,
+                                   pbp_usage, player_stats, pbp_team, pbp_defense, pbp_qb)),
+  tar_target(m2_static, list(team_games = team_games, bio = player_bio(players))),
+  tar_target(
+    player_week_m2,
+    add_m2_features(dplyr::filter(player_week_base, has_game), m2_hist, m2_static,
+                    windows = unlist(config$features$roll_windows)) |>
+      finalize_player_week(config$splits, config$evaluation$relevant_top_n),
+    format = "parquet"
+  ),
+  tar_target(leakage_check_m2, assert_no_leakage_m2(player_week_base, m2_hist, m2_static)),
+
+  # ---- Milestone 2: development folds (2020-2023 only) ---------------------
+  # Nothing here can see 2024+: m2_dev is built with max_season = last dev
+  # season and assert_dev_only() fails otherwise.
+  tar_target(m2_dev, {
+    leakage_check_m2
+    m2_frame(player_week_m2, config$m2, max(unlist(config$m2$dev_seasons))) |> assert_dev_only(config$m2)
+  }),
+  tar_target(m2_cal_specs, calibration_specs(), iteration = "list"),
+  tar_target(m2_dev_cal_preds,
+             rolling_folds(m2_dev, m2_cal_specs[[1]], unlist(config$m2$dev_seasons), config$m2$first_train_season),
+             pattern = map(m2_cal_specs), format = "parquet"),
+  tar_target(m2_cal_choice, select_calibration(m2_dev_cal_preds)),
+  tar_target(m2_cal_spec, spec_cal(sub("^cal_", "", m2_cal_choice$model))),
+  tar_target(m2_tuning, tune_m2(m2_dev, config$m2, m2_cal_spec)),
+  tar_target(m2_specs, unname(c(m2_candidate_specs(m2_tuning, m2_cal_spec), reference_specs())),
+             iteration = "list"),
+  tar_target(m2_dev_preds,
+             rolling_folds(m2_dev, m2_specs[[1]], unlist(config$m2$dev_seasons), config$m2$first_train_season),
+             pattern = map(m2_specs), format = "parquet"),
+  tar_target(m2_selection, select_challengers(dplyr::bind_rows(m2_dev_preds, m2_dev_cal_preds),
+                                              m2_cal_choice$model, NF_CANDIDATES, AUG_CANDIDATES)),
+
   # ---- Report -------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE)
 )

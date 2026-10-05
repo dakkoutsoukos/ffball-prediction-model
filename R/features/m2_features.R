@@ -17,6 +17,23 @@
 #' Exponentially weighted mean including the current value; NA values are
 #' skipped. Weight of a game k games ago is 0.5^(k / halflife).
 ewma_mean <- function(x, halflife) {
+  n <- length(x)
+  if (n == 0) return(numeric(0))
+  ok <- !is.na(x)
+  if (n / halflife > 900) return(ewma_mean_recursive(x, halflife))   # avoid overflow below
+  # Weighted mean = sum(d^(t-j) x_j) / sum(d^(t-j)); the common factor d^t
+  # cancels, so cumulative sums of d^(-j)-scaled terms give it in one pass.
+  sc <- 0.5^(-(seq_len(n) - 1) / halflife)
+  s <- cumsum(ifelse(ok, x, 0) * sc)
+  w <- cumsum(ok * sc)
+  out <- s / w
+  out[w == 0] <- NA_real_
+  out
+}
+
+#' Recursive-filter version of ewma_mean() (reference; also used for very
+#' long series where d^(-j) would overflow).
+ewma_mean_recursive <- function(x, halflife) {
   d <- 0.5^(1 / halflife)
   ok <- !is.na(x)
   s <- stats::filter(ifelse(ok, x, 0), d, method = "recursive")
@@ -81,8 +98,52 @@ M2_EWMA_VARS <- c("fantasy_pts", "targets", "target_share", "air_yards_share", "
                   "xfp", "deep_targets", "rz_targets", "endzone_targets", "carries")
 
 #' Player-level M2 state after each game: EWMAs, short trailing windows, trends,
-#' volatility and shrunk efficiency.
+#' volatility and shrunk efficiency. data.table implementation (one pass per
+#' player); player_states_m2_reference() is the readable dplyr equivalent that
+#' the tests check it against.
 player_states_m2 <- function(pg) {
+  dt <- data.table::as.data.table(pg)
+  data.table::setorderv(dt, c("gsis_id", "game_index"))
+  per_player <- function(sd) {
+    out <- c(
+      stats::setNames(lapply(sd[, M2_EWMA_VARS, with = FALSE], ewma_mean, 2), paste0(M2_EWMA_VARS, "_ewma2")),
+      stats::setNames(lapply(sd[, M2_EWMA_VARS, with = FALSE], ewma_mean, 6), paste0(M2_EWMA_VARS, "_ewma6"))
+    )
+    t16 <- trailing_sum(sd$targets, 16)
+    r16 <- trailing_sum(sd$receptions, 16)
+    c(out, list(
+      state_index = sd$game_index, last_game_week = sd$week,
+      fantasy_pts_roll1 = sd$fantasy_pts,
+      targets_roll2 = trailing_mean(sd$targets, 2),
+      targets_roll4 = trailing_mean(sd$targets, 4),
+      fantasy_pts_sd8 = trailing_sd(sd$fantasy_pts, 8),
+      target_share_sd8 = trailing_sd(sd$target_share, 8),
+      ypt_shrunk = shrunk_rate(trailing_sum(sd$receiving_yards, 16), t16, 8, 30),
+      catch_rate_shrunk = shrunk_rate(r16, t16, 0.62, 30),
+      adot_shrunk = shrunk_rate(trailing_sum(sd$receiving_air_yards, 16), t16, 9, 30),
+      yac_per_rec_shrunk = shrunk_rate(trailing_sum(sd$yac, 16), r16, 4.5, 20),
+      fpoe_shrunk = shrunk_rate(trailing_sum(sd$fp_over_xfp, 16), trailing_sum(!is.na(sd$fp_over_xfp), 16), 0, 6)
+    ))
+  }
+  st <- dt[, per_player(.SD), by = "gsis_id"]
+  st[, `:=`(target_share_trend = target_share_ewma2 - target_share_ewma6,
+            snap_share_trend = snap_share_ewma2 - snap_share_ewma6,
+            xfp_trend = xfp_ewma2 - xfp_ewma6)]
+  tibble::as_tibble(st)[, names(player_states_m2_reference_cols())]
+}
+
+#' Column order of the player state table.
+player_states_m2_reference_cols <- function() {
+  cols <- c("gsis_id", "state_index", "last_game_week",
+            paste0(M2_EWMA_VARS, "_ewma2"), paste0(M2_EWMA_VARS, "_ewma6"),
+            "fantasy_pts_roll1", "targets_roll2", "targets_roll4", "fantasy_pts_sd8", "target_share_sd8",
+            "ypt_shrunk", "catch_rate_shrunk", "adot_shrunk", "yac_per_rec_shrunk", "fpoe_shrunk",
+            "target_share_trend", "snap_share_trend", "xfp_trend")
+  stats::setNames(cols, cols)
+}
+
+#' Readable (slow) dplyr reference implementation of player_states_m2().
+player_states_m2_reference <- function(pg) {
   st <- dplyr::arrange(pg, .data$gsis_id, .data$game_index)
   for (v in M2_EWMA_VARS) {
     st <- dplyr::mutate(st,
@@ -167,6 +228,8 @@ qb_states <- function(qb_game) {
 team_qb_states <- function(qb_game) {
   qb_game |>
     dplyr::filter(.data$starter) |>
+    # Exactly one starter per team-game (robust even if the flag is corrupted).
+    dplyr::slice_max(.data$dropbacks, n = 1, with_ties = FALSE, by = c("season", "week", "team")) |>
     with_index() |>
     dplyr::arrange(.data$team, .data$game_index) |>
     dplyr::mutate(qb_changed_last_game = dplyr::coalesce(.data$qb_id != dplyr::lag(.data$qb_id), FALSE),
