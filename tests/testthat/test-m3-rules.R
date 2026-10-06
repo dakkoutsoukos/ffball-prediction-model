@@ -99,3 +99,20 @@ test_that("prospective injury capture uses the retrieval time and no backfill", 
   expect_equal(nrow(pregame_injuries(p, tg, captured_at = as.POSIXct("2026-10-11 15:00", tz = "UTC"))), 1)
   expect_equal(nrow(pregame_injuries(p, tg, captured_at = as.POSIXct("2026-10-11 18:00", tz = "UTC"))), 0)
 })
+
+test_that("expected-QB features use only pregame captures and prior starters", {
+  sched <- tibble::tibble(season = 2026L, week = 5L, game_type = "REG", gameday = "2026-10-11", gametime = "13:00",
+                          home_team = "DAL", away_team = "TB", home_qb_id = "dak", away_qb_id = "backup")
+  qb <- tibble::tibble(season = 2026L, week = c(3L, 4L, 4L), team = c("TB", "TB", "DAL"),
+                       qb_id = c("starter", "starter", "dak"), starter = TRUE, dropbacks = 30, epa_sum = 1)
+  pre <- expected_qb_features(sched, as.POSIXct("2026-10-08 12:00", tz = "UTC"), qb, 2026, 5)
+  expect_equal(pre$expected_qb_change[pre$team == "TB"], TRUE)
+  expect_equal(pre$expected_qb_change[pre$team == "DAL"], FALSE)
+  expect_equal(pre$prior_starts[pre$team == "TB"], 0L)            # backup has never started
+  late <- expected_qb_features(sched, as.POSIXct("2026-10-11 18:00", tz = "UTC"), qb, 2026, 5)
+  expect_equal(nrow(late), 0)                                     # captured after kickoff -> unusable
+  future_start <- dplyr::bind_rows(qb, tibble::tibble(season = 2026L, week = 5L, team = "TB", qb_id = "backup",
+                                                      starter = TRUE, dropbacks = 30, epa_sum = 1))
+  fut <- expected_qb_features(sched, as.POSIXct("2026-10-08 12:00", tz = "UTC"), future_start, 2026, 5)
+  expect_equal(fut$prior_starts[fut$team == "TB"], 0L)          # the week-5 start itself never counts
+})
