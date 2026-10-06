@@ -175,3 +175,13 @@ weights, from 2018). The adjustments are constants, and nothing is learned at ru
 | Rejected as pregame | depth charts ≤ 2024; closing lines; routes and participation (post-season) |
 
 **Hypothesis D** (Questionable designation, lineage M3b) is pre-registered in E9.
+
+**Final status (2026-10-06 03:50Z).**
+- **Frozen:** M3 (hypotheses A and B) and M3b (hypothesis D). All are archived from 2026 Week 5.
+- **Rejected:** hypothesis C (vacated targets).
+- **Inconclusive and not frozen:** hypothesis E (expected-QB change from the nfldata git history).
+- **New historical-valid data built:**
+  - pregame injury designations, 2017–2024;
+  - as-of-kickoff − 2 h schedule state (lines and expected QB), 2021–2025.
+- **Prospective-only captures running:** injury reports, depth charts and schedules,
+  each as a dated retrieval with every run.

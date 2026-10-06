@@ -94,6 +94,17 @@ In 2024 the Questionable rule improved calibrated ESPN with an interval excludin
 because it touches only about 5% of WRs, but it is about 5% on those players.
 This is **supporting, not confirmatory** evidence.
 
+A second new source passed the timing test: the **git history of nflverse's
+schedule file**. It is committed every 10–20 minutes from 2021, so it can be read
+as of 2 hours before each kickoff.
+- It provides pregame betting lines, which **resolves the closing-line problem**,
+  and the **expected starting QB**, which matched the actual starter in 92.5% of
+  team-games.
+- **Hypothesis E: ESPN mis-projects WRs when the expected QB differs from the
+  previous starter. Inconclusive, not frozen** (log E11). A backup starting showed
+  −0.54 points (−9%), with a consistent sign in 2021–2023, but it is within noise,
+  and the split was chosen after seeing the data.
+
 ## D. Which M3 prospective challengers were frozen?
 
 ```{r d-registry, results = "asis"}

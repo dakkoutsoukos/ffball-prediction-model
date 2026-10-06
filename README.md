@@ -30,8 +30,12 @@ to derive them. They are **small**: about 0.1–0.3% of MAE overall, and about 5
 the Questionable WRs the rule touches.
 
 **2026 prospective: no completed weeks yet. "Not enough prospective evidence" is the
-current verdict.** Rejected hypothesis: ESPN under-reacting to vacated teammate
-targets was not supported (E9).
+current verdict.**
+
+Other outcomes:
+- **Rejected:** ESPN under-reacting to vacated teammate targets (E9).
+- **Inconclusive, not frozen:** an expected-QB change, from the timestamped nflverse
+  schedule git history, which also provides pregame betting lines for 2021–2025 (E11).
 
 ## Status: Milestone 2
 

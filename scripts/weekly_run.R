@@ -47,7 +47,7 @@ if (!"--no-snapshot" %in% flags) {
   snap <- snapshot_espn_projections("WR", cfg$espn$league_defaults_id, week = week, enabled = TRUE)
   cli::cli_alert_success("ESPN snapshot {.file {basename(snap)}}")
 }
-fetch_espn_completed_weeks(season, tg, enabled = isTRUE(cfg$espn$enabled), pause = cfg$espn$request_pause_seconds)
+invisible(fetch_espn_completed_weeks(season, tg, enabled = isTRUE(cfg$espn$enabled), pause = cfg$espn$request_pause_seconds))
 res <- run_prospective(season, week, lineages)
 
 # --- verify and report ------------------------------------------------------------------
