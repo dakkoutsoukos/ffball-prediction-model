@@ -79,6 +79,53 @@ Scoring happens only after all of the week's games are final:
 4. Archived files are verified against the manifest hashes before scoring.
    Regenerated predictions are never mixed with archived ones.
 
+## Weekly checklist (operations)
+
+| When (ET) | Do |
+|---|---|
+| Tue/Wed (after the previous week is final) | `Rscript scripts/status.R`, which checks integrity and push state. Optionally make an early run. |
+| **Thu ~17:00** | `Rscript scripts/weekly_run.R`. With no arguments it uses the inferred week and **all** frozen lineages. Then `git add archive/*.csv && git commit -m "Prospective run" && git push` |
+| **Sun ~08:00** (international game weeks) and **~11:30** | Same run and push. The latest run before each kickoff is the official one for that game. |
+| **Mon ~17:00** | Same run and push, for the Monday game. |
+| Any time after a run | `Rscript scripts/backup_archives.R "<private folder>"`, which copies and SHA-256-verifies the evidence |
+
+`scripts/status.R` reports:
+- the next kickoff;
+- which upcoming games already have an archived pre-kickoff run;
+- whether every prediction and snapshot file still matches its committed hash;
+- whether the manifests are committed and pushed;
+- whether evidence changed since the last verified backup.
+
+`scripts/weekly_run.R`:
+- refuses to run on uncommitted code;
+- refuses weeks whose games have all kicked off;
+- warns about games already started (those players earn no prospective credit);
+- re-verifies the new run's hash.
+
+It never pushes. `--commit` makes only a local commit.
+
+**Optional scheduling (not enabled).** Windows Task Scheduler could run
+`weekly_run.R` at the times above, for example:
+
+```
+schtasks /Create /TN "ffball_thu" /SC WEEKLY /D THU /ST 17:00 /TR "<Rscript.exe> scripts/weekly_run.R"
+```
+
+with the start-in directory set to the project root. Because it makes ESPN requests
+and pushing remains manual, enable it only deliberately.
+
+## Separate prospective records per lineage
+
+| Lineage | Models | Prospective record starts |
+|---|---|---|
+| M1 | `m1_*` (frozen 2026-10-05) | 2026 Week 5 |
+| M2 | `m2_*` (frozen 2026-10-05) | 2026 Week 5 |
+| M3 | `m3_*` (rule challengers, frozen per docs/milestone3_plan.md) | the first week with an archived pre-kickoff run after its freeze |
+
+Each lineage is scored only on weeks where it has archived runs. A changed
+challenger becomes a new id (`*_v2`) with its own start. Earlier weeks are
+never regenerated or back-filled. M3 results never enter the M1/M2 primary test.
+
 ## Guardrails
 
 2026 outcomes are never used to select features or models, tune

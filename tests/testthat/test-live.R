@@ -27,6 +27,14 @@ test_that("manifests are append-only and keep earlier rows", {
   expect_equal(m$run_id, c("1", "2"))
 })
 
+test_that("manifests refuse rows with a different column layout", {
+  p <- file.path(withr::local_tempdir(), "m.csv")
+  append_manifest(tibble::tibble(run_id = "1", n = 5), p)
+  expect_error(append_manifest(tibble::tibble(run_id = "2", n = 7, extra = "x"), p), "refusing")
+  append_manifest(tibble::tibble(n = 9, run_id = "3"), p)                    # same columns, any order
+  expect_equal(readr::read_csv(p, col_types = readr::cols(.default = "c"))$n, c("5", "9"))
+})
+
 test_that("latest live retrieval respects the as-of time", {
   root <- withr::local_tempdir()
   d <- file.path(root, "player_stats", "season=2026")

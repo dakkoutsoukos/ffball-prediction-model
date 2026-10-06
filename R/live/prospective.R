@@ -25,9 +25,11 @@ append_manifest <- function(row, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   row <- dplyr::mutate(row, dplyr::across(dplyr::everything(), as.character))
   if (file.exists(path)) {
-    old <- readr::read_csv(path, col_types = readr::cols(.default = "c"))
-    row <- row[, union(names(old), names(row))]
-    readr::write_csv(row, path, append = TRUE)
+    old <- readr::read_csv(path, col_types = readr::cols(.default = "c"), n_max = 0)
+    if (!setequal(names(old), names(row))) {
+      cli::cli_abort("Manifest {.file {path}} columns differ from the new row; refusing to append.")
+    }
+    readr::write_csv(row[, names(old)], path, append = TRUE)
   } else {
     readr::write_csv(row, path)
   }
@@ -212,6 +214,9 @@ run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
   pred_path <- write_once(file.path(dir, "predictions.parquet"), function(tmp) arrow::write_parquet(preds, tmp))
   meta <- c(stamp_cols, list(
     season = season, week = week, lineages = lineages, git_dirty = git$dirty,
+    # exact frozen definitions used (their hashes are covered by run_meta_sha256)
+    registry_sha256 = as.list(stats::setNames(
+      vapply(lineages, function(l) sha256_file(read_registry(l)$path), character(1)), lineages)),
     snapshot_path = snap_path, live_files = as.list(inputs$live_files),
     live_sha256 = as.list(vapply(inputs$live_files, sha256_file, character(1))),
     espn_retro_files = length(espn_raw_files()),
