@@ -469,3 +469,59 @@ generalise to 2024–2025, so these patterns are not yet a usable edge.
 from 2026 Week 5, alongside M1. The residual patterns above are recorded as
 hypotheses for a future challenger (M3), to be pre-registered and tested
 prospectively.
+
+---
+
+## 2026-10-06 — E6: Milestone 3 pre-registration of the rule challengers (before freezing; before any 2026 outcome was evaluated)
+
+**Strategy change.** M2 showed that richer historical statistics and more flexible
+models do not beat calibrated ESPN. M3 therefore tests:
+- (i) a very small number of narrow, pre-registered hypotheses about systematic
+  ESPN errors, as fixed rules rather than learned models;
+- (ii) genuinely new pregame information (docs/milestone3_plan.md §13).
+
+There is no broad model search.
+
+**Base for every rule.** Calibrated ESPN with the same family and weekly refit
+procedure as the frozen `m2_espn_cal` (components with recency weights, training
+from 2018). The rules add **constants**. Nothing is learned at run time.
+
+**Development evidence** (2020–2023 only; residual = actual − calibrated ESPN, weekly rolling):
+
+| group | n | mean residual | by season (2020–23) |
+|---|---|---|---|
+| xfp_trend top decile (≥ 1.42) | 964 | −0.61 (se 0.24) | −0.80, −0.42, −0.56, −0.44 |
+| xfp_trend bottom decile (≤ −1.65) | 964 | +0.52 (se 0.19) | +1.35, −0.42, +0.62, +0.49 |
+| xfp_trend top / bottom quintile | — | −0.55 / +0.33 | — |
+| returning, 1 team game missed | 325 | −0.44 (se 0.34) | inconsistent |
+| returning, 2+ team games missed | 279 | −0.84 (se 0.33) | negative in all 4 |
+
+**Frozen rules.** Magnitudes are half the development means, against winner's curse.
+
+| id | rule |
+|---|---|
+| `m3_role_adjust_v1` (primary A) | xfp_trend ≥ 1.42 → −0.30; ≤ −1.65 → +0.25 |
+| `m3_role_adjust_q20_v1` (A sensitivity) | xfp_trend ≥ 0.80 → −0.27; ≤ −1.11 → +0.16 |
+| `m3_return_adjust_v1` (primary B) | 1 team game missed since the last appearance this season → −0.2; 2+ → −0.4 |
+| `m3_combined_v1` | A primary + B primary, additive |
+
+**Prospective hypotheses** (evaluated once, at the end of the 2026 regular season,
+on archived pre-kickoff runs only):
+- **H-A.** `m3_role_adjust_v1` has lower MAE than `m2_espn_cal` (from the same runs).
+  The paired week-bootstrap 95% CI for ΔMAE must lie entirely below 0, with RMSE no worse.
+- **H-B.** The same test for `m3_return_adjust_v1`.
+
+Secondary analyses:
+- `m3_combined_v1`, and the q20 sensitivity variant;
+- the top 60 and top 36 subsets;
+- the share of weeks won;
+- the affected-subset view: ΔMAE restricted to players a rule touched. Descriptive only, because it is defined by the rule, not by outcomes.
+
+**Insufficient** means fewer than 8 completed archived weeks for that lineage.
+The criteria are not weakened.
+
+**One-time historical check.** 2024–2025 rolling, run once **after** freezing and
+reported. It cannot change the rules.
+
+**Versioning.** Any later change becomes `*_v2`, with a new prospective start.
+v1 records stay as they are.
