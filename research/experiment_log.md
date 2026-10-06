@@ -690,3 +690,50 @@ designations for Sunday games appear in the Friday report, **Saturday or Sunday
 runs are required** for D to act on Sunday games.
 
 **M3b fingerprint.** Written once and verified as identical.
+
+---
+
+## 2026-10-06 — E11: Pregame expected QB from the nfldata git history (hypothesis E); examined, NOT frozen
+
+**Source** (verified; docs/source_feasibility.csv). `nflverse/nfldata`
+`data/games.csv` is committed every 10–20 minutes from 2021.
+- The history is linear: 51,477 commits, no force pushes.
+- Commit-to-push lag is about 1 s where verifiable (2023-04 onward).
+- The expected-starter QB columns exist from 2021-03.
+
+For every 2021–2025 game we take the version committed **strictly before
+kickoff − 2 h** (`fetch_nfldata_asof()`):
+- every selected commit precedes its cutoff;
+- median staleness is 5–15 minutes;
+- QB ids are missing in 4.5% of 2023 games and 0% otherwise;
+- the expected starter matched the actual starter (dropback leader) in **92.5%** of team-games.
+
+The repository has no license file, so this is used for private research only and
+nothing derived is committed.
+
+**Development evidence** (2021–2023; residual vs calibrated ESPN):
+
+| group | n | mean residual | by season | share of projection |
+|---|---|---|---|---|
+| any expected QB change | 879 | −0.21 (se 0.33) | — | −4% |
+| change to a backup (< 8 prior starts) | 273 | −0.54 (se 0.41) | −0.47, −0.66, −0.67 | −9% |
+| change to an established starter | 606 | −0.20 | +0.04, +0.08, −0.59 | — |
+| no change (reference) | 6,446 | −0.15 | — | — |
+
+**Decision. Not frozen.**
+- The only consistent pattern, a backup starting, is within noise (t ≈ 1.3, and about
+  −0.4 relative to the reference).
+- Its "< 8 starts" split was chosen after seeing the data.
+- Freezing it would invite forking-paths optimism.
+
+The expected-QB data remains available, historical-valid for 2021–2025 and
+prospective via our dated schedule captures, for a future, larger test.
+
+**Lines.** As-of-forecast spreads and totals (2021–2025) now exist, which
+resolves the closing-line timing problem of M1/M2. They were not tested as a
+new hypothesis: M2 found closing lines added nothing, and ESPN likely prices
+game environment. This is recorded as available, not as evidence.
+
+**Live-run hardening.** An earlier game now counts as complete only if it is
+final **and** its stats are published, checked by `game_id`. The schedule can mark
+a game final before nflverse's player stats include it. A test covers this.

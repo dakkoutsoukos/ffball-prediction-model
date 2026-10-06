@@ -49,7 +49,9 @@ prefetch_versions <- function(shas, dir = NFLDATA_DIR) {
   }, character(1)))
   if (length(oids) == 0) return(invisible(0L))
   tmp <- tempfile(fileext = ".txt")
-  writeLines(oids, tmp)
+  con <- file(tmp, "wb")                     # LF line endings: git rejects "oid\r"
+  writeLines(oids, con, sep = "\n")
+  close(con)
   # One request for all versions (objects already present are skipped by the server).
   system2("git", c("-C", dir, "fetch", "-q", "--no-tags", "--stdin", "origin"), stdin = tmp)
   invisible(length(oids))

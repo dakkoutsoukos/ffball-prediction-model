@@ -112,3 +112,20 @@ test_that("live hygiene: an unfinished earlier game is neither played nor missed
   done <- drop_unfinished_games(modifyList(inputs, list(team_games = dplyr::mutate(tg, game_final = TRUE))), 2024, 5)
   expect_identical(done$player_stats, inputs$player_stats)
 })
+
+test_that("live hygiene: a final game whose stats are not yet published is not 'missed'", {
+  inp <- toy_inputs()
+  wk5 <- dplyr::filter(inp$team_games, season == 2024L, week == 4L) |>
+    dplyr::mutate(week = 5L, game_id = "2024_5", game_index = game_index(season, week))
+  tg <- dplyr::bind_rows(inp$team_games, wk5) |>
+    dplyr::mutate(game_final = !(season == 2024L & week == 5L), kickoff_utc = as.POSIXct("2024-10-01", tz = "UTC"))
+  stats <- dplyr::filter(inp$stats, !(season == 2024L & week == 4L))       # week 4 final but stats lagging
+  inputs <- list(team_games = tg, player_stats = stats,
+                 snaps = dplyr::transmute(stats, season, week, gsis_id, snap_team = team, snap_share = 0.8),
+                 pbp_usage = dplyr::transmute(stats, season, week, gsis_id, team, rz_targets = 1),
+                 xfp = dplyr::transmute(stats, season, week, gsis_id, xfp = 1))
+  out <- drop_unfinished_games(inputs, 2024, 5)
+  expect_equal(nrow(out$unfinished_games), 2)
+  target <- tibble::tibble(season = 2024L, week = 5L, gsis_id = "p2", team = "BBB", opponent = "AAA")
+  expect_equal(add_absence_features(target, out$player_games, out$team_games)$team_games_missed, 0L)
+})

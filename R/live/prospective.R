@@ -85,8 +85,13 @@ assemble_live_inputs <- function(cfg, live_season, as_of = Sys.time()) {
 #' their pregame context. With all games final (every historical season) this is
 #' a no-op.
 drop_unfinished_games <- function(inputs, season, week) {
-  tg <- inputs$team_games
   target_gi <- game_index(season, week)
+  # A game counts as complete only if it is final AND its stats have been
+  # published (the schedule can mark a game final before player stats include it).
+  # nflverse publishes a game's stats for both teams together, so check by game.
+  tg <- inputs$team_games |>
+    dplyr::mutate(game_final = .data$game_final & .data$game_id %in% unique(inputs$player_stats$game_id))
+  inputs$team_games <- tg
   final <- dplyr::filter(tg, .data$game_final) |> dplyr::select("season", "week", "team")
   unfinished <- dplyr::filter(tg, !.data$game_final, game_index(.data$season, .data$week) < target_gi)
   inputs$unfinished_games <- dplyr::distinct(unfinished, .data$season, .data$week, .data$team)
