@@ -147,3 +147,31 @@ weights, from 2018). The adjustments are constants, and nothing is learned at ru
 ## 13. Source feasibility matrix
 
 *(Filled in from the source investigations; see below.)*
+
+**Status (2026-10-06).**
+- Sections 1–12 were committed at 7573bdf.
+- The M3 rules were frozen at 00:24Z (64ef35d), and their one-time 2024–2025
+  check is in experiment log E7.
+- The source investigations are complete:
+  - `docs/source_feasibility.csv` is the full matrix.
+  - The `nfldata` git-history row is updated when that investigation reports.
+
+**Ranked new sources** (value × reliability):
+1. **nflverse injury reports, 2017–2024.** Historical-valid via `date_modified`; 2026 prospective via our captures.
+   - It produced hypothesis D (Questionable).
+   - Hypothesis C (vacated targets) was rejected on development evidence (E9).
+2. **nflverse depth charts, 2025+.** Timestamped and historical-valid from 2025, captured every run.
+   It has too little history to develop a rule; a candidate for later.
+3. **`nfldata` git history** (lines and expected QB). Pending verification.
+4. **Projection markets** (FantasyPros, Sleeper) and **The Odds API.** Blocked by terms or cost;
+   the owner's decision.
+
+**Historical-valid vs prospective-only.**
+
+| Class | Sources |
+|---|---|
+| Historical-valid | injury designations 2017–2024; depth charts 2025+ |
+| Prospective-only | injury designations 2026 (our capture time); ESPN injury status (not used) |
+| Rejected as pregame | depth charts ≤ 2024; closing lines; routes and participation (post-season) |
+
+**Hypothesis D** (Questionable designation, lineage M3b) is pre-registered in E9.

@@ -15,7 +15,7 @@ test_that("adjusted spec = calibrated ESPN + adjustment, nothing learned from th
   for (c in setdiff(ESPN_COMPONENTS, "espn_proj")) d[[c]] <- d$espn_proj / 10
   d$actual <- d$espn_proj + rnorm(200)
   base <- spec_cal("linear")
-  adj <- spec_adjusted("a", base, list(function(nd) rule_role_change(nd, "xfp_trend", 1.42, -1.65, -0.3, 0.25)))
+  adj <- spec_adjusted("a", base, list(function(nd, b) rule_role_change(nd, "xfp_trend", 1.42, -1.65, -0.3, 0.25)))
   p_base <- base$predict(base$fit(d), d)
   p_adj <- adj$predict(adj$fit(d), d)
   expect_equal(p_adj - p_base, ifelse(d$xfp_trend >= 1.42, -0.3, 0))
@@ -57,4 +57,45 @@ test_that("absence feature never reads the target week or later", {
   later <- dplyr::bind_rows(pg, tibble::tibble(gsis_id = "p", season = 2024L, week = 5L,
                                                game_index = game_index(2024, 5)))
   expect_equal(add_absence_features(t4, later, tg)$team_games_missed, 2L)
+})
+
+test_that("questionable rule is proportional or additive and only for Questionable", {
+  nd <- tibble::tibble(own_questionable = c(TRUE, FALSE, NA))
+  expect_equal(rule_questionable(nd, c(10, 10, 10), "multiplicative", -0.09), c(-0.9, 0, 0))
+  expect_equal(rule_questionable(nd, c(10, 10, 10), "additive", -0.68), c(-0.68, 0, 0))
+  expect_error(rule_questionable(nd, 1:3, "other", 1), "Unknown")
+})
+
+test_that("pregame injury rows require a timestamp strictly before kickoff", {
+  tg <- tibble::tibble(season = 2023L, week = 1L, team = c("KC", "DET"),
+                       kickoff_utc = as.POSIXct("2023-09-08 00:20", tz = "UTC"))
+  inj <- tibble::tibble(season = 2023L, week = 1L, game_type = "REG", team = c("KC", "KC", "DET"),
+                        gsis_id = c("a", "b", "c"), report_status = c("Questionable", "Out", "Questionable"),
+                        date_modified = as.POSIXct(c("2023-09-06 20:00", "2023-09-08 03:00", NA), tz = "UTC"))
+  p <- withr::local_tempfile(fileext = ".parquet")
+  arrow::write_parquet(inj, p)
+  out <- pregame_injuries(p, tg)
+  expect_equal(out$gsis_id, "a")                     # b stamped after kickoff, c untimed
+  expect_equal(attr(out, "dropped")$not_pregame_or_untimed, 2)
+})
+
+test_that("2017-2020 injury timestamps are re-read as US Pacific time", {
+  tg <- tibble::tibble(season = 2019L, week = 1L, team = "KC", kickoff_utc = as.POSIXct("2019-09-06 22:00", tz = "UTC"))
+  inj <- tibble::tibble(season = 2019L, week = 1L, game_type = "REG", team = "KC", gsis_id = "a",
+                        report_status = "Questionable",
+                        date_modified = as.POSIXct("2019-09-06 16:00", tz = "UTC"))   # 16:00 PT = 23:00 UTC
+  p <- withr::local_tempfile(fileext = ".parquet")
+  arrow::write_parquet(inj, p)
+  expect_equal(nrow(pregame_injuries(p, tg)), 0)       # after the 22:00 UTC kickoff once corrected
+})
+
+test_that("prospective injury capture uses the retrieval time and no backfill", {
+  tg <- tibble::tibble(season = 2026L, week = 5L, team = "KC", kickoff_utc = as.POSIXct("2026-10-11 17:00", tz = "UTC"))
+  inj <- tibble::tibble(season = 2026L, week = 5L, game_type = "REG", team = "KC", gsis_id = "a",
+                        report_status = "Questionable")          # 2025+ files carry no date_modified
+  p <- withr::local_tempfile(fileext = ".parquet")
+  arrow::write_parquet(inj, p)
+  expect_equal(nrow(pregame_injuries(p, tg)), 0)       # no capture time -> not usable
+  expect_equal(nrow(pregame_injuries(p, tg, captured_at = as.POSIXct("2026-10-11 15:00", tz = "UTC"))), 1)
+  expect_equal(nrow(pregame_injuries(p, tg, captured_at = as.POSIXct("2026-10-11 18:00", tz = "UTC"))), 0)
 })

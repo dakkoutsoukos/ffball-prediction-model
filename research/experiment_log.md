@@ -600,3 +600,60 @@ off on Sunday, so any later run before Sunday's kickoff, once Week 4 is final,
 supersedes them as the official prediction under the existing latest-valid-run rule.
 If none were made, the archived runs would remain official, and this note documents
 their artifact.
+
+---
+
+## 2026-10-06 — E9: New-information hypotheses from pregame-timestamped injury reports (pre-registration of D; negative result for C)
+
+**Source.** nflverse final weekly injury reports, 2017–2024. A row is used only if
+its own `date_modified` is strictly before the team's kickoff. 2017–2020 stamps
+are corrected from Pacific wall-clock time. 2025 has no timestamps and is
+excluded, not backfilled. For 2026, the timestamp is our dated live retrieval time.
+Of 23,081 designated rows, 2,690 were dropped as untimed or stamped after kickoff
+(almost all of them 2025).
+
+**Development evidence** (2020–2023; residual = actual − calibrated ESPN, weekly rolling):
+
+| group | n | mean residual | by season |
+|---|---|---|---|
+| own **Questionable** | 577 | **−1.36** (se 0.27) | −1.17, −2.35, −1.73, −1.13 |
+| as a share of calibrated ESPN | — | **−18%** | −13%, −26%, −19%, −13% |
+| own Doubtful | 4 | — | too few (ESPN zeroes nearly all) |
+| vacated teammate target share 0.10–0.20 | — | −0.32 | +0.73, −0.50, −0.58, −0.13 |
+| vacated teammate target share > 0.20 | — | −0.56 | +0.05, −0.76, −0.68, +0.22 |
+
+- **Hypothesis C, that ESPN under-adjusts for vacated targets, is NOT supported.**
+  The sign is opposite to the hypothesis and inconsistent across seasons, so no rule
+  is frozen. This is recorded as a negative finding.
+- Questionable WRs are not more often zero (21% vs 24%). They play, but produce
+  less, and the shortfall scales with the projection.
+
+**Hypothesis D (pre-registered).** ESPN over-projects WRs whose pregame-valid
+final injury designation is Questionable.
+
+| id | rule |
+|---|---|
+| `m3_questionable_adjust_v1` (primary) | if Questionable: calibrated ESPN × (1 − 0.09) (half of −18%) |
+| `m3_questionable_add_v1` (sensitivity) | if Questionable: −0.68 points (half of −1.36) |
+| `m3_combined_abd_v1` (pre-registered combination) | `m3_role_adjust_v1` + `m3_return_adjust_v1` + D primary, all from the same base |
+
+**Timing notes.**
+- The designation must have been captured before the player's kickoff.
+- Sunday games are designated in the Friday report. A Thursday run therefore
+  sees no designation for them, and only later runs (Saturday or Sunday morning)
+  can apply D.
+- Historical ESPN values are final pregame values, which already absorb some
+  game-day inactives. A prospective snapshot taken before inactives may leave
+  more questionable players over-projected. The direction is the same; the size may differ.
+
+**Prospective test (H-D).**
+- `m3_questionable_adjust_v1` vs `m2_espn_cal` from the same runs.
+- The ΔMAE 95% week-bootstrap CI must lie entirely below 0, with RMSE no worse.
+- Evaluated at the end of 2026; fewer than 8 completed archived weeks means insufficient.
+- The rule touches only about 6% of rows, so the affected-subset view will be reported descriptively.
+
+**One-time historical check.** 2024 only, because 2025 has no timestamps. Run after
+the freeze, it cannot change the rule.
+
+**Lineage.** M3b (models/registry/m3b.yml), a separate registry, because M3's is
+write-once.
