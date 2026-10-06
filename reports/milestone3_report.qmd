@@ -70,32 +70,50 @@ readr::read_csv("docs/source_feasibility.csv", show_col_types = FALSE) |> knitr:
 
 ## C. Did new historical-valid information improve calibrated ESPN?
 
-```{r c-historical, results = "asis"}
-h <- safe_read("m3_info_comparisons")
-if (is.null(h)) {
-  cat("No historical-valid new-information model was evaluated (see the experiment log for the reasons).\n")
-} else {
-  print(knitr::kable(mutate(h, across(where(is.double), ~ round(.x, 4)))))
+Only one new source passed the timing test with enough history to develop on:
+**final weekly injury reports, 2017–2024**. Each row's own timestamp shows it
+existed before kickoff. Two hypotheses were examined on development seasons
+2020–2023 (experiment log E9):
+
+- **C: ESPN under-reacts to vacated teammate targets.** **Rejected.** The
+  residuals had the opposite sign and flipped across seasons, so no rule was frozen.
+- **D: ESPN over-projects WRs designated Questionable.**
+  - Development shortfall: −1.36 points (−18%), in every season.
+  - Frozen as M3b (calibrated ESPN × 0.91 for Questionable WRs) **before** the
+    one-time check on 2024, the only later season with timestamps.
+
+```{r c-historical}
+hb <- if (file.exists("models/registry/m3b.yml")) safe_read("m3b_holdout_comparisons") else NULL
+if (!is.null(hb)) {
+  hb |> select(model, subset, n, n_weeks, mae_diff, ci_low, ci_high, weeks_better, rmse_model, rmse_baseline) |> fmt(4)
 }
 ```
+
+In 2024 the Questionable rule improved calibrated ESPN with an interval excluding
+0, better RMSE, and 89% of weeks won. It is small overall (about 0.3% of MAE),
+because it touches only about 5% of WRs, but it is about 5% on those players.
+This is **supporting, not confirmatory** evidence.
 
 ## D. Which M3 prospective challengers were frozen?
 
 ```{r d-registry, results = "asis"}
-if (has_m3) {
-  reg <- read_registry("m3")
-  cat(sprintf("Frozen at **%s** (parent commit `%s`).\n\n", reg$frozen_at_utc, substr(reg$frozen_parent_commit, 1, 7)))
+for (lin in intersect(c("m3", "m3b"), frozen_lineages())) {
+  reg <- read_registry(lin)
+  cat(sprintf("\n**%s**, frozen at %s (parent commit `%s`):\n\n", toupper(lin), reg$frozen_at_utc,
+              substr(reg$frozen_parent_commit, 1, 7)))
   purrr::iwalk(reg$models, function(m, id) {
     rule <- c(if (!is.null(m$role_rule)) sprintf("role: %s ≥ %s → %+.2f; ≤ %s → %+.2f", m$role_rule$metric,
                                                   m$role_rule$hi, m$role_rule$adj_hi, m$role_rule$lo, m$role_rule$adj_lo),
               if (!is.null(m$return_rule)) sprintf("return: 1 missed → %+.1f; 2+ missed → %+.1f",
-                                                    m$return_rule$adj_one, m$return_rule$adj_two_plus))
+                                                    m$return_rule$adj_one, m$return_rule$adj_two_plus),
+              if (!is.null(m$questionable_rule)) sprintf("Questionable: %s %+.2f", m$questionable_rule$form,
+                                                          m$questionable_rule$value))
     cat(sprintf("- **`%s`**: %s. %s\n", id, m$hypothesis, paste(rule, collapse = "; ")))
   })
-  first_week <- man |> filter(grepl("m3", lineages)) |> pull(week) |> as.integer() |> min(na.rm = TRUE)
-  cat(sprintf("\nProspective record starts in **week %s** (the first archived pre-kickoff run including M3).\n",
-              if (is.finite(first_week)) first_week else "—"))
-} else cat("No M3 challenger is frozen yet.\n")
+  first_week <- man |> filter(grepl(paste0("(^|\\+)", lin, "($|\\+)"), lineages)) |> pull(week) |> as.integer()
+  cat(sprintf("\nProspective record starts in **week %s**.\n",
+              if (length(first_week)) min(first_week) else "—"))
+}
 ```
 
 One-time historical check of the frozen rules (2024–2025, rolling; not used to
@@ -164,7 +182,14 @@ ho |>
 ## J. Is there evidence of an incremental edge?
 
 ```{r j-verdict, results = "asis"}
-cat("**Not enough prospective evidence yet.**",
-    "No historical-valid new-information source improved calibrated ESPN (section C). The narrow M3 rules are",
-    "frozen and are accumulating a clean prospective record. Calibrated ESPN remains the bar to beat.\n")
+cat(
+  "**Prospectively: not enough evidence yet** (", pros$weeks_complete, " completed archived weeks).\n\n",
+  "**Historically: promising but insufficient.**\n\n",
+  "- A genuinely new pregame source, the timestamped Questionable designation, improved calibrated ESPN",
+  "in the one later season that could check it (2024).\n",
+  "- The pre-registered role and return rules held their direction in 2024–2025.\n",
+  "- Every effect is small (about 0.1–0.3% of MAE overall).\n",
+  "- Each rule was checked historically only once.\n\n",
+  "Calibrated ESPN remains the bar. The 2026 prospective record of the frozen M3 and M3b rules is the",
+  "test that can turn \"promising\" into \"yes\" or \"no\".\n", sep = " ")
 ```

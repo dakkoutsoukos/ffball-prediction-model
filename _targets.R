@@ -326,6 +326,8 @@ list(
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: its prospective section reads the live archive.
+  if (build_report && file.exists("reports/milestone3_report.qmd"))
+    tar_quarto(report_m3, "reports/milestone3_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
   if (build_report && file.exists(report2_file))
     tar_quarto(report_m2, report2_file, quiet = TRUE, cue = tar_cue(mode = "always"))
 )
