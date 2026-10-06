@@ -360,7 +360,10 @@ list(
     # One-time checks, first run after the parameters were committed (39b8059, E13).
     tar_target(m4_check_2019, m4_evaluate(m4_preds, 2019)),
     tar_target(m4_check_2024, m4_evaluate(m4_preds, 2024)),
-    tar_target(m4_decision, m4_freeze_decision(m4_dev_eval, m4_check_2019))
+    tar_target(m4_decision, m4_freeze_decision(m4_dev_eval, m4_check_2019)),
+    # Report-only summaries (no decisions are taken from these).
+    tar_target(m4_target_table, target_model_table(m4_data, m4_params)),
+    tar_target(m4_raw_comparisons, m4_vs_raw(m4_data, m4_preds))
   ),
   # Frozen M4 lineage (E14): regenerate the 2019 + 2024 predictions from the
   # registry, require equality with the candidate study, check the fingerprint.
@@ -372,6 +375,7 @@ list(
       unname(registry_specs(m4_registry))
     }, iteration = "list"),
     tar_target(m4_full, m4_add_features(m3b_full, injury_detail, team_games), format = "parquet"),
+    tar_target(m4_coverage_detail, injury_coverage_detail(injury_detail, team_games, m4_full)),
     # Injury-table corruption test on real data: future reports, post-kickoff
     # reports and realised outcomes must not change any M4 feature.
     tar_target(leakage_check_m4, {
@@ -415,6 +419,8 @@ list(
   # Always re-render: its prospective section reads the live archive.
   if (build_report && file.exists("reports/milestone3_report.qmd"))
     tar_quarto(report_m3, "reports/milestone3_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
+  if (build_report && file.exists("models/registry/m4.yml") && file.exists("reports/milestone4_report.qmd"))
+    tar_quarto(report_m4, "reports/milestone4_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
   if (build_report && file.exists(report2_file))
     tar_quarto(report_m2, report2_file, quiet = TRUE, cue = tar_cue(mode = "always"))
 )

@@ -122,6 +122,7 @@ and pushing remains manual, enable it only deliberately.
 | M2 | `m2_*` (frozen 2026-10-05) | 2026 Week 5 |
 | M3 | `m3_role_adjust_v1`, `m3_role_adjust_q20_v1`, `m3_return_adjust_v1`, `m3_combined_v1` (frozen 2026-10-06 00:24Z) | 2026 Week 5 (first run 00:28Z) |
 | M3b | `m3_questionable_adjust_v1`, `m3_questionable_add_v1`, `m3_combined_abd_v1` (frozen 2026-10-06 00:41Z) | 2026 Week 5 (first run 00:43Z) |
+| M4 | `m4_two_stage_v1` (primary), `m4_practice_rule_v1` (frozen 2026-10-06 06:26Z) | 2026 Week 5 (first run 06:29Z) |
 
 **M3b needs late-week runs.** Its rule uses the injury designation from **our**
 capture of the official report, timestamped by our retrieval. Game-status
@@ -129,9 +130,44 @@ designations for Sunday games appear in the Friday report. Only a run made after
 that (Saturday, or Sunday morning) and before kickoff can apply hypothesis D to
 Sunday games.
 
+**M4 uses the same injury captures, with two extra rules** (`live_injury_detail()`):
+- A team's target-week rows count only once its **final** report is out, meaning the
+  team-week carries at least one game designation. Earlier in the week the rows are
+  practice-only reports, a state the historical data never contains.
+- Earlier weeks' rows in the same capture feed only **lagged** features: designation
+  last week and consecutive weeks listed.
+
+Every run's `run_meta.json` records the exact injury capture file and its SHA-256.
+`scripts/status.R` shows the latest capture and how many upcoming teams' final
+reports it contains.
+
+**Pre-registered M4 test (E14).** `m4_two_stage_v1` is compared with
+`m3_questionable_adjust_v1` and with `m2_espn_cal`, using the same archived runs.
+- Success: the ΔMAE 95% week-bootstrap CI lies below 0, with RMSE no worse.
+- Evaluated at the end of 2026; fewer than 8 completed weeks counts as insufficient.
+- `score_prospective()` includes M3b as a benchmark. It pairs each comparison over the player-weeks both models predicted.
+
 Each lineage is scored only on weeks where it has archived runs. A changed
 challenger becomes a new id (`*_v2`) with its own start. Earlier weeks are
 never regenerated or back-filled. M3 results never enter the M1/M2 primary test.
+
+## Forecast horizons
+
+- **`standard_pregame`** is the official record: `data/archive/predictions/` and
+  `archive/prediction_manifest.csv`. A run counts for a game if it was made before
+  that game's kickoff, with an ESPN snapshot captured before kickoff.
+- **`late_pregame`** is OPTIONAL and **not run by default**
+  (`Rscript scripts/weekly_run.R <season> <week> --late-pregame`).
+  - It is meant for runs after the official game-day inactives (about 90 minutes
+    before kickoff) and before kickoff.
+  - It uses its own root `data/archive/predictions_late_pregame/` and its own manifest
+    `archive/prediction_manifest_late_pregame.csv`.
+  - It is never mixed with, or compared as equivalent to, the standard record.
+  - It exists because M4 found that, of all Questionable WRs, 19–51% are inactive
+    by practice group. Historical ESPN values already absorb this, but a pre-inactive snapshot does not (E13).
+- Inactives for 1 pm ET games are announced at about 11:30 ET. A standard Sunday run
+  made **before** that stays clearly pre-inactive. It remains a valid standard run
+  either way, because only kickoff time matters.
 
 ## Guardrails
 

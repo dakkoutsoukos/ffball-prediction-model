@@ -1,0 +1,351 @@
+---
+title: "Milestone 4 — Availability intelligence and opportunity modeling"
+subtitle: "WR weekly PPR projections vs calibrated ESPN and the M3b Questionable rule"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(targets)
+library(dplyr)
+library(ggplot2)
+suppressMessages(tar_source("R"))
+cfg <- tar_read(config)
+fmt <- function(df, digits = 3) knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+PAL <- c("#2a78d6", "#eb6834", "#1baf7a")
+INK <- "#52514e"
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        axis.text = element_text(colour = INK), plot.title.position = "plot",
+        legend.position = "top", legend.justification = "left")
+dev <- tar_read(m4_dev_eval)
+c19 <- tar_read(m4_check_2019)
+c24 <- tar_read(m4_check_2024)
+dec <- tar_read(m4_decision)
+cmp <- function(ev, m, b, s = "all") filter(ev$comparisons, model == m, baseline == b, subset == s)
+d <- function(ev, m, b, s = "all") sprintf("%+.4f [%+.4f, %+.4f]", cmp(ev, m, b, s)$mae_diff, cmp(ev, m, b, s)$ci_low,
+                                            cmp(ev, m, b, s)$ci_high)
+LABELS <- c(B0 = "B0 calibrated ESPN (m2_espn_cal)", B1 = "B1 M3b Questionable x 0.91", K1 = "K1 practice-refined rule",
+            K2 = "K2 two-stage availability (M4 primary)", K3 = "K3 availability-adjusted targets",
+            K4 = "K4 target-disagreement blend")
+```
+
+## Summary
+
+```{r summary-status, results = "asis"}
+man <- readr::read_csv(PREDICTION_MANIFEST, col_types = readr::cols(.default = "c"))
+ver <- verify_prediction_archive()
+sv <- verify_snapshot_archive()
+cat(sprintf("- Archived prospective runs: **%d** (weeks %s); hash-verified: **%s**. ESPN snapshots: **%d**; verified: **%s**.\n",
+            nrow(man), paste(sort(unique(man$week)), collapse = ", "), all(ver$verified), nrow(sv),
+            all(sv$parquet_ok & sv$raw_ok)))
+cat(sprintf("- Frozen lineages: %s. The new M4 lineage is `m4_two_stage_v1` (primary) and `m4_practice_rule_v1`.\n",
+            paste(toupper(frozen_lineages()), collapse = ", ")))
+cat(sprintf("- Fresh 2019 check: M4 primary vs calibrated ESPN **%s**; vs M3b **%s**.\n",
+            d(c19, "K2", "B0"), d(c19, "K2", "B1")))
+cat("- **Outcome: between best-case and moderate success.** A two-stage availability model passed every pre-registered criterion and is frozen. Its edge over the simple M3b rule is consistent in sign but not statistically secure, and 2026 has no completed prospective week yet.\n")
+```
+
+Protocol (docs/milestone4_plan.md; experiment log E12–E14):
+- **Development** was 2020–2023: every parameter was derived there.
+- **2019** was the fresh primary check, never evaluated before.
+- **2024** was a contaminated secondary check.
+- **2025** was excluded (no injury timestamps).
+- **2026** is prospective only.
+- The parameters were committed and pushed (39b8059) **before** the 2019/2024 checks ran, once.
+
+## A. Did the prospective record remain intact?
+
+```{r a-integrity}
+man |>
+  left_join(select(ver, run_id, verified), by = "run_id") |>
+  transmute(run_id, week, lineages, n_rows, predicted_at_utc, first_kickoff_utc,
+            git_commit = substr(git_commit, 1, 7), verified) |>
+  knitr::kable()
+off <- official_predictions(ver)
+st26 <- clean_player_stats(latest_live_file("player_stats", 2026), read_scoring_rules(cfg$scoring_system))
+tg26 <- clean_team_games(latest_live_file("schedules", 2026))
+pros <- score_prospective(off, st26, filter(tg26, week >= 5))
+fp <- c(M1 = tar_read(m1_fingerprint_check)$status, M2 = tar_read(m2_fingerprint_check)$status,
+        M3 = tar_read(m3_fingerprint_check)$status, M3b = tar_read(m3b_fingerprint_check)$status,
+        M4 = tar_read(m4_fingerprint_check)$status)
+```
+
+- **Completed prospective weeks: `r pros$weeks_complete`.** Week 5 kicks off 2026-10-09 00:15 UTC.
+- Frozen-model fingerprints: `r paste(names(fp), fp, sep = " ", collapse = "; ")`.
+- M1–M3b were not modified. M4 is a new lineage with a new registry. Its record
+  starts with the Week-5 run made after its freeze (06:29Z), which all five lineages share.
+- Run 06:29Z supersedes the earlier Week-5 runs as the official prediction, because
+  it is the latest before kickoff. It also includes the Monday ATL–NO game, which was
+  still unfinished at 03:44Z and is now final.
+
+## B. What did practice and injury trajectories add?
+
+**Fields.** One final row per player-week, 2017–2024:
+- designation (Out / Doubtful / Questionable / none = listed only);
+- final practice status;
+- primary injury, grouped broadly;
+- `date_modified`, the only timestamp.
+
+There is **no within-week practice sequence** historically. 2026 captures can add
+one prospectively, but no model uses it.
+
+```{r b-coverage}
+cov <- tar_read(injury_coverage)
+cd <- tar_read(m4_coverage_detail)
+cov |> left_join(cd$team_weeks, by = "season") |> left_join(cd$players, by = "season") |>
+  rename(pregame_valid_rows = valid, team_weeks_without_valid_report = without_valid_report,
+         WRs_listed = players) |>
+  fmt(2)
+```
+
+**Missing states are kept distinct** in the evaluation frame. They are not all "healthy":
+
+```{r b-states}
+fmt(cd$report_state)
+```
+
+**Timing validity.**
+- A row is used only if its own timestamp precedes the team's kickoff. The 2017–2020
+  stamps are US Pacific wall-clock times, corrected on both sides of daylight-saving changes.
+- Trajectory features (designation last week, consecutive weeks listed) use only
+  reports for **earlier** team games.
+- `check_injury_leakage()` corrupts future reports, adds post-kickoff reports and
+  corrupts realised outcomes. On `r length(tar_read(leakage_check_m4)$weeks)` random
+  real weeks none of the M4 features changed.
+- The planted leaks are all detected: next week's designation, an untimed
+  report, and realised active status.
+
+```{r b-groups}
+tar_read(m4_groups) |> fmt(3)
+```
+
+Development (2020–2023) shortfall against calibrated ESPN by group:
+- Questionable after a DNP: −30%.
+- Questionable after a limited practice: −19%.
+- Questionable after a full practice: −8%.
+- Listed with no designation: −4%.
+- Not listed: +1.6%.
+
+Body part adds nothing (`m4_body`): the Questionable shortfall is −17% to −19% in every body group.
+
+## C. Why does Questionable matter?
+
+```{r c-decomp}
+dec_tab <- tar_read(m4_decomposition)
+pop <- tar_read(m4_availability_pop)
+dec_tab |> left_join(select(pop, group, n_listed, p_active_all), by = "group") |>
+  select(group, n_espn_pop = n, p_active_espn_pop = p_active, n_all_listed = n_listed, p_active_all,
+         pts_ratio_all, tgt_ratio_if_active, pts_per_tgt_if_active, espn_pts_per_tgt) |>
+  fmt(3)
+```
+
+```{r c-plot, fig.width = 7, fig.height = 3.4}
+pd <- pop |>
+  filter(group %in% c("Q_DNP", "Q_LP", "Q_FP", "listed_DNP_LP", "listed_FP")) |>
+  select(group, `All listed WRs` = p_active_all, `Inside ESPN's historical projections` = p_active_in_espn_pop) |>
+  tidyr::pivot_longer(-group, names_to = "population", values_to = "p") |>
+  mutate(group = factor(group, levels = c("Q_DNP", "Q_LP", "Q_FP", "listed_DNP_LP", "listed_FP")))
+ggplot(pd, aes(p, group, colour = population)) +
+  geom_line(aes(group = group), colour = "#d3d1cc", linewidth = 2) +
+  geom_point(size = 3.2) +
+  geom_text(aes(label = scales::percent(p, 1), hjust = ifelse(population == "All listed WRs", 1.35, -0.35)),
+            size = 3, colour = INK, show.legend = FALSE) +
+  scale_colour_manual(values = PAL[1:2], name = NULL) +
+  scale_x_continuous(labels = scales::percent, limits = c(0.4, 1.05)) +
+  labs(x = "Share active on game day (development 2020–23)", y = NULL,
+       title = "Historical ESPN projections already exclude most inactive Questionable WRs") +
+  theme_report
+```
+
+Questionable has a different meaning in history and in our prospective record.
+
+1. **Inactive probability.**
+   - Of *all* Questionable WRs, only 49% (Q + DNP), 76% (Q + Limited) and 81%
+     (Q + Full) are active on game day.
+   - Historical ESPN projections are final values. They set most inactive players to 0,
+     which removes them from the evaluation population. **Inside** that population,
+     93–98% play.
+   - Historically, therefore, availability explains only about 2–4 points of the shortfall.
+2. **Reduced opportunity if active.** Active Questionable WRs earn about **9% fewer
+   targets** than calibrated ESPN expects (Q + Limited −9%, Q + Full −12%, Q + DNP −7%).
+3. **Reduced efficiency if active.** Points per target also falls: 1.58 vs ESPN's
+   implied 1.76 for Q + Limited, and **1.36 vs 1.79 after a DNP**.
+
+**Conclusion.** In the historical evaluation, the M3b effect is a **workload and
+efficiency** effect of playing hurt. In the prospective record, our snapshots come
+before inactives. A Questionable player who is ruled out scores 0, so the true
+prospective shortfall should be larger than history shows. This is why the
+`late_pregame` horizon plumbing exists (docs/prospective_protocol.md). History cannot
+validate that component, because inactive players have no pre-inactive ESPN projection.
+
+## D. Can we predict targets better?
+
+```{r d-targets}
+tar_read(m4_target_table) |>
+  mutate(target_model = factor(target_model, c("espn_raw", "cal_targets", "our_targets", "blend", "availability_adjusted"))) |>
+  arrange(rows, block, target_model) |>
+  fmt(3)
+```
+
+- **ESPN's projected targets are the benchmark to beat.** Calibrating them helps a
+  little, because ESPN over-projects targets by about 0.1.
+- **Our independent target model is clearly worse than ESPN** (MAE about +0.12
+  targets in every block).
+- On injury-affected rows, **availability-adjusted calibrated targets are the best
+  target predictor** in development, 2019 and 2024. Their bias also shrinks:
+
+  | | calibrated ESPN | availability-adjusted |
+  |---|---|---|
+  | bias, development | +0.43 | +0.22 |
+  | bias, 2019 | +0.61 | +0.41 |
+
+- Yet K3, which converts those adjusted targets to points at ESPN's own rates, is
+  **worse than M3b in points**. The opportunity loss is real, but it is only part of
+  the points loss. Efficiency matters too (section C).
+
+## E. Does target disagreement contain signal?
+
+```{r e-disagree}
+dis <- tar_read(m4_disagreement)
+fmt(dis$by_season, 3)
+```
+
+- When our target model disagrees with calibrated ESPN, realised targets move
+  **w = `r round(dis$w, 2)`** of the way toward ours. By season: 0.16, 0.27, 0.28, 0.30.
+- That signal is stable but small. As a points blend on top of M3b (K4), it
+  **improves RMSE** (development 6.0745 vs 6.0884) and the top-60 MAE, but **worsens
+  all-WR MAE** in development, 2019 and 2024.
+- K4 failed the pre-registered criteria and is closed. In the target table above, the
+  blend has the best RMSE but not the best MAE.
+
+## F. Does availability improve calibrated ESPN?
+
+```{r f-main}
+blocks <- list(`development 2020–23` = dev, `2019 fresh` = c19, `2024 contaminated` = c24)
+purrr::imap(blocks, function(ev, nm) {
+  filter(ev$comparisons, subset == "all", baseline == "B0") |>
+    transmute(block = nm, model = LABELS[model], params, n, mae_diff, ci_low, ci_high, weeks_better, rmse_model, rmse_baseline)
+}) |> purrr::list_rbind() |> fmt(4)
+```
+
+```{r f-plot, fig.width = 7, fig.height = 3.4}
+sea <- bind_rows(dev$seasonal, c19$seasonal, c24$seasonal) |>
+  filter(baseline == "B0", model %in% c("B1", "K1", "K2")) |>
+  mutate(model = factor(LABELS[model], LABELS[c("B1", "K1", "K2")]))
+ggplot(sea, aes(season, mae_diff, colour = model)) +
+  annotate("rect", xmin = 2019.5, xmax = 2023.5, ymin = -Inf, ymax = Inf, fill = "#f2f1ee") +
+  annotate("text", x = 2021.5, y = 0.004, label = "development (parameters fitted here)", size = 3, colour = INK) +
+  geom_hline(yintercept = 0, colour = "#9b9a96", linewidth = 0.4) +
+  geom_line(linewidth = 0.7) + geom_point(size = 2.6) +
+  scale_colour_manual(values = PAL, name = NULL) +
+  scale_x_continuous(breaks = 2019:2024) +
+  labs(x = NULL, y = "ΔMAE vs calibrated ESPN (points)",
+       title = "Every availability rule beats calibrated ESPN in every season, 2019–2024") +
+  guides(colour = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme_report
+```
+
+**Yes.** The M4 primary model improves calibrated ESPN:
+- 2019 (fresh): `r d(c19, "K2", "B0")`
+- development: `r d(dev, "K2", "B0")`
+- 2024: `r d(c24, "K2", "B0")`
+
+All three intervals exclude 0, and RMSE is better in all three blocks. The
+improvement is about 0.4–0.6% of MAE overall, concentrated on about 8% of WRs.
+
+On injury-affected rows (n, MAE, bias, mean adjustment):
+
+```{r f-affected}
+purrr::imap(blocks, function(ev, nm) mutate(ev$affected, block = nm, model = LABELS[model])) |>
+  purrr::list_rbind() |> select(block, everything()) |> fmt(3)
+```
+
+## G. Does M4 improve upon the simple M3b rule?
+
+```{r g-vsb1}
+purrr::imap(blocks, function(ev, nm) {
+  filter(ev$comparisons, subset == "all", baseline == "B1") |>
+    transmute(block = nm, model = LABELS[model], params, mae_diff, ci_low, ci_high, weeks_better, rmse_model, rmse_baseline)
+}) |> purrr::list_rbind() |> fmt(4)
+fmt(dec$table, 4)
+```
+
+**Probably yes, but not securely.**
+- `m4_two_stage_v1` beats `Questionable × 0.91`:
+  - development: `r d(dev, "K2", "B1")`
+  - 2019: `r d(c19, "K2", "B1")`
+  - 2024: `r d(c24, "K2", "B1")`
+- It met the pre-registered criteria, but both independent-season intervals touch 0.
+  Its RMSE is slightly worse than M3b's in 2024 (`r round(cmp(c24, "K2", "B1")$rmse_model, 4)` vs
+  `r round(cmp(c24, "K2", "B1")$rmse_baseline, 4)`).
+- Its affected-row bias swings from +0.21 (2019) to −0.51 (2024). It is a stronger
+  correction (about −20% vs −9%) with ten parameters.
+- The practice-status refinement itself (K1 vs M3b) is worth only about −0.002 points.
+  Most of K2's gain is magnitude: M3b's halving shrank a real effect.
+
+The pre-registered prospective test (H-M4, E14) decides. It needs at least 8
+completed 2026 weeks and a CI below 0 against both M3b and calibrated ESPN.
+
+## H. Does the improvement hold for fantasy-relevant WRs?
+
+```{r h-subsets}
+purrr::imap(blocks, function(ev, nm) {
+  filter(ev$comparisons, model %in% c("B1", "K1", "K2"), baseline %in% c("B0", "B1"), model != baseline,
+         subset %in% c("top60", "top36", "top24")) |>
+    transmute(block = nm, subset, model = LABELS[model], baseline, n, mae_diff, ci_low, ci_high, rmse_model, rmse_baseline)
+}) |> purrr::list_rbind() |> fmt(4)
+```
+
+- **Development:** all gains are larger among startable WRs. For example, K2 vs B0
+  is −0.060 in the top 36 and −0.065 in the top 24.
+- **2019 and 2024:** the point estimates keep the sign, but every top-36 and top-24
+  interval includes 0.
+  - In 2019, B1 shows no gain in the top 36. K2 shows −0.014.
+  - In 2024, K2's RMSE in the top 36 and top 24 is **worse** than calibrated ESPN's.
+- Fantasy-relevant evidence is suggestive, not established.
+
+## I. What did NOT work?
+
+| Idea | Result | Evidence |
+|---|---|---|
+| Independent target model | MAE about +0.12 targets worse than ESPN's projected targets in every block | section D |
+| K3: availability through targets only (TDs unchanged) | Beats calibrated ESPN, but loses to M3b in every block: misses the efficiency loss | E13, E14 |
+| K4: target-disagreement blend (w = 0.25) | RMSE better, all-WR MAE worse (2019 +0.013, 2024 +0.023 vs M3b) | E14 |
+| Body-part groups | No difference: −17% to −19% for every group | E13 |
+| Narrow teammate-absence targets | ESPN already moves targets to the remaining WRs, slightly too far (slope −0.50, se 0.25, negative in every season). Closed. | E13 |
+| Practice-status split of Questionable (K1 vs M3b) | Passes the criteria, but worth about 0.002 points: little beyond the label | E14 |
+| Historical identification of P(active) | Impossible from final ESPN values, which exclude inactives | section C |
+| First coding of the decision rule | Omitted the plan's exception and returned K1. Corrected to the committed text before freezing | E14 |
+
+## J. Is there now evidence that our model is better?
+
+```{r j-raw}
+tar_read(m4_raw_comparisons) |>
+  transmute(block, model = LABELS[model], baseline = "raw ESPN", n, mae_diff, ci_low, ci_high, rmse_model, rmse_baseline) |>
+  fmt(4)
+```
+
+1. **Historically: yes, small and replicated.** The availability information
+   improved calibrated ESPN in development, in a fresh season (2019) and in 2024.
+   This is the first M1–M4 signal that replicated in a season never used before. It
+   is a small edge (about 0.5% of MAE) confined to injured WRs.
+2. **Prospectively: no evidence yet.** There are 0 completed 2026 weeks. The test is
+   pre-registered and needs at least 8 weeks.
+3. **Against raw ESPN:** M4 MAE is better in all three blocks, with every interval
+   excluding 0. RMSE is better in development and about equal in 2019 (6.3591 vs
+   6.3595), but **slightly worse in 2024** (6.0387 vs 6.0379). The MAE edge is clear;
+   squared-error dominance is not established.
+4. **Against calibrated ESPN: yes historically.** Intervals exclude 0 in development,
+   2019 and 2024, and RMSE is better in all three. Prospectively, not yet.
+5. **Against the M3b Questionable rule: suggestive only.** The point estimate is about
+   −0.01 in both checks, but the intervals include 0 and 2024 RMSE is slightly worse.
+   If the 2026 record does not confirm it, the simpler M3b rule stays the default
+   injury model.

@@ -150,3 +150,32 @@ test_that("injury leakage check passes M4 features and catches planted leaks", {
   realised <- function(t, rows, team_games) dplyr::mutate(m4_fn(t, rows, team_games), active_now = roster_status == "ACT")
   expect_true("active_now" %in% check_injury_leakage(targets, raw, tg, realised))
 })
+
+test_that("snapshot integrity: corrected reports, ID failures, postponed games, team changes, missing states", {
+  tg <- sched4()
+  rows <- tibble::tibble(
+    season = 2023L, game_type = "REG", team = "KC", week = c(1L, 1L, 1L, 2L),
+    gsis_id = c("a", "a", NA, "b"), position = "WR",
+    # a: Questionable on Friday, "corrected" to Out after kickoff -> the correction must be ignored
+    report_status = c("Questionable", "Out", "Questionable", "Questionable"), practice_status = NA,
+    report_primary_injury = "Knee", practice_primary_injury = NA,
+    date_modified = as.POSIXct(c("2023-09-08 19:00", "2023-09-10 20:00", "2023-09-08 19:00", "2023-09-18 12:00"),
+                               tz = "UTC")
+  )
+  d <- pregame_injury_detail(inj_file(rows), tg)
+  expect_equal(d$designation[d$gsis_id == "a"], "Questionable")
+  expect_equal(injury_coverage_report(d)$no_player_id, 1)          # join failure counted, not dropped silently
+  expect_false("b" %in% d$gsis_id)                                  # stamped after the week-2 kickoff (09-17)
+  # the same week-2 game postponed to 09-19: kickoff comes from the schedule, so the report is now valid
+  moved <- dplyr::mutate(tg, kickoff_utc = dplyr::if_else(week == 2L, as.POSIXct("2023-09-19 00:15", tz = "UTC"), kickoff_utc))
+  expect_true("b" %in% pregame_injury_detail(inj_file(rows), moved)$gsis_id)
+  # team change: a report filed with KC in week 2 is the trajectory of the player now on BUF in week 3
+  tg2 <- dplyr::bind_rows(tg, dplyr::mutate(tg, team = "BUF")) |> dplyr::mutate(home = TRUE)
+  det <- tibble::tibble(season = 2023L, week = 2L, team = "KC", gsis_id = "a", position = "WR",
+                        designation = "Questionable", practice = "LP", body = "lower",
+                        known_at = as.POSIXct("2023-09-15", tz = "UTC"))
+  f <- add_availability_features(tibble::tibble(season = c(2023L, 2023L, 2022L), week = c(3L, 2L, 5L),
+                                                gsis_id = c("a", "z", "a"), team = c("BUF", "KC", "KC")), det, tg2)
+  expect_equal(f$prev_designation[1], "Questionable")
+  expect_equal(f$report_state, c("no_team_report", "not_listed", "source_missing"))
+})

@@ -163,3 +163,44 @@ body_part_questionable <- function(fr, seasons = M4_DEV) {
                      .by = "body") |>
     dplyr::arrange(dplyr::desc(.data$n))
 }
+
+#' Section D: how well is opportunity (targets) predicted? Compares ESPN's raw
+#' projected targets, calibrated ESPN targets, our independent target model,
+#' the disagreement blend (w from development) and the availability-adjusted
+#' calibrated targets (K3 ratios), by evaluation block.
+target_model_table <- function(fr, p) {
+  pg <- m4_param_group(fr$group, unlist(p$pooled_into_Q_pool))
+  a <- unlist(p$k3_target_ratio_adj)[pg]
+  d <- dplyr::mutate(fr,
+    block = dplyr::case_when(.data$season %in% M4_DEV ~ "development 2020-23", .data$season == 2019 ~ "2019 (fresh)",
+                             TRUE ~ "2024 (contaminated)"),
+    espn_raw = dplyr::coalesce(.data$espn_proj_targets, 0),
+    blend = .data$cal_targets + p$k4_w * (.data$our_targets - .data$cal_targets),
+    availability_adjusted = .data$cal_targets * (1 + ifelse(is.na(a), 0, a))
+  )
+  long <- tidyr::pivot_longer(d, c("espn_raw", "cal_targets", "our_targets", "blend", "availability_adjusted"),
+                              names_to = "target_model", values_to = "pred_targets")
+  dplyr::bind_rows(
+    dplyr::mutate(long, rows = "all"),
+    dplyr::mutate(dplyr::filter(long, .data$group %in% M4_ADJ_GROUPS), rows = "injury-affected")
+  ) |>
+    dplyr::summarise(n = dplyr::n(), mae = mean(abs(.data$pred_targets - .data$actual_targets)),
+                     rmse = sqrt(mean((.data$pred_targets - .data$actual_targets)^2)),
+                     bias = mean(.data$pred_targets - .data$actual_targets),
+                     .by = c("block", "rows", "target_model"))
+}
+
+#' Section J: the primary M4 model and M3b against RAW ESPN (paired bootstrap).
+m4_vs_raw <- function(fr, preds, seasons_list = list(development = M4_DEV, `2019` = 2019, `2024` = 2024)) {
+  raw <- dplyr::transmute(fr, .data$season, .data$week, .data$gsis_id, .data$actual, model = "ESPN_raw",
+                          pred = .data$espn_proj)
+  long <- dplyr::bind_rows(raw, dplyr::select(dplyr::filter(preds, .data$model %in% c("B0", "B1", "K2")),
+                                              "season", "week", "gsis_id", "actual", "model", "pred"))
+  purrr::imap(seasons_list, function(s, nm) {
+    d <- dplyr::filter(long, .data$season %in% s)
+    purrr::map(c("B0", "B1", "K2"), ~ pooled_bootstrap(d, .x, "ESPN_raw")) |>
+      purrr::list_rbind() |>
+      dplyr::mutate(block = nm)
+  }) |>
+    purrr::list_rbind()
+}

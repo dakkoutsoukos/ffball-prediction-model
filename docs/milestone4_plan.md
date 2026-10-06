@@ -196,3 +196,21 @@ A candidate is frozen as an M4 challenger **only if all** of the following hold:
 - QB changes, betting lines, and touchdown modelling.
 - Route data; FantasyPros and other terms-restricted sources.
 - Any change to M1, M2, M3 or M3b.
+
+## 15. Outcome (appended 2026-10-06 after execution; the plan above is unchanged)
+
+- The candidate parameters were fixed from 2020–2023 and committed and pushed
+  (39b8059) before the one-time 2019 and 2024 checks (E13, E14).
+- K1 and K2 met every criterion. K3 failed against B1, and K4 failed against both baselines.
+- K2 is better than K1 in both development and 2019, so by the section 10 exception
+  it is the **primary** challenger, `m4_two_stage_v1`. K1 is frozen as the secondary,
+  `m4_practice_rule_v1`. Both are in models/registry/m4.yml.
+- Fresh 2019 check:
+  - K2 vs `m2_espn_cal`: −0.0185 [−0.0347, −0.0009].
+  - K2 vs M3b: −0.011 [−0.022, +0.001].
+  - M3b replicated: −0.0075 [−0.0143, −0.0005].
+- The M4 record starts with the 2026 Week-5 run made at 06:29Z, before kickoff.
+- Live rule added for prospective use: a team's target-week rows count only once its
+  final report (≥ 1 designation) is captured, and earlier weeks feed lagged features
+  only (`live_injury_detail()`).
+- Optional `late_pregame` horizon: built (`--late-pregame`, separate root and manifest), not run.

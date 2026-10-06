@@ -24,6 +24,7 @@ rather than passing if the inputs themselves changed.
 | M2 | models/registry/m2.yml | `m2_espn_cal`, `m2_no_espn`, `m2_espn_aug` | 2026-10-05T22:42Z (parent 9f36579) | rolling holdout 2024–2025 |
 | M3 | models/registry/m3.yml | `m3_role_adjust_v1`, `m3_role_adjust_q20_v1`, `m3_return_adjust_v1`, `m3_combined_v1` | 2026-10-06T00:24Z (parent 7573bdf) | rolling 2024–2025 |
 | M3b | models/registry/m3b.yml | `m3_questionable_adjust_v1`, `m3_questionable_add_v1`, `m3_combined_abd_v1` | 2026-10-06T00:41Z (parent 9401ed0) | rolling 2024 |
+| M4 | models/registry/m4.yml | `m4_two_stage_v1` (primary), `m4_practice_rule_v1` | 2026-10-06T06:26Z (parent e4556f7) | rolling 2019 + 2024 |
 
 **M3 and M3b are rule challengers.** Each is calibrated ESPN, refit weekly by the
 same procedure as `m2_espn_cal`, plus **fixed, pre-registered adjustments** with
@@ -37,6 +38,24 @@ no learned parameters:
 
 The derivations are in experiment log E6 and E9. One-time historical checks are in
 E7 and E10, and they cannot alter the rules.
+
+**M4 availability challengers** (E12–E14) are calibrated ESPN multiplied by a fixed
+availability multiplier. They use the pregame-valid final injury report (designation
+and final practice status) and lagged report history. The groups and parameters are
+in research/m4_candidate_params.yml:
+- They were derived from 2020–2023 only and committed (39b8059) before the 2019 and 2024 checks.
+- Groups with fewer than 100 development rows (Q + DNP, Doubtful) are pooled with all Questionable rows.
+
+| id | multiplier |
+|---|---|
+| `m4_two_stage_v1` (K2, primary) | P̂(active) × r(group). P̂ = logistic(3.533 − 0.752·DNP + 0.058·LP − 3.179·Doubtful − 0.891·returning + 0.430·min(weeks listed, 4)). r = Q 0.83, Q+LP 0.82, Q+FP 0.93, listed-only DNP/LP 0.96 |
+| `m4_practice_rule_v1` (K1) | Q −9%, Q+LP −9%, Q+FP −4%, listed-only DNP/LP −2% |
+
+- Rows with no listing, or listed with full practice and no designation, are not adjusted.
+- Historical checks:
+  - 2019 (fresh): K2 −0.0185 vs `m2_espn_cal` and −0.011 vs M3b.
+  - 2024 (contaminated): K2 −0.022 and −0.009.
+  - Both vs-M3b intervals include 0.
 
 Each lineage also keeps its own **data vintage**:
 - M1 computes features from 2019+ history and trains from 2020.
@@ -85,7 +104,7 @@ Rules that hold throughout:
 
 ## Results so far
 
-See research/experiment_log.md (E1–E5) and reports/milestone2_report.html.
+See research/experiment_log.md (E1–E14) and reports/milestone{2,3,4}_report.html.
 In short:
 - calibration is the only robust gain over raw ESPN;
 - the M2 augmentation model did **not** beat calibrated ESPN on the holdout;

@@ -7,6 +7,44 @@ The current question:
 > Do our football features add **repeatable, prospective** information about weekly
 > **WR** full-PPR scoring beyond a **calibrated** ESPN projection?
 
+## Status: Milestone 4 (availability intelligence and opportunity modeling)
+
+| Item | State |
+|---|---|
+| Prospective record (2026 from Week 5) | ✅ intact. 6 Week-5 runs hash-verified and pushed; all five lineages run since 06:29Z. 0 completed weeks. |
+| Frozen fingerprints M1, M2, M3, M3b, M4 | ✅ identical |
+| Injury / practice features | ✅ pregame-valid final reports 2017–2024 with designation, final practice status, broad body group, listed-only rows, lagged trajectory and explicit missing states. Leakage-tested with planted leaks. |
+| New lineage **M4** | ✅ `m4_two_stage_v1` (primary) and `m4_practice_rule_v1`, frozen after pre-registered checks (log E12–E14) |
+| `reports/milestone4_report.html` | rendered by the pipeline (sections A–J) |
+
+**What Questionable means.**
+- Historical ESPN projections are post-inactive. Inside them, 93–98% of Questionable
+  WRs play, earning about 9% fewer targets and fewer points per target. The M3b effect
+  is therefore workload and efficiency.
+- Of *all* Questionable WRs, 24–51% are inactive. Our pre-inactive snapshots face that
+  as well, so the prospective shortfall should be larger.
+
+**Pre-registered checks** (ΔMAE, all ESPN-projected WRs; parameters fixed from
+2020–2023 and committed before the checks):
+
+| | development 2020–23 | **2019 (fresh)** | 2024 (contaminated) |
+|---|---|---|---|
+| M3b `Questionable × 0.91` vs calibrated ESPN | −0.014 [−0.019, −0.009] | **−0.0075 [−0.014, −0.001]** | −0.013 [−0.020, −0.005] |
+| **M4 `m4_two_stage_v1`** vs calibrated ESPN | −0.027 [−0.038, −0.018] | **−0.019 [−0.035, −0.001]** | −0.022 [−0.040, −0.006] |
+| M4 vs M3b | −0.013 [−0.020, −0.008] | −0.011 [−0.022, +0.001] | −0.009 [−0.020, 0.000] |
+
+- M3b replicated in a season never used before.
+- M4 beats calibrated ESPN with intervals below 0 in every block, and with better RMSE.
+- Against M3b, M4 is consistently better but not securely: the intervals touch 0, and its 2024 RMSE is slightly worse.
+- The 2026 record decides (H-M4, at least 8 weeks).
+
+**Negative findings:**
+- Our independent target model is worse than ESPN's projected targets.
+- Availability through targets alone loses to M3b, because efficiency matters too.
+- The target-disagreement blend helps RMSE, not MAE.
+- Body part adds nothing.
+- ESPN already redistributes targets for absent teammates.
+
 ## Status: Milestone 3 (new pregame information; narrow pre-registered hypotheses)
 
 | Item | State |
@@ -108,11 +146,17 @@ On a clean, committed tree, before each slate's kickoff (Thu ~17:00 ET, Sun
 ~08:00/11:30 ET, Mon ~17:00 ET):
 
 ```bash
-Rscript scripts/weekly_run.R 2026 <week> m1,m2      # snapshot ESPN, refresh live data, archive predictions
+Rscript scripts/weekly_run.R                        # next week, ALL frozen lineages: snapshot ESPN, refresh live data, archive
+Rscript scripts/status.R                            # kickoffs, coverage, injury-report readiness, hashes, push state
 git add archive/*.csv && git commit -m "Prospective run 2026 W<week>" && git push   # BEFORE kickoff
 ```
 
 The latest run before each game's kickoff is the official prediction for that game.
+M3b and M4 need a run **after** a team's final injury report, which comes Friday
+for Sunday games, so make a Saturday or early-Sunday run.
+
+`--late-pregame` archives a separate, optional post-inactive horizon. It is never
+mixed with the standard record (docs/prospective_protocol.md).
 After the season, `score_prospective()` scores only archived, hash-verified runs
 (R/live/prospective_eval.R). Back up `data/archive/` and `data/snapshots/`
 privately: they hold ESPN-derived data and are not in Git.
@@ -250,14 +294,17 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 2. **ESPN history was retrieved after the fact.** Wayback captures support final-pregame
    values for 2019, 2023 and 2026, but 2020–2022 and 2024–2025 could not be checked
    directly.
-3. **No repeatable edge over calibrated ESPN.** Neither development (2020–23) nor
-   holdout (2024–25) evidence supports one. All historical seasons have now been
-   used for development or holdout, so only 2026 is clean.
+3. **Only a small, injury-specific historical edge over calibrated ESPN** (M3b/M4,
+   about 0.3–0.6% of MAE, confined to listed WRs). It has replicated in the fresh
+   2019 check. The general feature models (M2) showed no edge. 2019 has now been
+   used, so only 2026 is clean.
 4. **The prospective record depends on running the weekly script.** It has 0
    completed weeks so far. If runs are missed, those weeks simply have no
    prospective record.
-5. Betting lines (closing) and injury reports (untimestamped) are excluded from
-   M2. Only the frozen `m1_espn_plus` uses lines.
+5. Closing betting lines are excluded from M2; only the frozen `m1_espn_plus` uses them.
+   Injury reports are used only through their own pregame timestamps (M3b, M4). 2025
+   has none, so it cannot be checked. Historical ESPN values are post-inactive, so the
+   availability component cannot be validated historically.
 6. There are no route or participation features. That data is published only after
    each season. QB context is lagged one game by design.
 7. 20 ESPN-projected WR rows (0.13%) are excluded because of an ambiguous ID (two "DJ Turner"s).
@@ -268,10 +315,12 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
 
 1. **Keep the 2026 prospective record running** (weekly runbook above) and score it
    once at season end with the pre-registered test.
-2. **M3 challenger (pre-register first):** test whether ESPN *over-reacts* to recent
-   role changes and to players returning from absence. This is the exploratory
-   residual finding in E5. Test it prospectively with a constrained model, such as a
-   few signed, shrunk adjustments to calibrated ESPN, rather than a flexible residual model.
+2. **M5 (recommended):** prospective availability.
+   - Score H-M4 and H-D on the 2026 record.
+   - Quantify, from our own archived snapshots and captures, how much of the
+     Questionable shortfall is inactivity at our forecast time.
+   - Consider running the optional `late_pregame` horizon.
+   - Do not add complexity unless 2026 supports M4 over M3b.
 3. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
 4. Extend to RB/TE/QB.
 5. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.

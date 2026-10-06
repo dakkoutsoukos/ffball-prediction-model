@@ -105,6 +105,20 @@ add_availability_features <- function(targets, detail, team_games) {
   })
   out$prev_designation <- purrr::map_chr(prev, "prev_designation")
   out$weeks_listed_streak <- purrr::map_int(prev, "weeks_listed_streak")
+  # Missing states are kept distinct (rules treat all non-listed rows alike,
+  # but diagnostics must not call them all "healthy"):
+  #   listed / not_listed (the team's valid report exists, player not on it) /
+  #   no_team_report (no valid row for the team-week: missing, late, or a live
+  #   final report not out yet) / source_missing (no valid report that season).
+  tw <- dplyr::mutate(dplyr::distinct(detail, .data$season, .data$week, .data$team), .tw = TRUE)
+  out <- dplyr::left_join(out, tw, by = c("season", "week", "team"))
+  out$report_state <- dplyr::case_when(
+    out$listed ~ "listed",
+    !out$season %in% detail$season ~ "source_missing",
+    out$.tw %in% TRUE ~ "not_listed",
+    TRUE ~ "no_team_report"
+  )
+  out$.tw <- NULL
   out
 }
 
@@ -112,6 +126,28 @@ add_availability_features <- function(targets, detail, team_games) {
 injury_coverage_report <- function(detail) {
   attr(detail, "coverage") |>
     tidyr::pivot_wider(names_from = "status", values_from = "rows", values_fill = 0)
+}
+
+#' Richer coverage diagnostics (plan section 11; prompt: by season, week, team,
+#' player, designation, practice status; missing states kept distinct).
+injury_coverage_detail <- function(detail, team_games, m4_full) {
+  wr <- dplyr::filter(detail, .data$position == "WR")
+  list(
+    designation_by_practice = dplyr::count(wr, .data$season, .data$designation, .data$practice),
+    team_weeks = team_games |>
+      dplyr::filter(.data$season %in% unique(detail$season)) |>
+      dplyr::distinct(.data$season, .data$week, .data$team) |>
+      dplyr::left_join(dplyr::count(detail, .data$season, .data$week, .data$team, name = "rows"),
+                       by = c("season", "week", "team")) |>
+      dplyr::summarise(team_weeks = dplyr::n(), without_valid_report = sum(is.na(.data$rows)), .by = "season"),
+    per_week = dplyr::count(wr, .data$season, .data$week, name = "wr_rows") |>
+      dplyr::summarise(min_wr_rows = min(.data$wr_rows), median_wr_rows = stats::median(.data$wr_rows),
+                       max_wr_rows = max(.data$wr_rows), .by = "season"),
+    players = dplyr::summarise(wr, players = dplyr::n_distinct(.data$gsis_id),
+                               mean_weeks_listed = dplyr::n() / dplyr::n_distinct(.data$gsis_id), .by = "season"),
+    report_state = dplyr::count(m4_full, .data$season, .data$report_state) |>
+      tidyr::pivot_wider(names_from = "report_state", values_from = "n", values_fill = 0)
+  )
 }
 
 #' Pre-registered injury groups (plan section 9): designation x final practice status.

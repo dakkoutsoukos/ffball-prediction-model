@@ -911,3 +911,41 @@ The checks ran once at about 06:25Z, after E13 and the parameter file were commi
 1. Our snapshots precede game-day inactives, so K2's P(active), learned on the post-inactive ESPN population (about 0.97), probably under-states prospective inactivity. If K2 is wrong prospectively, it is most likely too mild.
 2. Live rows of the target week are used only after the team's final report is out (at least one designation; `live_injury_detail`). Thursday runs therefore leave Sunday games unadjusted, as with M3b.
 3. Earlier weeks of the live capture feed only lagged features.
+
+---
+
+## 2026-10-06 — E15: M4 frozen; first prospective run; live and operational rules
+
+**Freeze.** models/registry/m4.yml was written at 06:26Z (parent e4556f7).
+- It holds `m4_two_stage_v1` (primary) and `m4_practice_rule_v1`.
+- The registry rebuilds the 2019 + 2024 predictions, which equal the candidate study
+  to within 1e-9 (9,766 rows; target `m4_frozen_matches_candidates`).
+- The fingerprint is models/fingerprints/m4_checks_2019_2024.csv.
+- The M1, M2, M3 and M3b fingerprints remain identical.
+
+**First prospective run.** Run 20261006T062916Z (2026 W5) covers all five lineages and
+was pushed about 66 hours before kickoff.
+- It reused the 03:44Z ESPN snapshot, so M4 made no ESPN requests.
+- The Monday ATL–NO game had been flagged unfinished at 03:44Z and is final in this
+  run. This run supersedes the earlier ones as the official W5 prediction for every lineage.
+- No team's Week-5 final injury report exists yet, so M3b and M4 currently equal
+  calibrated ESPN for W5. A run after Friday's reports is needed for them to act.
+
+**Live rules** (written before any 2026 outcome; `live_injury_detail()`):
+- Target-week rows count only after the team's final report (≥ 1 designation) is in
+  our capture.
+- Earlier weeks feed lagged features only.
+- Historically, about 2% of team-weeks have listings without any designation.
+
+**Evaluation tooling.**
+- `score_prospective()` now includes `m3_questionable_adjust_v1` as a benchmark.
+- It pairs each comparison over the player-weeks both models predicted, so a later
+  lineage never shrinks the comparison set of an earlier one.
+
+**Optional `late_pregame` horizon.**
+- Plumbing only: `--late-pregame`, a separate archive root and manifest, and `horizon`
+  recorded in `run_meta.json`.
+- Not run. If it is ever used, it gets its own analysis and is never pooled with
+  `standard_pregame`.
+
+**Influence on later choices.** None of E13–E15 used a 2026 outcome.

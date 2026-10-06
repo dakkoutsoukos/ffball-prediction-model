@@ -10,6 +10,19 @@
 PREDICTION_MANIFEST <- "archive/prediction_manifest.csv"
 SNAPSHOT_MANIFEST <- "archive/espn_snapshot_manifest.csv"
 
+# Forecast horizons are archived separately and never compared as equivalent
+# (docs/prospective_protocol.md):
+#   standard_pregame - the official record: runs before each slate, ESPN
+#                      snapshot taken before game-day inactives;
+#   late_pregame     - OPTIONAL, not run by default: runs after the official
+#                      inactives (about 90 minutes before kickoff) and before
+#                      kickoff, with its own archive root and manifest.
+FORECAST_HORIZONS <- list(
+  standard_pregame = list(archive_root = "data/archive/predictions", manifest = PREDICTION_MANIFEST),
+  late_pregame = list(archive_root = "data/archive/predictions_late_pregame",
+                      manifest = "archive/prediction_manifest_late_pregame.csv")
+)
+
 #' Current commit and whether tracked CODE differs from it. The append-only
 #' manifests under archive/ are excluded: a run legitimately appends to them.
 git_state <- function() {
@@ -242,7 +255,9 @@ m4_live_frames <- function(reg, inputs, targets, cfg) {
 #' week with every requested frozen lineage, archive immutably, append the
 #' manifest. Requires a clean git tree so predictions map to a commit.
 run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
-                            require_clean_git = TRUE, archive_root = "data/archive/predictions") {
+                            require_clean_git = TRUE, horizon = "standard_pregame",
+                            archive_root = FORECAST_HORIZONS[[horizon]]$archive_root) {
+  horizon <- match.arg(horizon, names(FORECAST_HORIZONS))
   git <- git_state()
   if (require_clean_git && !isFALSE(git$dirty)) {
     cli::cli_abort("Official runs need a clean git tree (commit first) so predictions map to a commit.")
@@ -283,7 +298,7 @@ run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
   preds <- dplyr::mutate(preds, !!!stamp_cols)
   pred_path <- write_once(file.path(dir, "predictions.parquet"), function(tmp) arrow::write_parquet(preds, tmp))
   meta <- c(stamp_cols, list(
-    season = season, week = week, lineages = lineages, git_dirty = git$dirty,
+    season = season, week = week, horizon = horizon, lineages = lineages, git_dirty = git$dirty,
     unfinished_earlier_games = paste(inputs$unfinished_games$season, inputs$unfinished_games$week,
                                      inputs$unfinished_games$team, sep = "-"),
     # exact frozen definitions used (their hashes are covered by run_meta_sha256)
@@ -306,6 +321,6 @@ run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
     snapshot_captured_at_utc = stamp_cols$snapshot_captured_at_utc, snapshot_sha256 = stamp_cols$snapshot_sha256,
     predictions_sha256 = sha256_file(pred_path), run_meta_sha256 = sha256_file(meta_path),
     git_commit = git$commit
-  ), PREDICTION_MANIFEST)
+  ), FORECAST_HORIZONS[[horizon]]$manifest)
   list(path = pred_path, meta = meta, predictions = preds)
 }

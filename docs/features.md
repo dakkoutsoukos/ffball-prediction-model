@@ -121,6 +121,28 @@ Measured signal (descriptive ablations on the development folds) is in
   roofs are decided near kickoff, so they are excluded), and week of season.
 - **Point-in-time.** All known when the schedule is published. **No betting lines.**
 
+## Milestone 4 availability features (R/features/availability.R)
+
+They are used only by the M4 lineage. They are built from the pregame-valid
+**final** weekly injury report: the row's own timestamp must precede the team's
+kickoff, and no within-week practice sequence exists historically.
+
+| Feature | Definition | Timing |
+|---|---|---|
+| `designation` | Out / Doubtful / Questionable / Note / `listed_only` / none | this week's final report, stamped before kickoff |
+| `practice` | final practice status DNP / LP / FP | same |
+| `body` | broad group: lower / upper / head / non_injury / other (exploratory only; no signal) | same |
+| `group` | designation × practice (Q_DNP, Q_LP, Q_FP, Q_other, D, listed_DNP_LP, listed_FP, other_listed, not_listed) | same |
+| `prev_designation` | the player's designation for the team's previous game | earlier reports only |
+| `weeks_listed_streak` | consecutive previous team games the player was on the report | earlier reports only |
+| `report_state` | listed / not_listed / no_team_report / source_missing (diagnostic; missing ≠ healthy) | same |
+| `team_games_missed` | M3 absence feature, used as "returning" | schedule + earlier appearances |
+
+Leakage tests: `check_injury_leakage()` checks that future reports, post-kickoff
+reports and realised outcomes never change these features. It is tested with
+planted leaks (next week's designation, an untimed report, realised active
+status) and run on six random real weeks by the pipeline (`leakage_check_m4`).
+
 ## Excluded, with reasons
 
 | Candidate | Why excluded |

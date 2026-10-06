@@ -7,6 +7,9 @@
 #   options: --no-snapshot   reuse the latest ESPN snapshot (no ESPN request)
 #            --commit        also make a LOCAL git commit of archive/*.csv
 #                            (pushing is always left to you)
+#            --late-pregame  OPTIONAL second forecast horizon, run after the official
+#                            inactives (~90 min before kickoff). Archived under its own
+#                            root and manifest; never mixed with the standard record.
 #
 # Run before each slate's kickoffs (ET): Thu ~17:00, Sun ~08:00 (if an
 # international game) and ~11:30, Mon ~17:00. The latest run before each
@@ -48,10 +51,18 @@ if (!"--no-snapshot" %in% flags) {
   cli::cli_alert_success("ESPN snapshot {.file {basename(snap)}}")
 }
 invisible(fetch_espn_completed_weeks(season, tg, enabled = isTRUE(cfg$espn$enabled), pause = cfg$espn$request_pause_seconds))
-res <- run_prospective(season, week, lineages)
+horizon <- if ("--late-pregame" %in% flags) "late_pregame" else "standard_pregame"
+if (horizon == "late_pregame") {
+  nxt0 <- ko$kickoff_utc[!ko$started][1]
+  if (as.numeric(difftime(nxt0, now, units = "mins")) > 120) {
+    cli::cli_alert_warning("late_pregame runs belong in the ~90 minutes after inactives, before kickoff; next kickoff is {fmt_utc(nxt0)}.")
+  }
+}
+res <- run_prospective(season, week, lineages, horizon = horizon)
 
 # --- verify and report ------------------------------------------------------------------
-ver <- verify_prediction_archive()
+hz <- FORECAST_HORIZONS[[horizon]]
+ver <- verify_prediction_archive(hz$manifest, hz$archive_root)
 ok <- ver$verified[ver$run_id == res$meta$run_id]
 cli::cli_alert_success("Archived {nrow(res$predictions)} predictions ({length(unique(res$predictions$model_id))} models, {res$meta$targets} WRs)")
 cli::cli_text("  {.file {res$path}}")
@@ -60,8 +71,8 @@ nxt <- ko$kickoff_utc[!ko$started][1]
 cli::cli_alert_info("Next kickoff: {fmt_utc(nxt)} ({round(as.numeric(difftime(nxt, Sys.time(), units = 'hours')), 1)} h)")
 
 if ("--commit" %in% flags) {
-  system2("git", c("add", "archive/prediction_manifest.csv", "archive/espn_snapshot_manifest.csv"))
-  system2("git", c("commit", "-q", "-m", shQuote(sprintf("Prospective run %d W%d (%s)", season, week, paste(lineages, collapse = "+")))))
+  system2("git", c("add", hz$manifest, "archive/espn_snapshot_manifest.csv"))
+  system2("git", c("commit", "-q", "-m", shQuote(sprintf("Prospective run %d W%d (%s%s)", season, week, paste(lineages, collapse = "+"), if (horizon == "late_pregame") ", late_pregame" else ""))))
   cli::cli_alert_success("Committed the manifests locally.")
 }
 cli::cli_alert_warning("Push BEFORE {fmt_utc(nxt)}:{if (!'--commit' %in% flags) '  git add archive/*.csv && git commit -m \"Prospective run\" &&' else ''}  git push")
