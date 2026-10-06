@@ -69,3 +69,21 @@ test_that("M2 registry defines three frozen models built from registry entries",
 test_that("frozen registries refuse to be overwritten", {
   expect_error(write_m2_registry(list(), list(), list(), path = file.path(reg_dir, "m2.yml")), "never overwritten")
 })
+
+test_that("M3 registry freezes exactly the pre-registered rules (experiment log E6)", {
+  reg <- read_registry("m3", reg_dir)
+  expect_setequal(names(reg$models),
+                  c("m3_role_adjust_v1", "m3_role_adjust_q20_v1", "m3_return_adjust_v1", "m3_combined_v1"))
+  r <- reg$models$m3_role_adjust_v1$role_rule
+  expect_equal(c(r$hi, r$lo, r$adj_hi, r$adj_lo), c(1.42, -1.65, -0.30, 0.25))
+  b <- reg$models$m3_return_adjust_v1$return_rule
+  expect_equal(c(b$adj_one, b$adj_two_plus), c(-0.2, -0.4))
+  expect_equal(reg$models$m3_combined_v1$role_rule, reg$models$m3_role_adjust_v1$role_rule)
+  expect_equal(reg$models$m3_combined_v1$calibration, read_registry("m2", reg_dir)$models$m2_espn_cal$calibration)
+  expect_length(registry_specs(reg), 4)
+})
+
+test_that("model ids are unique across all frozen lineages", {
+  ids <- unlist(lapply(c("m1", "m2", "m3"), function(l) names(read_registry(l, reg_dir)$models)))
+  expect_false(anyDuplicated(ids) > 0)
+})
