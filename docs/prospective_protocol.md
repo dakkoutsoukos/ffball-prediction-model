@@ -120,7 +120,14 @@ and pushing remains manual, enable it only deliberately.
 |---|---|---|
 | M1 | `m1_*` (frozen 2026-10-05) | 2026 Week 5 |
 | M2 | `m2_*` (frozen 2026-10-05) | 2026 Week 5 |
-| M3 | `m3_*` (rule challengers, frozen per docs/milestone3_plan.md) | the first week with an archived pre-kickoff run after its freeze |
+| M3 | `m3_role_adjust_v1`, `m3_role_adjust_q20_v1`, `m3_return_adjust_v1`, `m3_combined_v1` (frozen 2026-10-06 00:24Z) | 2026 Week 5 (first run 00:28Z) |
+| M3b | `m3_questionable_adjust_v1`, `m3_questionable_add_v1`, `m3_combined_abd_v1` (frozen 2026-10-06 00:41Z) | 2026 Week 5 (first run 00:43Z) |
+
+**M3b needs late-week runs.** Its rule uses the injury designation from **our**
+capture of the official report, timestamped by our retrieval. Game-status
+designations for Sunday games appear in the Friday report. Only a run made after
+that (Saturday, or Sunday morning) and before kickoff can apply hypothesis D to
+Sunday games.
 
 Each lineage is scored only on weeks where it has archived runs. A changed
 challenger becomes a new id (`*_v2`) with its own start. Earlier weeks are

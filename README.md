@@ -7,6 +7,32 @@ The current question:
 > Do our football features add **repeatable, prospective** information about weekly
 > **WR** full-PPR scoring beyond a **calibrated** ESPN projection?
 
+## Status: Milestone 3 (new pregame information; narrow pre-registered hypotheses)
+
+| Item | State |
+|---|---|
+| M1/M2 prospective record (2026 from Week 5) | ✅ intact. Runs hash-verified and pushed before kickoff. |
+| Weekly operations | ✅ `scripts/status.R` dashboard, safer `scripts/weekly_run.R` (all lineages by default), verified backups via `scripts/backup_archives.R` |
+| New-source feasibility ([docs/source_feasibility.csv](docs/source_feasibility.csv)) | ✅ The 2017–2024 injury reports turned out to be **pregame-timestamped**. Depth charts 2025+ are captured. |
+| Rule challengers M3 (role change, return from absence) and M3b (Questionable designation) | ✅ frozen and pre-registered (log E6, E9). Prospective from Week 5. |
+| `reports/milestone3_report.html` | rendered by the pipeline |
+
+**One-time historical checks** of the frozen rules (vs calibrated ESPN; not confirmatory):
+
+| challenger | season(s) | ΔMAE all WRs [95% CI] | top 36 | RMSE |
+|---|---|---|---|---|
+| Questionable × 0.91 (`m3_questionable_adjust_v1`) | 2024 | **−0.013 [−0.020, −0.006]** | −0.026 (CI < 0) | better |
+| role + return (`m3_combined_v1`) | 2024–25 | −0.005 [−0.009, −0.002] | −0.010 (CI < 0) | better |
+| role change only (`m3_role_adjust_v1`) | 2024–25 | −0.002 [−0.005, +0.001] | −0.009 (CI < 0) | better |
+
+These are the first gains over calibrated ESPN that held outside the seasons used
+to derive them. They are **small**: about 0.1–0.3% of MAE overall, and about 5% on
+the Questionable WRs the rule touches.
+
+**2026 prospective: no completed weeks yet. "Not enough prospective evidence" is the
+current verdict.** Rejected hypothesis: ESPN under-reacting to vacated teammate
+targets was not supported (E9).
+
 ## Status: Milestone 2
 
 | Component | State |
