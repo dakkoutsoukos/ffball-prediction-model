@@ -90,7 +90,7 @@ Measured signal (descriptive ablations on the development folds) is in
 - **Features.**
   - Whether the team's starter changed in its **previous** game.
   - Share of the last 4 games started by the most recent starter.
-  - That QB's dropback-weighted EPA over his last 16 games (shrunk toward 0 by 200 dropbacks) and his dropbacks per game.
+  - That QB's dropback-weighted EPA over the QB's last 16 games (shrunk toward 0 by 200 dropbacks) and dropbacks per game.
 - **Point-in-time.** **This week's starter is never used.** The starter is defined
   as the dropback leader, which is only known after a game, so only the previous
   game's starter enters. A QB benching is therefore seen one week late, which is

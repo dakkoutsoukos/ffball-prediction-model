@@ -254,6 +254,38 @@ list(
                              list(data = list(history_start_season = 2017, min_train_season = 2018)))
   }),
 
+  # ---- Milestone 3: component research track (development seasons only) ----
+  tar_target(m3_component_preds, component_predictions(m2_dev, config$m2), format = "parquet"),
+  tar_target(m3_component_summary, component_summary(m3_component_preds, 1000, config$evaluation$seed)),
+  tar_target(m3_component_decomposition, component_decomposition(m3_component_preds)),
+
+  # ---- Milestone 3: frozen rule challengers, one-time 2024-2025 check -------
+  # Built only once models/registry/m3.yml exists (frozen before this runs).
+  if (file.exists("models/registry/m3.yml")) list(
+    tar_target(m3_registry_file, "models/registry/m3.yml", format = "file"),
+    tar_target(m3_registry, read_registry("m3", dirname(m3_registry_file))),
+    tar_target(m3_frozen_specs, unname(registry_specs(m3_registry)), iteration = "list"),
+    tar_target(m3_full, add_absence_features(m2_full, player_games, team_games)),
+    tar_target(m3_holdout_preds,
+               rolling_folds(m3_full, m3_frozen_specs, unlist(config$m2$holdout_seasons),
+                             m3_registry$data$min_train_season),
+               pattern = map(m3_frozen_specs), format = "parquet"),
+    tar_target(m3_holdout_aligned,
+               m2_aligned(dplyr::bind_rows(m3_holdout_preds,
+                                           dplyr::filter(m2_holdout_preds, model == "m2_espn_cal")), m3_full),
+               format = "parquet"),
+    tar_target(m3_holdout_comparisons, m2_comparisons(
+      m3_holdout_aligned, models = unique(m3_holdout_preds$model), benchmarks = "m2_espn_cal",
+      reps = config$evaluation$bootstrap_reps, seed = config$evaluation$seed)),
+    tar_target(m3_holdout_seasonal, m2_seasonal(m3_holdout_aligned, unique(m3_holdout_preds$model), "m2_espn_cal")),
+    tar_target(m3_fingerprint_check, {
+      path <- m3_registry$fingerprint
+      if (!file.exists(path)) write_fingerprint(m3_holdout_preds, path, raw_manifest, 2017, 2018)
+      check_frozen_fingerprint(m3_holdout_preds, path, raw_manifest,
+                               list(data = list(history_start_season = 2017, min_train_season = 2018)))
+    })
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: its prospective section reads the live archive.

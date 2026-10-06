@@ -162,6 +162,14 @@ m2_live_frames <- function(reg, inputs, targets, cfg) {
   list(train = train, targets = tg)
 }
 
+#' M3 frames: the M2 frames plus the point-in-time absence feature on targets
+#' (the rule challengers' base calibration only needs ESPN components).
+m3_live_frames <- function(reg, inputs, targets, cfg) {
+  f <- m2_live_frames(reg, inputs, targets, cfg)
+  f$targets <- add_absence_features(f$targets, inputs$player_games, inputs$team_games)
+  f
+}
+
 #' One official prospective run: refresh nothing itself (call
 #' refresh_live_data() and snapshot_espn_projections() first), predict the
 #' week with every requested frozen lineage, archive immutably, append the
