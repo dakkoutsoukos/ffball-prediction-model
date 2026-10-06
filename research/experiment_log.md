@@ -737,3 +737,29 @@ game environment. This is recorded as available, not as evidence.
 **Live-run hardening.** An earlier game now counts as complete only if it is
 final **and** its stats are published, checked by `game_id`. The schedule can mark
 a game final before nflverse's player stats include it. A test covers this.
+
+---
+
+## 2026-10-06 — E12: Milestone 4 pre-registration (before any M4 experiment; no 2026 week completed)
+
+The full plan is in docs/milestone4_plan.md and is binding.
+
+**Protocol.**
+- Development: **2020–2023**, the same folds as M2/M3 (contaminated: the Questionable finding came from here).
+- **Primary final check: 2019.** It was never evaluated for any hypothesis.
+- Secondary check: 2024. It is contaminated, because it confirmed D.
+- 2025 is excluded (no injury timestamps).
+- 2026 is prospective only.
+
+**Candidates** (budget 4, plus 2 frozen baselines):
+- B0 `m2_espn_cal`; B1 `m3_questionable_adjust_v1`;
+- K1 practice-refined designation rule;
+- K2 two-stage availability;
+- K3 availability-adjusted targets (TDs unchanged);
+- K4 target-disagreement blend on top of B1.
+
+**Freeze criteria.**
+- vs B0: development pooled CI below 0, and 2019 ΔMAE < 0, with RMSE no worse.
+- vs B1: development pooled ΔMAE < 0 and 2019 ΔMAE < 0, with RMSE no worse.
+- Otherwise M3b remains the injury model.
+- 2024 cannot rescue a candidate that fails 2019.
