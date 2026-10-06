@@ -573,3 +573,30 @@ because the outcome is skewed.
 **Decision.** No change. The frozen rules proceed to the prospective record.
 
 **M3 fingerprint.** Written once (models/fingerprints/m3_holdout_2024_2025.csv) and verified as identical.
+
+---
+
+## 2026-10-06 — E8: Live-run artifact (unfinished earlier game) found and fixed
+
+The first three Week-5 runs were made on Monday evening, while the Week-4
+ATL–NO game was unfinished. They are 20261005T203755Z (M1),
+20261005T224946Z (M1+M2) and 20261006T002822Z (M1+M2+M3).
+
+For the **9 ATL/NO WRs** in each run, the feature engines treated that game as one
+the player **missed**. The game had kicked off, but there was no stat line yet. This
+affects M1/M2 `played_team_prev_game` and the M3 return rule.
+
+It is not leakage: no future information was used. It is a staleness artifact that
+cannot occur historically, where every game is final.
+
+**Fix** (`drop_unfinished_games()`, live runs only, a no-op on history). Any earlier
+game that is not final is removed from every history table and from the
+"previous game" schedule, so it is neither played nor missed. nflverse can
+publish partial in-game stats, so this also prevents partial stats from entering.
+Each run's `run_meta.json` now lists any such games. No frozen model changed.
+
+**Prospective handling.** The three runs stay archived as they are. ATL and NO kick
+off on Sunday, so any later run before Sunday's kickoff, once Week 4 is final,
+supersedes them as the official prediction under the existing latest-valid-run rule.
+If none were made, the archived runs would remain official, and this note documents
+their artifact.

@@ -77,6 +77,47 @@ assemble_live_inputs <- function(cfg, live_season, as_of = Sys.time()) {
   )
 }
 
+#' Live-data hygiene: in a live run, a game before the target week that is not
+#' FINAL (in progress, or postponed) must look as if it has not happened yet. It
+#' is removed from every history table (nflverse can publish partial in-game
+#' stats) and from the schedule used for "previous game" features, so it is
+#' neither a played nor a missed game. Target-week and later games are kept for
+#' their pregame context. With all games final (every historical season) this is
+#' a no-op.
+drop_unfinished_games <- function(inputs, season, week) {
+  tg <- inputs$team_games
+  target_gi <- game_index(season, week)
+  final <- dplyr::filter(tg, .data$game_final) |> dplyr::select("season", "week", "team")
+  unfinished <- dplyr::filter(tg, !.data$game_final, game_index(.data$season, .data$week) < target_gi)
+  inputs$unfinished_games <- dplyr::distinct(unfinished, .data$season, .data$week, .data$team)
+  if (nrow(unfinished) == 0) return(inputs)
+  keep_final <- function(d, team_col = "team") {
+    dplyr::semi_join(d, dplyr::rename(final, !!team_col := "team"), by = c("season", "week", team_col))
+  }
+  inputs$player_stats <- keep_final(inputs$player_stats)
+  inputs$snaps <- keep_final(inputs$snaps, "snap_team")
+  inputs$pbp_usage <- keep_final(inputs$pbp_usage)
+  inputs$xfp <- dplyr::semi_join(inputs$xfp, inputs$player_stats, by = c("season", "week", "gsis_id"))
+  inputs$team_games <- dplyr::filter(tg, .data$game_final | game_index(.data$season, .data$week) >= target_gi)
+  inputs$player_games <- build_player_games(inputs$player_stats, inputs$snaps, inputs$pbp_usage, inputs$xfp)
+  inputs$team_volume <- build_team_volume(inputs$player_stats)
+  inputs$defense_allowed <- build_defense_allowed(inputs$player_stats, inputs$team_games, position = "WR")
+  inputs
+}
+
+#' Play-by-play aggregates for live M2/M3 features, restricted to final games.
+live_pbp_histories <- function(inputs) {
+  pbp <- inputs$pbp_paths
+  final <- dplyr::filter(inputs$team_games, .data$game_final) |> dplyr::select("season", "week", "team")
+  keep <- function(d, team_col = "team") {
+    dplyr::semi_join(d, dplyr::rename(final, !!team_col := "team"), by = c("season", "week", team_col))
+  }
+  m2_histories(inputs$player_games, inputs$team_volume, inputs$defense_allowed,
+               dplyr::semi_join(pbp_receiver_detail(pbp), inputs$player_stats, by = c("season", "week", "gsis_id")),
+               inputs$pbp_usage, inputs$player_stats,
+               keep(pbp_team_game(pbp)), keep(pbp_defense_game(pbp), "defense"), keep(pbp_qb_game(pbp)))
+}
+
 #' Training base restricted to FINAL games: an unplayed game must never be
 #' labelled as 0 points.
 final_games_only <- function(base, team_games) {
@@ -145,10 +186,7 @@ m1_live_frames <- function(reg, inputs, targets, cfg) {
 #' M2 frames for a live run: full M2 feature engine (history from 2017),
 #' ESPN population from 2018, completed games only for training rows.
 m2_live_frames <- function(reg, inputs, targets, cfg) {
-  pbp <- inputs$pbp_paths
-  hist <- m2_histories(inputs$player_games, inputs$team_volume, inputs$defense_allowed,
-                       pbp_receiver_detail(pbp), inputs$pbp_usage, inputs$player_stats,
-                       pbp_team_game(pbp), pbp_defense_game(pbp), pbp_qb_game(pbp))
+  hist <- live_pbp_histories(inputs)
   static <- list(team_games = inputs$team_games, bio = player_bio(inputs$players))
   windows <- unlist(reg$data$feature_windows)
   base <- build_player_week_base(inputs$espn_weekly, inputs$crosswalk, inputs$player_stats, inputs$rosters,
@@ -198,6 +236,11 @@ run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
   if (any(targets$kickoff_utc <= as_of)) {
     cli::cli_warn("{sum(targets$kickoff_utc <= as_of)} target rows already kicked off; they will not count prospectively.")
   }
+  inputs <- drop_unfinished_games(inputs, season, week)
+  if (nrow(inputs$unfinished_games) > 0) {
+    cli::cli_warn(c("Earlier games not yet final are treated as not played: {.val {unique(inputs$unfinished_games$team)}}.",
+                    "i" = "Re-run after they are final for complete features."))
+  }
 
   preds <- purrr::map(lineages, function(l) predict_lineage(read_registry(l), inputs, targets, cfg)) |>
     purrr::list_rbind() |>
@@ -214,6 +257,8 @@ run_prospective <- function(season, week, lineages = "m1", as_of = Sys.time(),
   pred_path <- write_once(file.path(dir, "predictions.parquet"), function(tmp) arrow::write_parquet(preds, tmp))
   meta <- c(stamp_cols, list(
     season = season, week = week, lineages = lineages, git_dirty = git$dirty,
+    unfinished_earlier_games = paste(inputs$unfinished_games$season, inputs$unfinished_games$week,
+                                     inputs$unfinished_games$team, sep = "-"),
     # exact frozen definitions used (their hashes are covered by run_meta_sha256)
     registry_sha256 = as.list(stats::setNames(
       vapply(lineages, function(l) sha256_file(read_registry(l)$path), character(1)), lineages)),

@@ -84,3 +84,31 @@ test_that("sha256_file returns a plain 64-character hex string", {
   expect_match(h, "^[0-9a-f]{64}$")
   expect_silent(jsonlite::toJSON(list(h = h), auto_unbox = TRUE))
 })
+
+test_that("live hygiene: an unfinished earlier game is neither played nor missed", {
+  inp <- toy_inputs()
+  wk5 <- dplyr::filter(inp$team_games, season == 2024L, week == 4L) |>
+    dplyr::mutate(week = 5L, game_id = "2024_5", game_index = game_index(season, week))
+  tg <- dplyr::bind_rows(inp$team_games, wk5) |>
+    dplyr::mutate(game_final = !(season == 2024L & week >= 4L),         # week 4 in progress, week 5 upcoming
+                  kickoff_utc = as.POSIXct("2024-10-01", tz = "UTC"))
+  stats <- dplyr::mutate(inp$stats, rushing_yards = 0)
+  # pretend nflverse already published partial week-4 stats
+  snaps <- dplyr::transmute(stats, season, week, gsis_id, snap_team = team, snap_share = 0.8)
+  inputs <- list(team_games = tg, player_stats = stats, snaps = snaps,
+                 pbp_usage = dplyr::transmute(stats, season, week, gsis_id, team, rz_targets = 1),
+                 xfp = dplyr::transmute(stats, season, week, gsis_id, xfp = 1))
+  # targets for a hypothetical week 5 of 2024
+  out <- drop_unfinished_games(inputs, 2024, 5)
+  expect_false(any(out$player_stats$season == 2024L & out$player_stats$week == 4L))
+  expect_false(any(out$team_games$season == 2024L & out$team_games$week == 4L))
+  expect_equal(nrow(out$unfinished_games), 2)                             # AAA and BBB
+  # p2 (BBB) played every 2024 game; with week 4 unfinished, the last FINAL team game is week 2
+  target <- tibble::tibble(season = 2024L, week = 5L, gsis_id = "p2", team = "BBB", opponent = "AAA")
+  f <- add_point_in_time_features(target, out$player_games, out$team_volume, out$defense_allowed, out$team_games)
+  expect_true(f$played_team_prev_game)          # week 4 is neither played nor missed
+  expect_equal(add_absence_features(target, out$player_games, out$team_games)$team_games_missed, 0L)
+  # with everything final the hygiene step changes nothing
+  done <- drop_unfinished_games(modifyList(inputs, list(team_games = dplyr::mutate(tg, game_final = TRUE))), 2024, 5)
+  expect_identical(done$player_stats, inputs$player_stats)
+})
