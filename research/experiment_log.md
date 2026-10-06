@@ -525,3 +525,51 @@ reported. It cannot change the rules.
 
 **Versioning.** Any later change becomes `*_v2`, with a new prospective start.
 v1 records stay as they are.
+
+---
+
+## 2026-10-06 — E7: One-time 2024–2025 check of the frozen M3 rules (run after the freeze at 00:24Z; cannot change the rules)
+
+**Process note.** The check first exposed a closure bug in `registry_spec_adjusted()`:
+the combined challenger's role-rule function captured a variable that was later
+reassigned. It was fixed (the registry was unchanged), and a test now covers it.
+The frozen-spec targets now list their spec builders explicitly, because
+dynamic lookup had hidden them from targets. After the change, M2's frozen
+predictions were re-verified as identical.
+
+**Results** vs `m2_espn_cal` (same base and procedure), weekly rolling, n = 5,091, 36 weeks:
+
+| challenger | all ΔMAE [95% CI] | top 60 | top 36 | RMSE (vs 5.8155) |
+|---|---|---|---|---|
+| m3_role_adjust_v1 | −0.0017 [−0.0050, +0.0013] | −0.0081 [−0.0146, −0.0022] | −0.0093 [−0.0180, −0.0013] | 5.8137 |
+| m3_role_adjust_q20_v1 | −0.0008 [−0.0037, +0.0019] | −0.0085 [−0.0141, −0.0026] | −0.0081 [−0.0158, −0.0007] | — |
+| m3_return_adjust_v1 | −0.0035 [−0.0058, −0.0011] | −0.0010 (ns) | −0.0005 (ns) | 5.8164 (+0.0009) |
+| m3_combined_v1 | **−0.0054 [−0.0089, −0.0022]** | −0.0094 (CI < 0) | −0.0098 (CI < 0) | **5.8147** |
+
+**By season.**
+- Role v1: +0.0002 (2024), −0.0036 (2025).
+- Return v1: −0.0021, −0.0048.
+- Combined: −0.0021, −0.0086. Its RMSE was +0.0013 in 2024 and −0.0064 in 2025.
+
+**Rule-touched subsets** (descriptive):
+
+| group | n | mean residual vs calibrated ESPN | MAE: calibrated → adjusted |
+|---|---|---|---|
+| rising role (adjusted down) | 509 | −0.37 | 5.62 → 5.56 |
+| falling role (adjusted up) | 434 | +0.29 | 4.58 → 4.63 |
+| returning (adjusted down) | 271 | −0.44 | 3.77 → 3.71 |
+
+The falling-role adjustment moves the mean in the right direction yet worsens MAE,
+because the outcome is skewed.
+
+**Reading.**
+- All three hypothesised directions held in two seasons that played no part in
+  deriving the rules.
+- The combined rule's interval excludes 0, with RMSE no worse.
+- The effects are very small: about 0.1% of MAE over all WRs, and about 0.2% among likely starters.
+- This is supporting, not confirmatory, evidence. The rules came from a
+  development search, and one historical check is not a prospective test.
+
+**Decision.** No change. The frozen rules proceed to the prospective record.
+
+**M3 fingerprint.** Written once (models/fingerprints/m3_holdout_2024_2025.csv) and verified as identical.

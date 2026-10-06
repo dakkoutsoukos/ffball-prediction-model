@@ -21,6 +21,22 @@ test_that("adjusted spec = calibrated ESPN + adjustment, nothing learned from th
   expect_equal(p_adj - p_base, ifelse(d$xfp_trend >= 1.42, -0.3, 0))
 })
 
+test_that("registry-built combined challenger applies BOTH frozen rules", {
+  m <- list(type = "adjusted", calibration = "linear",
+            role_rule = list(metric = "xfp_trend", hi = 1.42, lo = -1.65, adj_hi = -0.30, adj_lo = 0.25),
+            return_rule = list(adj_one = -0.2, adj_two_plus = -0.4))
+  combo <- registry_spec_adjusted(m, "combo")
+  role_only <- registry_spec_adjusted(m[c("type", "calibration", "role_rule")], "role")
+  d <- tibble::tibble(season = 2022L, week = rep(1:10, 10), espn_proj = runif(100, 1, 20),
+                      xfp_trend = rep(c(2, 0, -2, 0), 25), team_games_missed = rep(c(0L, 1L, 2L, NA, 0L), 20))
+  d$actual <- d$espn_proj + rnorm(100)
+  base <- spec_cal("linear")
+  p0 <- base$predict(base$fit(d), d)
+  expect_equal(combo$predict(combo$fit(d), d) - p0,
+               rule_role_change(d, "xfp_trend", 1.42, -1.65, -0.3, 0.25) + rule_return(d, -0.2, -0.4))
+  expect_equal(role_only$predict(role_only$fit(d), d) - p0, rule_role_change(d, "xfp_trend", 1.42, -1.65, -0.3, 0.25))
+})
+
 test_that("team games missed counts only schedule games between the last appearance and the target", {
   tg <- tibble::tibble(season = 2024L, week = c(1:4, 6L), team = "AAA")
   pg <- tibble::tibble(gsis_id = "p", season = 2024L, week = 1L, game_index = game_index(2024, 1))

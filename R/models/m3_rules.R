@@ -54,14 +54,16 @@ spec_adjusted <- function(name, base, rules) {
 
 #' Registry builder for M3 adjusted challengers.
 registry_spec_adjusted <- function(m, id) {
+  # Each rule closure gets its own parameter variable (a shared, reassigned
+  # variable would make every closure see the last rule's parameters).
+  role <- m$role_rule
+  ret <- m$return_rule
   rules <- list()
-  if (!is.null(m$role_rule)) {
-    r <- m$role_rule
-    rules$role <- function(nd) rule_role_change(nd, r$metric, r$hi, r$lo, r$adj_hi, r$adj_lo)
+  if (!is.null(role)) {
+    rules$role <- function(nd) rule_role_change(nd, role$metric, role$hi, role$lo, role$adj_hi, role$adj_lo)
   }
-  if (!is.null(m$return_rule)) {
-    r <- m$return_rule
-    rules$return <- function(nd) rule_return(nd, r$adj_one, r$adj_two_plus)
+  if (!is.null(ret)) {
+    rules$return <- function(nd) rule_return(nd, ret$adj_one, ret$adj_two_plus)
   }
   spec_adjusted(id, spec_cal(m$calibration), rules)
 }

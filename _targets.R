@@ -224,7 +224,12 @@ list(
   # ---- Milestone 2: frozen lineage and one-time historical holdout ----------
   tar_target(m2_registry_file, "models/registry/m2.yml", format = "file"),
   tar_target(m2_registry, read_registry("m2", dirname(m2_registry_file))),
-  tar_target(m2_frozen_specs, unname(registry_specs(m2_registry)), iteration = "list"),
+  # Builders are found by dynamic lookup inside registry_specs(); listing them
+  # here makes targets rebuild the specs when their code changes.
+  tar_target(m2_frozen_specs, {
+    list(registry_spec_cal, registry_spec_m2_linear, registry_spec_residual, registry_spec_xgb)
+    unname(registry_specs(m2_registry))
+  }, iteration = "list"),
   tar_target(m2_full, m2_frame(player_week_m2, config$m2, max_season = 2025)),
   tar_target(m2_holdout_preds,
              rolling_folds(m2_full, m2_frozen_specs, unlist(config$m2$holdout_seasons),
@@ -264,7 +269,10 @@ list(
   if (file.exists("models/registry/m3.yml")) list(
     tar_target(m3_registry_file, "models/registry/m3.yml", format = "file"),
     tar_target(m3_registry, read_registry("m3", dirname(m3_registry_file))),
-    tar_target(m3_frozen_specs, unname(registry_specs(m3_registry)), iteration = "list"),
+    tar_target(m3_frozen_specs, {
+      list(registry_spec_adjusted, rule_role_change, rule_return, spec_adjusted)  # explicit deps
+      unname(registry_specs(m3_registry))
+    }, iteration = "list"),
     tar_target(m3_full, add_absence_features(m2_full, player_games, team_games)),
     tar_target(m3_holdout_preds,
                rolling_folds(m3_full, m3_frozen_specs, unlist(config$m2$holdout_seasons),

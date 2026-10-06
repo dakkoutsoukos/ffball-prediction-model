@@ -1,0 +1,170 @@
+---
+title: "Milestone 3 — New pregame information and prospective edge discovery"
+subtitle: "WR weekly PPR projections vs calibrated ESPN"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(targets)
+library(dplyr)
+library(ggplot2)
+suppressMessages(tar_source("R"))
+cfg <- tar_read(config)
+fmt <- function(df, digits = 3) knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+PAL <- c("#2a78d6", "#eb6834", "#1baf7a")
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        axis.text = element_text(colour = "#52514e"), plot.title.position = "plot",
+        legend.position = "top", legend.justification = "left")
+has_m3 <- file.exists("models/registry/m3.yml")
+safe_read <- function(name) tryCatch(tar_read_raw(name), error = function(e) NULL)
+```
+
+## Summary
+
+```{r summary-status, results = "asis"}
+man <- readr::read_csv(PREDICTION_MANIFEST, col_types = readr::cols(.default = "c"))
+ver <- verify_prediction_archive()
+sv <- verify_snapshot_archive()
+cat(sprintf("- Archived prospective runs: **%d** (weeks %s); hash-verified: **%s**.\n",
+            nrow(man), paste(sort(unique(man$week)), collapse = ", "), all(ver$verified)))
+cat(sprintf("- ESPN snapshots: **%d**; hash-verified: **%s**.\n", nrow(sv), all(sv$parquet_ok & sv$raw_ok)))
+cat(sprintf("- Frozen lineages: %s.\n", paste(toupper(frozen_lineages()), collapse = ", ")))
+```
+
+## A. Did the M1/M2 prospective record remain intact?
+
+```{r a-integrity}
+man |>
+  left_join(select(ver, run_id, verified), by = "run_id") |>
+  transmute(run_id, week, lineages, n_rows, predicted_at_utc, first_kickoff_utc,
+            snapshot_captured_at_utc, git_commit = substr(git_commit, 1, 7), verified) |>
+  knitr::kable()
+off <- official_predictions(ver)
+st26 <- clean_player_stats(latest_live_file("player_stats", 2026), read_scoring_rules(cfg$scoring_system))
+tg26 <- clean_team_games(latest_live_file("schedules", 2026))
+pros <- score_prospective(off, st26, filter(tg26, week >= 5))
+```
+
+- **Completed prospective weeks: `r pros$weeks_complete`.**
+- Frozen-model fingerprints, which must be identical:
+  - M1: **`r tar_read(m1_fingerprint_check)$status`**
+  - M2: **`r tar_read(m2_fingerprint_check)$status`**
+  - M3: **`r if (has_m3) safe_read("m3_fingerprint_check")$status else "not frozen"`**
+
+## B. What genuinely new information was investigated?
+
+The full source feasibility matrix is in `docs/milestone3_plan.md` §13. In summary:
+
+```{r b-matrix}
+readr::read_csv("docs/source_feasibility.csv", show_col_types = FALSE) |> knitr::kable()
+```
+
+## C. Did new historical-valid information improve calibrated ESPN?
+
+```{r c-historical, results = "asis"}
+h <- safe_read("m3_info_comparisons")
+if (is.null(h)) {
+  cat("No historical-valid new-information model was evaluated (see the experiment log for the reasons).\n")
+} else {
+  print(knitr::kable(mutate(h, across(where(is.double), ~ round(.x, 4)))))
+}
+```
+
+## D. Which M3 prospective challengers were frozen?
+
+```{r d-registry, results = "asis"}
+if (has_m3) {
+  reg <- read_registry("m3")
+  cat(sprintf("Frozen at **%s** (parent commit `%s`).\n\n", reg$frozen_at_utc, substr(reg$frozen_parent_commit, 1, 7)))
+  purrr::iwalk(reg$models, function(m, id) {
+    rule <- c(if (!is.null(m$role_rule)) sprintf("role: %s ≥ %s → %+.2f; ≤ %s → %+.2f", m$role_rule$metric,
+                                                  m$role_rule$hi, m$role_rule$adj_hi, m$role_rule$lo, m$role_rule$adj_lo),
+              if (!is.null(m$return_rule)) sprintf("return: 1 missed → %+.1f; 2+ missed → %+.1f",
+                                                    m$return_rule$adj_one, m$return_rule$adj_two_plus))
+    cat(sprintf("- **`%s`**: %s. %s\n", id, m$hypothesis, paste(rule, collapse = "; ")))
+  })
+  first_week <- man |> filter(grepl("m3", lineages)) |> pull(week) |> as.integer() |> min(na.rm = TRUE)
+  cat(sprintf("\nProspective record starts in **week %s** (the first archived pre-kickoff run including M3).\n",
+              if (is.finite(first_week)) first_week else "—"))
+} else cat("No M3 challenger is frozen yet.\n")
+```
+
+One-time historical check of the frozen rules (2024–2025, rolling; not used to
+change them):
+
+```{r d-holdout, results = "asis"}
+hc <- if (has_m3) safe_read("m3_holdout_comparisons") else NULL
+if (!is.null(hc)) {
+  print(knitr::kable(hc |> select(model, subset, n, n_weeks, mae_diff, ci_low, ci_high, weeks_better, rmse_model, rmse_baseline) |>
+    mutate(across(where(is.double), ~ round(.x, 4)))))
+  print(knitr::kable(safe_read("m3_holdout_seasonal") |> mutate(across(where(is.double), ~ round(.x, 4)))))
+}
+```
+
+## E. What prospective evidence exists?
+
+```{r e-prospective, results = "asis"}
+if (pros$weeks_complete == 0) {
+  cat("**Not enough prospective evidence yet.** No archived week has completed. Only archived, hash-verified",
+      "predictions made before each game's kickoff will ever be scored. Nothing is back-filled.\n")
+} else {
+  print(knitr::kable(mutate(pros$metrics, across(where(is.double), ~ round(.x, 3)))))
+  print(knitr::kable(mutate(pros$comparisons, across(where(is.double), ~ round(.x, 4)))))
+}
+```
+
+## F. Did the role-change hypothesis work?
+
+## G. Did the return-from-absence hypothesis work?
+
+```{r fg, results = "asis"}
+if (pros$weeks_complete < 8) {
+  cat(sprintf("Prospectively: **insufficient evidence so far** (%d completed archived weeks; the pre-registered",
+              pros$weeks_complete), "evaluation needs at least 8). The historical development evidence that",
+      "motivated each rule, and the one-time 2024–2025 check above, are *not* confirmatory.\n")
+}
+```
+
+## H. What did component modeling teach us?
+
+```{r h-components}
+cs <- tar_read(m3_component_summary)
+cs$accuracy |> tidyr::pivot_wider(id_cols = component, names_from = level, values_from = mae) |> fmt()
+cs$incremental |> select(component, mae_diff, ci_low, ci_high, weeks_better) |> fmt(4)
+tar_read(m3_component_decomposition) |> fmt()
+```
+
+- Calibrated ESPN's points error comes from yards (about 23% of its variance),
+  TDs (about 19%) and receptions (about 10%). The remainder is covariance between them.
+- Our information adds a small, significant improvement only for **targets**,
+  which measure opportunity. It **hurts** touchdown prediction.
+- When we disagree with ESPN on a component, the realised error moves only about a
+  third of the way toward us.
+
+## I. Where does calibrated ESPN still fail?
+
+```{r i-residuals, fig.height = 3.6, fig.width = 8}
+ho <- tar_read(m2_holdout_aligned) |> filter(model == "m2_espn_cal")
+ho |>
+  mutate(bucket = cut(espn_proj, PROJECTION_BUCKETS, right = FALSE)) |>
+  summarise(n = n(), mean_pred = mean(pred), mean_actual = mean(actual), mae = mean(abs(pred - actual)),
+            large_miss = mean(abs(pred - actual) > 10), .by = bucket) |>
+  arrange(bucket) |> fmt()
+```
+
+## J. Is there evidence of an incremental edge?
+
+```{r j-verdict, results = "asis"}
+cat("**Not enough prospective evidence yet.**",
+    "No historical-valid new-information source improved calibrated ESPN (section C). The narrow M3 rules are",
+    "frozen and are accumulating a clean prospective record. Calibrated ESPN remains the bar to beat.\n")
+```
