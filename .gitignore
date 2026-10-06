@@ -35,6 +35,7 @@ data/interim/*
 data/processed/*
 data/snapshots/*
 data/archive/*
+data/.last_backup
 !data/**/.gitkeep
 *.duckdb
 *.duckdb.wal
