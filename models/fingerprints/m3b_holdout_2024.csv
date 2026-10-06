@@ -1,0 +1,4 @@
+model_id,n,mean_pred,pred_hash_xxh128,raw_data_hash_xxh128
+m3_combined_abd_v1,2499,6.988645,344753e8a5d1178f2a2a70c7f165b2e1,bcd2e03369e65f7cb8a7c0e728bf812d
+m3_questionable_add_v1,2499,7.015967,43c1c57f43705d635dea2d5bea76602c,bcd2e03369e65f7cb8a7c0e728bf812d
+m3_questionable_adjust_v1,2499,7.011514,816b192eea0eb24fe0f123ff9bc05278,bcd2e03369e65f7cb8a7c0e728bf812d

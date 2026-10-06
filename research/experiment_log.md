@@ -657,3 +657,36 @@ the freeze, it cannot change the rule.
 
 **Lineage.** M3b (models/registry/m3b.yml), a separate registry, because M3's is
 write-once.
+
+---
+
+## 2026-10-06 — E10: One-time 2024 check of the frozen hypothesis-D challengers (M3b frozen 00:41Z; cannot change the rules)
+
+**Results** vs `m2_espn_cal`, weekly rolling 2024, n = 2,499, 18 weeks:
+
+| challenger | all ΔMAE [95% CI] | top 60 | top 36 | weeks better | RMSE (vs 6.0441) |
+|---|---|---|---|---|---|
+| m3_questionable_adjust_v1 | **−0.0126 [−0.0204, −0.0056]** | −0.0242 [−0.0425, −0.0065] | −0.0262 [−0.0517, −0.0039] | 89% | **6.0372** |
+| m3_questionable_add_v1 | −0.0108 [−0.0165, −0.0056] | −0.0153 [−0.0273, −0.0036] | −0.0150 [−0.0301, −0.0018] | 89% | 6.0390 |
+| m3_combined_abd_v1 | −0.0142 [−0.0250, −0.0043] | −0.0296 [−0.0515, −0.0089] | −0.0322 [−0.0631, −0.0050] | 83% | 6.0391 |
+
+**Affected rows.** 130 Questionable WR-weeks in 2024. Their mean residual vs
+calibrated ESPN was −1.21 (−14% of the projection; development −18%). MAE on
+these rows went from 4.73 to 4.49.
+
+**Reading.**
+- The development finding replicated in a season not used to derive it. Every
+  interval excludes 0, RMSE improves, and 89% of weeks are better.
+- This is the first new-information source in the project with incremental
+  value over calibrated ESPN. The gain is small overall (about 0.3% of MAE),
+  because only about 5% of rows are touched, but it is about 5% on those rows.
+- Not confirmatory:
+  - It rests on one historical season (2025 cannot be checked: no timestamps).
+  - The prospective information timing differs. Our snapshots precede game-day
+    inactives, while historical ESPN values are post-inactive.
+
+**Decision.** No change. M3b enters the prospective record from Week 5. Because
+designations for Sunday games appear in the Friday report, **Saturday or Sunday
+runs are required** for D to act on Sunday games.
+
+**M3b fingerprint.** Written once and verified as identical.
