@@ -113,3 +113,51 @@ injury_coverage_report <- function(detail) {
   attr(detail, "coverage") |>
     tidyr::pivot_wider(names_from = "status", values_from = "rows", values_fill = 0)
 }
+
+#' Pre-registered injury groups (plan section 9): designation x final practice status.
+injury_group <- function(designation, practice) {
+  dplyr::case_when(
+    designation == "Questionable" & practice == "DNP" ~ "Q_DNP",
+    designation == "Questionable" & practice == "LP" ~ "Q_LP",
+    designation == "Questionable" & practice == "FP" ~ "Q_FP",
+    designation == "Questionable" ~ "Q_other",
+    designation == "Doubtful" ~ "D",
+    designation == "listed_only" & practice %in% c("DNP", "LP") ~ "listed_DNP_LP",
+    designation == "listed_only" ~ "listed_FP",
+    designation %in% c("Out", "Note") ~ "other_listed",
+    TRUE ~ "not_listed"
+  )
+}
+
+#' M4 model inputs: availability features plus the injury group used by the
+#' frozen M4 rules (R/models/m4_candidates.R).
+m4_add_features <- function(targets, detail, team_games) {
+  out <- add_availability_features(targets, detail, team_games)
+  out$group <- injury_group(out$designation, out$practice)
+  out
+}
+
+#' Live (2026) injury detail for target week `week`. A capture contains no
+#' date_modified, so every row is stamped with OUR retrieval time:
+#' - target-week rows count only if retrieved before the player's own kickoff
+#'   (as historically), and only once the team's FINAL report is out, i.e. the
+#'   team-week carries at least one game designation. Earlier in the week the
+#'   rows are practice-only reports, which history never contains (about 2% of
+#'   historical team-weeks have listings but no designation; E14).
+#' - earlier weeks' rows feed only the LAGGED trajectory features of the target
+#'   week, for which the requirement is retrieval before the target kickoff.
+live_injury_detail <- function(path, team_games, captured_at, season, week) {
+  far <- as.POSIXct("9999-12-31", tz = "UTC")
+  tg <- dplyr::mutate(team_games, kickoff_utc = dplyr::if_else(
+    .data$season == !!season & .data$week < !!week, far, .data$kickoff_utc))
+  d <- pregame_injury_detail(path, tg, captured_at = captured_at)
+  final <- d |>
+    dplyr::filter(.data$season == !!season, .data$week == !!week) |>
+    dplyr::summarise(final = any(.data$designation %in% c("Out", "Doubtful", "Questionable")),
+                     .by = c("season", "week", "team"))
+  not_final <- dplyr::filter(final, !.data$final)
+  out <- dplyr::anti_join(d, not_final, by = c("season", "week", "team"))
+  attr(out, "coverage") <- attr(d, "coverage")
+  attr(out, "final_teams") <- final$team[final$final]
+  out
+}

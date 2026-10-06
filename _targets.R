@@ -356,7 +356,40 @@ list(
       p
     }),
     tar_target(m4_preds, m4_candidate_preds(m4_data, m4_params), format = "parquet"),
-    tar_target(m4_dev_eval, m4_evaluate(m4_preds, M4_DEV))
+    tar_target(m4_dev_eval, m4_evaluate(m4_preds, M4_DEV)),
+    # One-time checks, first run after the parameters were committed (39b8059, E13).
+    tar_target(m4_check_2019, m4_evaluate(m4_preds, 2019)),
+    tar_target(m4_check_2024, m4_evaluate(m4_preds, 2024)),
+    tar_target(m4_decision, m4_freeze_decision(m4_dev_eval, m4_check_2019))
+  ),
+  # Frozen M4 lineage (E14): regenerate the 2019 + 2024 predictions from the
+  # registry, require equality with the candidate study, check the fingerprint.
+  if (file.exists("models/registry/m4.yml")) list(
+    tar_target(m4_registry_file, "models/registry/m4.yml", format = "file"),
+    tar_target(m4_registry, read_registry("m4", dirname(m4_registry_file))),
+    tar_target(m4_frozen_specs, {
+      list(registry_spec_availability_adjusted, m4_rule_multiplier, m4_active_design, m4_param_group, spec_cal)
+      unname(registry_specs(m4_registry))
+    }, iteration = "list"),
+    tar_target(m4_full, m4_add_features(m3b_full, injury_detail, team_games), format = "parquet"),
+    tar_target(m4_holdout_preds,
+               rolling_folds(m4_full, m4_frozen_specs, c(2019, 2024), m4_registry$data$min_train_season),
+               pattern = map(m4_frozen_specs), format = "parquet"),
+    tar_target(m4_frozen_matches_candidates, {
+      ids <- c(m4_two_stage_v1 = "K2", m4_practice_rule_v1 = "K1")
+      cmp <- m4_holdout_preds |>
+        dplyr::mutate(model = unname(ids[.data$model])) |>
+        dplyr::inner_join(dplyr::select(m4_preds, "season", "week", "gsis_id", "model", cand = "pred"),
+                          by = c("season", "week", "gsis_id", "model"))
+      stopifnot(nrow(cmp) == nrow(m4_holdout_preds), max(abs(cmp$pred - cmp$cand)) < 1e-9)
+      nrow(cmp)
+    }),
+    tar_target(m4_fingerprint_check, {
+      path <- m4_registry$fingerprint
+      if (!file.exists(path)) write_fingerprint(m4_holdout_preds, path, raw_manifest, 2017, 2018)
+      check_frozen_fingerprint(m4_holdout_preds, path, raw_manifest,
+                               list(data = list(history_start_season = 2017, min_train_season = 2018)))
+    })
   ),
 
   # ---- Reports ------------------------------------------------------------

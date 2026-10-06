@@ -53,17 +53,37 @@ test_that("candidates adjust only their groups; B1 reproduces the frozen rule", 
   expect_true(all(pr$adjusted == pr$group %in% M4_ADJ_GROUPS))
 })
 
-test_that("freeze decision needs development AND 2019, and prefers fewer parameters", {
+test_that("freeze decision needs development AND 2019; fewest parameters unless beaten on both", {
   ev <- function(diffs_b0, diffs_b1, ci_high = -0.001) {
     mk <- function(base, d) tibble::tibble(subset = "all", baseline = base, model = names(d), mae_diff = unname(d),
                                            ci_high = ci_high, rmse_model = 6, rmse_baseline = 6.01)
     list(comparisons = dplyr::bind_rows(mk("B0", diffs_b0), mk("B1", diffs_b1)))
   }
-  k <- c(K1 = -0.02, K2 = -0.03, K3 = -0.01, K4 = -0.02)
-  dev <- ev(k, c(K1 = -0.001, K2 = -0.01, K3 = 0.002, K4 = -0.001))
-  c19 <- ev(k, c(K1 = -0.001, K2 = -0.002, K3 = -0.001, K4 = 0.003))
-  dec <- m4_freeze_decision(dev, c19)
+  vs_b1_dev <- c(K1 = -0.001, K2 = -0.01, K3 = 0.002, K4 = -0.001)
+  vs_b1_19 <- c(K1 = -0.001, K2 = -0.002, K3 = -0.001, K4 = 0.003)
+  dev <- ev(c(K1 = -0.02, K2 = -0.03, K3 = -0.01, K4 = -0.02), vs_b1_dev)
+  # K2 better than K1 in development only -> the simpler K1 wins
+  dec <- m4_freeze_decision(dev, ev(c(K1 = -0.02, K2 = -0.015, K3 = -0.01, K4 = -0.02), vs_b1_19))
   expect_equal(dec$table$freeze, c(TRUE, TRUE, FALSE, FALSE))
-  expect_equal(dec$winner, "K1")                          # fewest parameters among passing
-  expect_true(is.na(m4_freeze_decision(dev, ev(k, c(K1 = 0.01, K2 = 0.01, K3 = 0.01, K4 = 0.01)))$winner))
+  expect_equal(dec$winner, "K1")
+  # K2 better than K1 in development AND 2019 -> K2 wins
+  expect_equal(m4_freeze_decision(dev, ev(c(K1 = -0.02, K2 = -0.03, K3 = -0.01, K4 = -0.02), vs_b1_19))$winner, "K2")
+  expect_true(is.na(m4_freeze_decision(dev, ev(c(K1 = -0.02, K2 = -0.03, K3 = -0.01, K4 = -0.02),
+                                               c(K1 = 0.01, K2 = 0.01, K3 = 0.01, K4 = 0.01)))$winner))
+})
+
+test_that("frozen registry spec = calibrated base x the candidate multiplier", {
+  fr <- toy_m4_frame()
+  p <- m4_derive_params(fr)
+  rules <- m4_rules(p)
+  fr <- dplyr::mutate(fr, espn_proj = base, espn_proj_receptions = base / 3, espn_proj_targets = cal_targets,
+                      espn_proj_receiving_yards = base * 6, espn_proj_receiving_tds = 0.3, espn_proj_rushing_yards = 0)
+  spec <- registry_spec_availability_adjusted(list(calibration = "components_recency", availability_rule = rules$K2), "x")
+  base <- spec_cal("components_recency")
+  train <- dplyr::filter(fr, season < 2024)
+  test <- dplyr::filter(fr, season == 2024)
+  expect_equal(spec$predict(spec$fit(train), test),
+               base$predict(base$fit(train), test) * m4_rule_multiplier(test, rules$K2))
+  healthy <- test$group %in% c("not_listed", "listed_FP")
+  expect_true(all(m4_rule_multiplier(test, rules$K1)[healthy] == 1))
 })

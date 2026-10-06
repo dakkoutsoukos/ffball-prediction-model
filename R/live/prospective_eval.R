@@ -46,10 +46,14 @@ score_prospective <- function(official, outcomes, team_games, reps = 2000, seed 
   weeks <- dplyr::n_distinct(paste(d$season, d$week))
   if (weeks == 0) return(list(weeks_complete = 0L, metrics = tibble::tibble(), comparisons = tibble::tibble()))
   aligned <- align_predictions(d)
-  benches <- intersect(c("m2_espn_cal", "m1_espn_raw", "m1_espn_recal"), unique(aligned$model))
-  comps <- tidyr::expand_grid(model = unique(aligned$model), baseline = benches) |>
+  # M3b's primary rule is the benchmark M4 must beat (docs/milestone4_plan.md).
+  benches <- intersect(c("m2_espn_cal", "m1_espn_raw", "m1_espn_recal", "m3_questionable_adjust_v1"),
+                       unique(d$model))
+  # Paired comparisons use every player-week BOTH models predicted (a lineage
+  # that joined later is compared only over its own record).
+  comps <- tidyr::expand_grid(model = unique(d$model), baseline = benches) |>
     dplyr::filter(.data$model != .data$baseline) |>
-    purrr::pmap(~ pooled_bootstrap(aligned, ..1, ..2, reps, seed)) |>
+    purrr::pmap(function(model, baseline) pooled_bootstrap(d, model, baseline, reps, seed)) |>
     purrr::list_rbind()
   list(weeks_complete = weeks, metrics = summarise_m2(aligned), comparisons = comps)
 }

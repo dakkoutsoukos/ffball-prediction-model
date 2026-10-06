@@ -840,3 +840,74 @@ Development status under the pre-registered criteria:
 - **The 2019 check decides between K1 and K2.** By the simplicity rule, K1 (4 parameters) wins unless K2 is better than K1 in both development and 2019.
 
 The 2019 (primary) and 2024 (secondary) checks are run **once**, after this entry is committed.
+
+---
+
+## 2026-10-06 — E14: One-time 2019 (primary) and 2024 (secondary) checks of the fixed M4 candidates; decision
+
+The checks ran once at about 06:25Z, after E13 and the parameter file were committed and pushed (39b8059).
+
+**2019, the fresh primary check** (never used before; n = 2,384, 17 weeks; base trained on 2018 plus earlier 2019 weeks):
+
+| | vs B0 `m2_espn_cal` | vs B1 M3b | top 60 vs B0 | top 36 vs B0 | RMSE |
+|---|---|---|---|---|---|
+| B0 | — | — | — | — | 6.3686 |
+| **B1** | **−0.0075 [−0.0143, −0.0005]** | — | −0.0056 | +0.0007 | 6.3633 |
+| K1 | −0.0098 [−0.0168, −0.0025] | −0.0023 [−0.0046, −0.0001] | −0.0111 | −0.0067 | 6.3608 |
+| **K2** | **−0.0185 [−0.0347, −0.0009]** | **−0.0111 [−0.0216, +0.0011]** | −0.0157 | −0.0143 | **6.3591** |
+| K3 | −0.0054 [−0.0083, −0.0022] | +0.0021 | −0.0062 | −0.0051 | 6.3635 |
+| K4 | +0.0057 [−0.0188, 0.0313] | +0.0131 | −0.0154 | −0.0106 | 6.3547 |
+
+- **The M3b Questionable rule replicates in a season never used before** (CI below 0). Before this check it had only the contaminated 2024 confirmation.
+- Injury-affected rows (n = 207):
+
+  | | B0 | B1 | K1 | K2 |
+  |---|---|---|---|---|
+  | MAE | 5.25 | 5.16 | 5.13 | **5.03** |
+  | bias | +1.52 | — | — | +0.21 |
+
+**2024, the secondary contaminated check** (n = 2,499):
+
+| | vs B0 | vs B1 | RMSE (B0 6.0441, B1 6.0372) |
+|---|---|---|---|
+| B1 | −0.0126 [−0.0203, −0.0048] (= E10) | — | 6.0372 |
+| K1 | −0.0120 | +0.0006 | 6.0380 |
+| K2 | −0.0219 [−0.0400, −0.0058] | −0.0092 [−0.0204, 0.0000] | 6.0387 (slightly worse than B1) |
+| K3 | −0.0066 | +0.0061 | 6.0407 |
+| K4 | +0.0100 | +0.0226 [0.0068, 0.0378] | 6.0396 |
+
+- On the affected rows (n = 214), K2's MAE is 4.85 vs 4.96 for B1, but its bias is −0.51: it over-corrects in 2024.
+- In the 2024 top-36 and top-24 subsets, K2's RMSE is worse than B0's.
+
+**Decision** (pre-registered rule; target `m4_decision`):
+
+| | vs B0 | vs B1 | eligible |
+|---|---|---|---|
+| K1 | pass | pass | yes |
+| K2 | pass | pass | yes |
+| K3 | pass | **fail** | no |
+| K4 | **fail** | **fail** | no |
+
+- K2 is better than K1 in both development (−0.0270 vs −0.0146) and 2019 (−0.0185 vs −0.0098). By the plan's exception to the fewest-parameters rule, **K2 is the primary M4 challenger: `m4_two_stage_v1`.**
+- K1 also met every criterion and is frozen as a secondary: `m4_practice_rule_v1`.
+- **Process note.** The first coded version of `m4_freeze_decision()` implemented only "fewest parameters wins" and returned K1. It was corrected to the committed plan text (section 10, restated in E13) before anything was frozen. A test now covers both branches.
+
+**How strong is this?** It is a moderate, not decisive, improvement over M3b:
+- K2 vs B1 is −0.011 in 2019 and −0.009 in 2024, but neither CI excludes 0.
+- K2 has 10 parameters and is not shrunk.
+- Its bias on affected rows swings: −0.10 in development, +0.21 in 2019, −0.51 in 2024.
+- Its RMSE is slightly worse than B1's in 2024.
+- What K2 adds over B1 is mostly magnitude. It applies about −20% to Questionable rows where B1 applies −9%, plus small listed-only adjustments. The practice-status split itself (K1 vs B1) is worth only about −0.002.
+- K3 (adjusting targets only) underperforms B1. **The Questionable shortfall is not only opportunity: efficiency matters too.**
+- K4 (target disagreement) improves RMSE but not MAE. Closed.
+
+**Pre-registered prospective test (H-M4).**
+- `m4_two_stage_v1` vs `m3_questionable_adjust_v1` and vs `m2_espn_cal`, using the same archived runs.
+- Success: the ΔMAE 95% week-bootstrap CI lies below 0, with RMSE no worse.
+- Evaluated at the end of 2026; fewer than 8 completed weeks counts as insufficient.
+- `m4_practice_rule_v1` is reported descriptively.
+
+**Horizon notes** (fixed now):
+1. Our snapshots precede game-day inactives, so K2's P(active), learned on the post-inactive ESPN population (about 0.97), probably under-states prospective inactivity. If K2 is wrong prospectively, it is most likely too mild.
+2. Live rows of the target week are used only after the team's final report is out (at least one designation; `live_injury_detail`). Thursday runs therefore leave Sunday games unadjusted, as with M3b.
+3. Earlier weeks of the live capture feed only lagged features.

@@ -91,3 +91,29 @@ test_that("corrupting reports from a cutoff week on never changes earlier weeks'
     expect_identical(base, pert)
   }
 })
+
+test_that("live detail: target week needs a final report; earlier weeks feed lags only", {
+  tg <- tibble::tibble(season = 2026L, week = rep(1:3, 2), team = rep(c("KC", "BUF"), each = 3),
+                       kickoff_utc = as.POSIXct(sprintf("2026-09-%02d 17:00", rep(c(13, 20, 27), 2)), tz = "UTC"))
+  rows <- tibble::tibble(
+    season = 2026L, game_type = "REG", week = c(1L, 2L, 3L, 3L, 3L),
+    team = c("KC", "KC", "KC", "KC", "BUF"), gsis_id = c("a", "a", "a", "b", "c"), position = "WR",
+    report_status = c("Questionable", NA, "Questionable", NA, NA),
+    practice_status = c("Limited Participation in Practice", "Full Participation in Practice",
+                        "Did Not Participate In Practice", "Limited Participation in Practice",
+                        "Did Not Participate In Practice"),
+    report_primary_injury = "Knee", practice_primary_injury = NA
+  )
+  captured <- as.POSIXct("2026-09-26 12:00", tz = "UTC")      # Saturday of week 3
+  d <- live_injury_detail(inj_file(rows), tg, captured, 2026L, 3L)
+  # KC's week-3 report is final (one designation); BUF's is practice-only -> dropped
+  expect_setequal(paste(d$week, d$gsis_id), c("1 a", "2 a", "3 a", "3 b"))
+  expect_equal(attr(d, "final_teams"), "KC")
+  f <- m4_add_features(tibble::tibble(season = 2026L, week = 3L, gsis_id = c("a", "b", "c"), team = c("KC", "KC", "BUF")),
+                       d, dplyr::mutate(tg, home = TRUE))
+  expect_equal(f$group, c("Q_DNP", "listed_DNP_LP", "not_listed"))
+  expect_equal(f$weeks_listed_streak, c(2L, 0L, 0L))
+  # a capture AFTER a team's kickoff gives that team nothing for the target week
+  late <- live_injury_detail(inj_file(rows), tg, as.POSIXct("2026-09-27 18:00", tz = "UTC"), 2026L, 3L)
+  expect_false(any(late$week == 3))
+})

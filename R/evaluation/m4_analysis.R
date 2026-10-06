@@ -41,7 +41,7 @@ m4_frame <- function(m3b_full, bases, detail, team_games) {
   m3b_full |>
     dplyr::filter(.data$season >= 2019, .data$season <= 2024) |>
     dplyr::inner_join(bases, by = c("season", "week", "gsis_id")) |>
-    add_availability_features(detail, team_games) |>
+    m4_add_features(detail, team_games) |>
     dplyr::mutate(
       actual_targets = dplyr::coalesce(.data$actual_targets, 0),
       # ESPN's own implied conversion rates (TDs untouched downstream)
@@ -49,28 +49,12 @@ m4_frame <- function(m3b_full, bases, detail, team_games) {
       espn_yds_per_tgt = safe_ratio(.data$espn_proj_receiving_yards, .data$espn_proj_targets),
       pts_per_target_espn = dplyr::coalesce(.data$espn_rec_per_tgt, 0.62) * 1 +
         dplyr::coalesce(.data$espn_yds_per_tgt, 8) * 0.1,
-      group = injury_group(.data$designation, .data$practice),
       m3b_q = .data$own_questionable %in% TRUE
     ) |>
     # B1 = the frozen M3b rule, applied with its own inputs (verified against the
     # frozen predictions by target m4_b1_matches_frozen)
     dplyr::mutate(pred_b1 = .data$base + rule_questionable(list(own_questionable = .data$m3b_q),
                                                            .data$base, "multiplicative", -0.09))
-}
-
-#' Pre-registered injury groups (K1/K3): designation x final practice status.
-injury_group <- function(designation, practice) {
-  dplyr::case_when(
-    designation == "Questionable" & practice == "DNP" ~ "Q_DNP",
-    designation == "Questionable" & practice == "LP" ~ "Q_LP",
-    designation == "Questionable" & practice == "FP" ~ "Q_FP",
-    designation == "Questionable" ~ "Q_other",
-    designation == "Doubtful" ~ "D",
-    designation == "listed_only" & practice %in% c("DNP", "LP") ~ "listed_DNP_LP",
-    designation == "listed_only" ~ "listed_FP",
-    designation %in% c("Out", "Note") ~ "other_listed",
-    TRUE ~ "not_listed"
-  )
 }
 
 #' Group table on development rows: shortfall vs calibrated ESPN in points and

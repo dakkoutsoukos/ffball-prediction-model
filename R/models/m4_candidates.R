@@ -64,22 +64,46 @@ m4_derive_params <- function(fr, seasons = M4_DEV, min_n = 100, digits = 2) {
   )
 }
 
+#' Multiplier on the calibrated-ESPN base for the availability rules (shared by
+#' the candidate study and the frozen M4 registry specs):
+#'   practice  (K1): 1 + m[group]
+#'   two_stage (K2): P(active | practice, Doubtful, returning, streak) x r[group]
+#' Rows outside the adjustable groups get 1.
+m4_rule_multiplier <- function(newdata, rule) {
+  pg <- m4_param_group(newdata$group, unlist(rule$pooled_into_Q_pool))
+  switch(rule$kind,
+    practice = ifelse(is.na(pg), 1, 1 + unlist(rule$multiplier_adj)[pg]),
+    two_stage = {
+      beta <- unlist(rule$logit)
+      x <- as.matrix(cbind(1, m4_active_design(newdata)[, names(beta)[-1], drop = FALSE]))
+      p_active <- stats::plogis(drop(x %*% beta))
+      ifelse(is.na(pg), 1, p_active * unlist(rule$ratio_if_active)[pg])
+    },
+    cli::cli_abort("Unknown M4 rule kind {.val {rule$kind}}.")
+  )
+}
+
+#' Rule objects for K1 and K2 from the fixed parameter list.
+m4_rules <- function(p) {
+  list(
+    K1 = list(kind = "practice", pooled_into_Q_pool = unlist(p$pooled_into_Q_pool),
+              multiplier_adj = p$k1_multiplier_adj),
+    K2 = list(kind = "two_stage", pooled_into_Q_pool = unlist(p$pooled_into_Q_pool),
+              logit = p$k2_logit, ratio_if_active = p$k2_ratio_if_active)
+  )
+}
+
 #' Candidate predictions (long format) for every row of the M4 frame.
 m4_candidate_preds <- function(fr, p) {
   pg <- m4_param_group(fr$group, unlist(p$pooled_into_Q_pool))
   lookup <- function(tab) { v <- unlist(tab)[pg]; ifelse(is.na(v), 0, v) }
   ppt <- fr$pts_per_target_espn
-  # K2
-  beta <- unlist(p$k2_logit)
-  x <- as.matrix(cbind(1, m4_active_design(fr)[, names(beta)[-1]]))
-  p_active <- stats::plogis(drop(x %*% beta))
-  r_act <- unlist(p$k2_ratio_if_active)[pg]
-  k2 <- ifelse(is.na(pg), fr$base, fr$base * p_active * r_act)
+  rules <- m4_rules(p)
   preds <- list(
     B0 = fr$base,
     B1 = fr$pred_b1,
-    K1 = fr$base * (1 + lookup(p$k1_multiplier_adj)),
-    K2 = k2,
+    K1 = fr$base * m4_rule_multiplier(fr, rules$K1),
+    K2 = fr$base * m4_rule_multiplier(fr, rules$K2),
     K3 = fr$base + lookup(p$k3_target_ratio_adj) * fr$cal_targets * ppt,
     K4 = fr$pred_b1 + p$k4_w * (fr$our_targets - fr$cal_targets) * ppt
   )
@@ -135,10 +159,19 @@ m4_freeze_decision <- function(dev, check19) {
     crit_b <- b_dev$mae_diff < 0 && b_19$mae_diff < 0 && b_dev$rmse_model <= b_dev$rmse_baseline &&
       b_19$rmse_model <= b_19$rmse_baseline
     tibble::tibble(model = k, params = M4_PARAM_COUNT[[k]], vs_B0_pass = crit_a, vs_B1_pass = crit_b,
-                   freeze = crit_a && crit_b)
+                   freeze = crit_a && crit_b, dev_mae_diff = a_dev$mae_diff, mae_diff_2019 = a_19$mae_diff)
   }) |>
     purrr::list_rbind()
+  # Plan section 10: the fewest parameters wins, unless another passing
+  # candidate is better on BOTH development and 2019 (same rows, so comparing
+  # ΔMAE vs B0 compares MAE).
   passing <- dplyr::filter(out, .data$freeze)
-  winner <- if (nrow(passing)) passing$model[which.min(passing$params)] else NA_character_
+  winner <- NA_character_
+  if (nrow(passing)) {
+    simplest <- passing[which.min(passing$params), ]
+    better <- dplyr::filter(passing, .data$dev_mae_diff < simplest$dev_mae_diff,
+                            .data$mae_diff_2019 < simplest$mae_diff_2019)
+    winner <- if (nrow(better)) better$model[which.min(better$dev_mae_diff)] else simplest$model
+  }
   list(table = out, winner = winner)
 }

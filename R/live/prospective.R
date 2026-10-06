@@ -226,6 +226,17 @@ m3b_live_frames <- function(reg, inputs, targets, cfg) {
   f
 }
 
+#' M4 frames: M3 frames plus availability features from OUR captured injury
+#' report (live_injury_detail(): own-kickoff timing and final-report rule).
+m4_live_frames <- function(reg, inputs, targets, cfg) {
+  f <- m3_live_frames(reg, inputs, targets, cfg)
+  path <- inputs$live_files[["injuries"]]
+  captured <- parse_utc_stamp(sub("^retrieved_at=(.*)[.]parquet$", "\\1", basename(path)))
+  det <- live_injury_detail(path, inputs$team_games, captured, unique(targets$season), unique(targets$week))
+  f$targets <- m4_add_features(f$targets, det, inputs$team_games)
+  f
+}
+
 #' One official prospective run: refresh nothing itself (call
 #' refresh_live_data() and snapshot_espn_projections() first), predict the
 #' week with every requested frozen lineage, archive immutably, append the
