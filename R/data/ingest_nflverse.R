@@ -17,7 +17,8 @@ nflverse_loaders <- list(
   injuries       = function(season) nflreadr::load_injuries(season),
   ff_opportunity = function(season) nflreadr::load_ff_opportunity(season, stat_type = "weekly"),
   ff_playerids   = function(season) nflreadr::load_ff_playerids(),
-  players        = function(season) nflreadr::load_players()
+  players        = function(season) nflreadr::load_players(),
+  depth_charts   = function(season) nflreadr::load_depth_charts(season)
 )
 
 raw_nflverse_path <- function(dataset, season = NULL, root = "data/raw/nflverse") {

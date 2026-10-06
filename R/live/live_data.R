@@ -6,6 +6,8 @@
 # known at prediction time can always be reconstructed.
 
 LIVE_ROOT <- "data/raw/nflverse_live"
+# Captured every run for FUTURE prospective-only features; no model uses them yet.
+LIVE_CAPTURE_ONLY <- c("depth_charts")
 LIVE_DATASETS <- c("player_stats", "schedules", "rosters_weekly", "snap_counts",
                    "injuries", "ff_opportunity", "pbp", "players", "ff_playerids")
 
@@ -57,7 +59,7 @@ latest_live_file <- function(dataset, season, as_of = Sys.time(), root = LIVE_RO
 }
 
 #' Refresh every live dataset (one new retrieval each) and return their paths.
-refresh_live_data <- function(season, datasets = LIVE_DATASETS, root = LIVE_ROOT) {
+refresh_live_data <- function(season, datasets = c(LIVE_DATASETS, LIVE_CAPTURE_ONLY), root = LIVE_ROOT) {
   stamp <- utc_stamp()
   rlang::set_names(purrr::map_chr(datasets, ~ fetch_live_nflverse(.x, season, root, stamp)), datasets)
 }
