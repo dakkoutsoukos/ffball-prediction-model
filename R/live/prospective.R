@@ -210,6 +210,17 @@ m3_live_frames <- function(reg, inputs, targets, cfg) {
   f
 }
 
+#' M3b frames: M3 frames plus injury features from OUR captured injury report,
+#' valid only if our retrieval happened before the player's kickoff.
+m3b_live_frames <- function(reg, inputs, targets, cfg) {
+  f <- m3_live_frames(reg, inputs, targets, cfg)
+  path <- inputs$live_files[["injuries"]]
+  captured <- parse_utc_stamp(sub("^retrieved_at=(.*)[.]parquet$", "\\1", basename(path)))
+  inj <- pregame_injuries(path, inputs$team_games, captured_at = captured)
+  f$targets <- add_injury_features(f$targets, inj, live_pbp_histories(inputs)$player_games_m2)
+  f
+}
+
 #' One official prospective run: refresh nothing itself (call
 #' refresh_live_data() and snapshot_espn_projections() first), predict the
 #' week with every requested frozen lineage, archive immutably, append the

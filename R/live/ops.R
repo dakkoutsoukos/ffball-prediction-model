@@ -6,7 +6,7 @@ fmt_utc <- function(t) format(t, "%Y-%m-%d %H:%M UTC", tz = "UTC")
 
 #' Lineages with a frozen registry file (default set for weekly runs).
 frozen_lineages <- function(dir = "models/registry") {
-  sort(tolower(sub("[.]yml$", "", list.files(dir, pattern = "^m[0-9]+[.]yml$"))))
+  sort(tolower(sub("[.]yml$", "", list.files(dir, pattern = "^m[0-9]+[a-z]?[.]yml$"))))
 }
 
 #' The week to predict: the earliest regular-season week that still has a game

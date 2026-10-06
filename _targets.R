@@ -294,6 +294,35 @@ list(
     })
   ),
 
+  # ---- Milestone 3b: hypothesis D (Questionable), one-time 2024 check ---------
+  tar_target(pregame_injury_reports, pregame_injuries(raw_injuries, team_games, season_type = config$season_type)),
+  if (file.exists("models/registry/m3b.yml")) list(
+    tar_target(m3b_registry_file, "models/registry/m3b.yml", format = "file"),
+    tar_target(m3b_registry, read_registry("m3b", dirname(m3b_registry_file))),
+    tar_target(m3b_frozen_specs, {
+      list(registry_spec_adjusted, rule_questionable, rule_role_change, rule_return, spec_adjusted)
+      unname(registry_specs(m3b_registry))
+    }, iteration = "list"),
+    tar_target(m3b_full, add_injury_features(m3_full, pregame_injury_reports, m2_hist$player_games_m2)),
+    # 2025 has no injury timestamps, so the check uses 2024 only (E9).
+    tar_target(m3b_holdout_preds,
+               rolling_folds(m3b_full, m3b_frozen_specs, 2024, m3b_registry$data$min_train_season),
+               pattern = map(m3b_frozen_specs), format = "parquet"),
+    tar_target(m3b_holdout_aligned,
+               m2_aligned(dplyr::bind_rows(m3b_holdout_preds,
+                                           dplyr::filter(m2_holdout_preds, model == "m2_espn_cal", season == 2024)),
+                          m3b_full), format = "parquet"),
+    tar_target(m3b_holdout_comparisons, m2_comparisons(
+      m3b_holdout_aligned, models = unique(m3b_holdout_preds$model), benchmarks = "m2_espn_cal",
+      reps = config$evaluation$bootstrap_reps, seed = config$evaluation$seed)),
+    tar_target(m3b_fingerprint_check, {
+      path <- m3b_registry$fingerprint
+      if (!file.exists(path)) write_fingerprint(m3b_holdout_preds, path, raw_manifest, 2017, 2018)
+      check_frozen_fingerprint(m3b_holdout_preds, path, raw_manifest,
+                               list(data = list(history_start_season = 2017, min_train_season = 2018)))
+    })
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: its prospective section reads the live archive.

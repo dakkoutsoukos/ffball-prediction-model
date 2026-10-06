@@ -87,3 +87,16 @@ test_that("model ids are unique across all frozen lineages", {
   ids <- unlist(lapply(c("m1", "m2", "m3"), function(l) names(read_registry(l, reg_dir)$models)))
   expect_false(anyDuplicated(ids) > 0)
 })
+
+test_that("M3b registry freezes exactly the pre-registered hypothesis D (experiment log E9)", {
+  reg <- read_registry("m3b", reg_dir)
+  expect_setequal(names(reg$models), c("m3_questionable_adjust_v1", "m3_questionable_add_v1", "m3_combined_abd_v1"))
+  expect_equal(reg$models$m3_questionable_adjust_v1$questionable_rule, list(form = "multiplicative", value = -0.09))
+  expect_equal(reg$models$m3_questionable_add_v1$questionable_rule, list(form = "additive", value = -0.68))
+  m3 <- read_registry("m3", reg_dir)
+  expect_equal(reg$models$m3_combined_abd_v1$role_rule, m3$models$m3_role_adjust_v1$role_rule)
+  expect_equal(reg$models$m3_combined_abd_v1$return_rule, m3$models$m3_return_adjust_v1$return_rule)
+  ids <- unlist(lapply(frozen_lineages(reg_dir), function(l) names(read_registry(l, reg_dir)$models)))
+  expect_false(anyDuplicated(ids) > 0)
+  expect_true("m3b" %in% frozen_lineages(reg_dir))
+})
