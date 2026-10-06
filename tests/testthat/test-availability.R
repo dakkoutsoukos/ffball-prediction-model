@@ -117,3 +117,36 @@ test_that("live detail: target week needs a final report; earlier weeks feed lag
   late <- live_injury_detail(inj_file(rows), tg, as.POSIXct("2026-09-27 18:00", tz = "UTC"), 2026L, 3L)
   expect_false(any(late$week == 3))
 })
+
+test_that("injury leakage check passes M4 features and catches planted leaks", {
+  tg <- dplyr::mutate(sched4(), home = TRUE)
+  raw <- tibble::tibble(
+    season = 2023L, game_type = "REG", team = "KC", week = rep(1:4, each = 2), gsis_id = rep(c("a", "b"), 4),
+    position = "WR", report_status = c("Questionable", NA, NA, "Questionable", "Doubtful", NA, NA, NA),
+    practice_status = rep(c("Limited Participation in Practice", "Full Participation in Practice"), 4),
+    report_primary_injury = "Knee", practice_primary_injury = NA,
+    date_modified = tg$kickoff_utc[rep(1:4, each = 2)] - 3600 * 48
+  )
+  targets <- tidyr::expand_grid(season = 2023L, week = 1:4, gsis_id = c("a", "b")) |>
+    dplyr::mutate(team = "KC", roster_status = "ACT", has_stat_line = TRUE, actual = 10, actual_targets = 6)
+  m4_fn <- function(t, rows, team_games) {
+    m4_add_features(t, pregame_injury_detail(inj_file(rows), team_games), team_games)
+  }
+  expect_identical(check_injury_leakage(targets, raw, tg, m4_fn), character(0))
+  # planted: next week's designation
+  next_week <- function(t, rows, team_games) {
+    det <- pregame_injury_detail(inj_file(rows), team_games)
+    nxt <- dplyr::transmute(det, season, week = week - 1L, gsis_id, next_des = designation)
+    dplyr::left_join(m4_fn(t, rows, team_games), nxt, by = c("season", "week", "gsis_id"))
+  }
+  expect_true("next_des" %in% check_injury_leakage(targets, raw, tg, next_week))
+  # planted: a report used without its timestamp (post-kickoff report)
+  untimed <- function(t, rows, team_games) {
+    rows$date_modified <- as.POSIXct("2000-01-01", tz = "UTC")
+    m4_fn(t, rows, team_games)
+  }
+  expect_true("designation" %in% check_injury_leakage(targets, raw, tg, untimed))
+  # planted: realised game-day active status
+  realised <- function(t, rows, team_games) dplyr::mutate(m4_fn(t, rows, team_games), active_now = roster_status == "ACT")
+  expect_true("active_now" %in% check_injury_leakage(targets, raw, tg, realised))
+})

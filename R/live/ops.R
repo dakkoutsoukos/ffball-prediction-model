@@ -115,6 +115,20 @@ newest_evidence <- function(dirs = BACKUP_DIRS) {
   max(file.mtime(files))
 }
 
+#' Injury-report readiness for the target week. M3b and M4 act only on FINAL
+#' reports captured before kickoff: report the latest capture and which
+#' upcoming teams' final reports (at least one game designation) it contains.
+injury_report_status <- function(season, week, team_games, now = Sys.time()) {
+  path <- tryCatch(latest_live_file("injuries", season, now), error = function(e) NA_character_)
+  if (is.na(path)) return(list(captured_at = NA, final_teams = character(), pending_teams = character()))
+  captured <- parse_utc_stamp(sub("^retrieved_at=(.*)[.]parquet$", "\\1", basename(path)))
+  d <- live_injury_detail(path, team_games, captured, season, week)
+  upcoming <- unique(team_games$team[team_games$season == season & team_games$week == week &
+                                       team_games$kickoff_utc > now])
+  final <- intersect(attr(d, "final_teams"), upcoming)
+  list(captured_at = captured, final_teams = final, pending_teams = setdiff(upcoming, final))
+}
+
 #' Print a weekly status dashboard.
 print_status <- function(season, now = Sys.time()) {
   cfg <- read_project_config()
@@ -140,6 +154,17 @@ print_status <- function(season, now = Sys.time()) {
   }
   snaps <- list_snapshots(season, week)
   cli::cli_text("ESPN snapshots for week {week}: {nrow(snaps)}{if (nrow(snaps)) paste0(' (latest ', fmt_utc(max(snaps$captured_at)), ')') else ''}.")
+  inj <- injury_report_status(season, week, tg, now)
+  if (is.na(inj$captured_at)) {
+    cli::cli_alert_warning("No live injury-report capture for {season}.")
+  } else {
+    n_up <- length(inj$final_teams) + length(inj$pending_teams)
+    cli::cli_text("Latest injury-report capture: {fmt_utc(inj$captured_at)}; final week-{week} designations for {length(inj$final_teams)} of {n_up} upcoming teams.")
+    if (length(inj$pending_teams) > 0) {
+      cli::cli_alert_info("M3b/M4 leave players unadjusted until a capture holds their team's final report (usually Friday; Wednesday for Thursday games).")
+    }
+  }
+  cli::cli_text("Frozen lineages (default for weekly runs): {.val {frozen_lineages()}}.")
   pv <- verify_prediction_archive()
   sv <- verify_snapshot_archive()
   if (all(pv$verified) && all(sv$parquet_ok & sv$raw_ok)) {

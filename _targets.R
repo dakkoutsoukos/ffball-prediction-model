@@ -372,6 +372,24 @@ list(
       unname(registry_specs(m4_registry))
     }, iteration = "list"),
     tar_target(m4_full, m4_add_features(m3b_full, injury_detail, team_games), format = "parquet"),
+    # Injury-table corruption test on real data: future reports, post-kickoff
+    # reports and realised outcomes must not change any M4 feature.
+    tar_target(leakage_check_m4, {
+      raw <- dplyr::filter(read_parquet_files(raw_injuries), .data$season %in% 2018:2024, .data$game_type == "REG")
+      fn <- function(t, rows, tg) {
+        p <- tempfile(fileext = ".parquet")
+        on.exit(unlink(p))
+        arrow::write_parquet(rows, p)
+        m4_add_features(t, pregame_injury_detail(p, tg), tg)
+      }
+      probe <- dplyr::select(dplyr::filter(m4_full, .data$season %in% 2019:2024), "season", "week", "gsis_id", "team",
+                             "roster_status", "has_stat_line", "actual", "actual_targets")
+      set.seed(4)
+      gis <- sample(unique(game_index(probe$season, probe$week)), 6)
+      leaks <- check_injury_leakage(probe, raw, team_games, fn, weeks = gis)
+      if (length(leaks)) cli::cli_abort("M4 injury features leak: {.val {leaks}}")
+      list(weeks = gis, leaks = leaks)
+    }),
     tar_target(m4_holdout_preds,
                rolling_folds(m4_full, m4_frozen_specs, c(2019, 2024), m4_registry$data$min_train_season),
                pattern = map(m4_frozen_specs), format = "parquet"),

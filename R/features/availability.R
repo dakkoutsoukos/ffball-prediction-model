@@ -161,3 +161,49 @@ live_injury_detail <- function(path, team_games, captured_at, season, week) {
   attr(out, "final_teams") <- final$team[final$final]
   out
 }
+
+#' Injury-table leakage check (plan section 11). For each target week, three
+#' corruptions must leave every feature of that week's rows unchanged:
+#'   future    - reports of LATER weeks are rewritten (Out / DNP) and an Out row
+#'               is added for every target player in the next week;
+#'   late      - an Out/DNP report for the target week stamped AFTER kickoff is
+#'               added for every target player;
+#'   realised  - realised outcomes on the target rows (roster status, stat line,
+#'               points, targets) are corrupted.
+#' `feature_fn(targets, raw_rows, team_games)` builds features from raw report
+#' rows. Returns the names of leaking feature columns.
+check_injury_leakage <- function(targets, raw_rows, team_games, feature_fn, weeks = NULL) {
+  weeks <- weeks %||% sort(unique(game_index(targets$season, targets$week)))
+  outcome_cols <- intersect(c("roster_status", "has_stat_line", "actual", "actual_targets"), names(targets))
+  leaks <- purrr::map(weeks, function(g) {
+    probe <- targets[game_index(targets$season, targets$week) == g, ]
+    s <- g %/% 100
+    w <- g %% 100
+    base <- feature_fn(probe, raw_rows, team_games)
+    cols <- setdiff(names(base), names(probe))
+    same <- function(x) cols[!vapply(cols, function(c) identical(base[[c]], x[[c]]), logical(1))]
+    kick <- dplyr::left_join(dplyr::select(probe, "season", "week", "team", "gsis_id"),
+                             dplyr::select(team_games, "season", "week", "team", "kickoff_utc"),
+                             by = c("season", "week", "team"))
+    out_row <- function(d, wk, at) tibble::tibble(season = d$season, game_type = "REG", team = d$team, week = wk,
+                                                  gsis_id = d$gsis_id, position = "WR", report_status = "Out",
+                                                  practice_status = "Did Not Participate In Practice",
+                                                  report_primary_injury = "Knee", practice_primary_injury = NA,
+                                                  date_modified = at)
+    later <- game_index(raw_rows$season, raw_rows$week) > g
+    future <- raw_rows
+    future$report_status[later] <- "Out"
+    future$practice_status[later] <- "Did Not Participate In Practice"
+    future <- dplyr::bind_rows(future, out_row(kick, kick$week + 1L, kick$kickoff_utc + 3600 * 24 * 5))
+    late <- dplyr::bind_rows(raw_rows, out_row(kick, kick$week, kick$kickoff_utc + 3600))
+    realised <- probe
+    for (c in outcome_cols) {
+      realised[[c]] <- if (is.character(realised[[c]])) "INA" else if (is.logical(realised[[c]])) !realised[[c]] else
+        realised[[c]] * 3 + 11
+    }
+    r_feat <- feature_fn(realised, raw_rows, team_games)
+    c(same(feature_fn(probe, future, team_games)), same(feature_fn(probe, late, team_games)),
+      setdiff(same(r_feat), outcome_cols))
+  })
+  sort(unique(unlist(leaks)))
+}
