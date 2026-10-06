@@ -1,0 +1,43 @@
+# Milestone 4 candidate parameters (pre-registration, research/experiment_log.md E13).
+# Derived ONCE from development seasons 2020-2023 by m4_derive_params() (R/models/m4_candidates.R),
+# rounded, and fixed BEFORE the 2019 (primary) and 2024 (secondary) checks were run.
+# The pipeline target m4_params fails if re-derivation ever disagrees with this file.
+# Written 2026-10-06T06:17:44Z; never edit by hand.
+derived_from: 2020-2023
+pooled_into_Q_pool:
+- Q_DNP
+- Q_other
+- D
+n_dev:
+  Q_DNP: 73
+  Q_LP: 388
+  Q_FP: 110
+  Q_other: 6
+  D: 4
+  listed_DNP_LP: 389
+  Q_pool: 581
+k1_multiplier_adj:
+  Q_pool: -0.09
+  Q_LP: -0.09
+  Q_FP: -0.04
+  listed_DNP_LP: -0.02
+k2_logit:
+  (Intercept): 3.533
+  dnp: -0.752
+  lp: 0.058
+  doubtful: -3.179
+  returning: -0.891
+  streak: 0.43
+k2_ratio_if_active:
+  Q_pool: 0.83
+  Q_LP: 0.82
+  Q_FP: 0.93
+  listed_DNP_LP: 0.96
+k3_target_ratio_adj:
+  Q_pool: -0.05
+  Q_LP: -0.05
+  Q_FP: -0.07
+  listed_DNP_LP: -0.02
+k4_w: 0.25
+b1_questionable: -0.09
+

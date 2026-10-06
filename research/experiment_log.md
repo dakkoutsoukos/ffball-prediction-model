@@ -763,3 +763,80 @@ The full plan is in docs/milestone4_plan.md and is binding.
 - vs B1: development pooled ΔMAE < 0 and 2019 ΔMAE < 0, with RMSE no worse.
 - Otherwise M3b remains the injury model.
 - 2024 cannot rescue a candidate that fails 2019.
+
+---
+
+## 2026-10-06 — E13: Milestone 4 development findings and FIXED candidate parameters (written 06:20Z, before the 2019 and 2024 checks)
+
+All numbers below come from development seasons 2020–2023 only.
+- Residuals are measured against the weekly rolling calibrated-ESPN base (the `m2_espn_cal` procedure).
+- B1 recomputed in the M4 frame equals the frozen M3b predictions to within 1e-9 (2,499 rows in 2024; target `m4_b1_matches_frozen`).
+
+**Coverage** (`injury_coverage`). Rows that are valid pregame, by season:
+
+| | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 |
+|---|---|---|---|---|---|---|---|---|
+| valid | 4,949 | 4,959 | 5,197 | 5,401 | 5,345 | 5,433 | 5,451 | 5,953 |
+| dropped as stamped after kickoff | 0 | 2 | 5 | 13 | 3 | 0 | 0 | 1 |
+
+- 2022 has 17 rows for a game missing from the schedule.
+- 2025 has 5,783 rows, all untimed, and is excluded.
+
+**What Questionable represents** (`m4_decomposition`, `m4_availability_pop`).
+
+| group | n (ESPN pop.) | points vs base | P(active), ESPN pop. | P(active), all listed WRs | targets vs ESPN if active | points per target if active vs ESPN |
+|---|---|---|---|---|---|---|
+| Q + practice DNP | 73 | −30% | 0.93 | **0.49** | −7% | 1.36 vs 1.79 |
+| Q + Limited | 388 | −19% | 0.97 | **0.76** | −9% | 1.58 vs 1.76 |
+| Q + Full | 110 | −8% | 0.98 | **0.81** | −12% | 1.86 vs 1.76 |
+| listed only, DNP/LP | 389 | −4% | 0.99 | 0.89 | −5% | 1.85 vs 1.83 |
+| listed only, FP | 933 | −4% | 0.99 | 0.96 | −2% | 1.78 vs 1.80 |
+| not listed | 8,013 | +1.6% | 0.99 | — | +0.5% | 1.77 vs 1.75 |
+
+- **In historical evaluation, Questionable is a workload-and-efficiency signal, not an availability signal.**
+  - Historical ESPN projections are final values. For most game-day inactives, ESPN has already set them to 0.
+  - For example, 115 of the 136 Q-Limited WRs with an ESPN projection of 0 were inactive. Such players fall outside the evaluation population.
+  - Inside that population, 93–98% of Questionable WRs play. Those who play earn about 9% fewer targets than ESPN expects and convert them worse.
+  - Points per target falls sharply after a DNP week.
+- **Prospectively the picture differs.** Our snapshots come before inactives are announced.
+  - Of all Questionable WRs, 24% (Q-LP), 19% (Q-FP) and 51% (Q-DNP) are inactive.
+  - Historical ESPN data cannot evaluate this component, because the inactive rows carry no pre-inactive ESPN projection.
+  - This is recorded as the main open question for the prospective record (see M5).
+- **Body part (exploratory)** has no signal. The Questionable shortfall is −18% for lower body (n 408), −17% upper (103), −19% non-injury (45) and −19% head (20).
+- **Narrow teammate-absence check on targets** (`m4_teammate`; hypothesis: WRs whose teammates are Out/Doubtful get more targets than ESPN expects). **Rejected and closed.**
+  - The slope of (actual − calibrated ESPN targets) on vacated target share is −0.50 (se 0.25), and negative in all four seasons (−0.06, −0.27, −1.34, −0.30).
+  - ESPN already moves targets to the remaining WRs, if anything slightly too far. This matches E9's points result.
+- **Target disagreement** (`m4_disagreement`). Realised targets move w = 0.25 of the way from calibrated ESPN toward our independent target model (by season 0.16, 0.27, 0.28, 0.30). M3's points-based estimate was about 0.33.
+
+**Fixed parameters** (research/m4_candidate_params.yml; the pipeline re-derives them and fails on any difference).
+- Groups with n < 100 in development are pooled with all Questionable/Doubtful rows (`Q_pool`, n = 581): Q-DNP 73, Q-other 6, Doubtful 4.
+
+| id | rule | parameters |
+|---|---|---|
+| K1 | base × (1 + m), with m = Q_pool −0.09, Q-LP −0.09, Q-FP **−0.04**, listed-only DNP/LP −0.02 (half the development ratios) | 4 |
+| K2 | base × P̂(active) × r on the same groups. Logit: 3.533 − 0.752·DNP + 0.058·LP − 3.179·Doubtful − 0.891·returning + 0.430·min(streak, 4). r = Q_pool 0.83, Q-LP 0.82, Q-FP 0.93, listed DNP/LP 0.96 | 10 |
+| K3 | base + a · calibrated ESPN targets × ESPN points/target, with a = Q_pool −0.05, Q-LP −0.05, Q-FP −0.07, listed DNP/LP −0.02 (half the target ratios). TDs unchanged | 4 |
+| K4 | B1 + 0.25 · (our targets − calibrated ESPN targets) × ESPN points/target | 2 |
+
+Interpretations fixed before the checks:
+- K2 follows the plan text literally, so it is **not halved**. It therefore also tests full against half shrinkage.
+- K1 to K3 do not adjust listed-only full-practice rows.
+- "ESPN points/target" = ESPN rec/target × 1 + ESPN yards/target × 0.1. In development it ranges 1.10–1.93.
+
+**Development results** (in-sample for the parameters; pooled 2020–2023, n = 9,916, ΔMAE with 95% week-bootstrap CI):
+
+| | vs B0 (all) | vs B1 (all) | vs B1 top 60 | vs B1 top 36 | RMSE (B0 6.1007, B1 6.0884) |
+|---|---|---|---|---|---|
+| B1 | −0.0136 [−0.0185, −0.0094] | — | — | — | 6.0884 |
+| K1 | −0.0146 [−0.0195, −0.0103] | −0.0010 [−0.0023, 0.0004] | −0.0027 | −0.0037 | 6.0879 |
+| K2 | −0.0270 [−0.0375, −0.0181] | −0.0134 [−0.0197, −0.0079] | −0.0201 | −0.0297 | 6.0825 |
+| K3 | −0.0078 [−0.0104, −0.0056] | +0.0059 [0.0035, 0.0084] | +0.0085 | +0.0131 | 6.0939 |
+| K4 | −0.0114 [−0.0202, −0.0028] | +0.0023 [−0.0055, 0.0099] | −0.0166 | −0.0113 | **6.0745** |
+
+Development status under the pre-registered criteria:
+- K1 and K2 pass both development conditions.
+- K3 fails vs B1: the target-only path misses the efficiency loss.
+- K4 fails vs B1 on all-row MAE, although it has the best RMSE and the best top-60 result.
+- **The 2019 check decides between K1 and K2.** By the simplicity rule, K1 (4 parameters) wins unless K2 is better than K1 in both development and 2019.
+
+The 2019 (primary) and 2024 (secondary) checks are run **once**, after this entry is committed.

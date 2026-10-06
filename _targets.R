@@ -323,6 +323,42 @@ list(
     })
   ),
 
+  # ---- Milestone 4: availability and opportunity (docs/milestone4_plan.md) ----
+  tar_target(injury_detail, pregame_injury_detail(raw_injuries, team_games, season_type = config$season_type)),
+  tar_target(injury_coverage, injury_coverage_report(injury_detail)),
+  if (file.exists("models/registry/m3b.yml")) list(
+    tar_target(m4_bases, m4_rolling_bases(m2_full), format = "parquet"),
+    tar_target(m4_data, m4_frame(m3b_full, m4_bases, injury_detail, team_games), format = "parquet"),
+    # B1 recomputed here must equal the frozen M3b predictions (2024 rows).
+    tar_target(m4_b1_matches_frozen, {
+      frozen <- dplyr::filter(m3b_holdout_preds, model == "m3_questionable_adjust_v1") |>
+        dplyr::select("season", "week", "gsis_id", frozen = "pred")
+      cmp <- dplyr::inner_join(frozen, m4_data, by = c("season", "week", "gsis_id"))
+      stopifnot(nrow(cmp) > 2000, max(abs(cmp$frozen - cmp$pred_b1)) < 1e-9)
+      nrow(cmp)
+    }),
+    tar_target(m4_groups, group_ratios(m4_data)),
+    tar_target(m4_decomposition, questionable_decomposition(m4_data)),
+    tar_target(m4_disagreement, disagreement_slope(m4_data)),
+    tar_target(m4_availability_pop, availability_by_population(injury_detail, rosters_weekly, espn_weekly,
+                                                               espn_crosswalk, player_stats)),
+    tar_target(m4_teammate, teammate_absence_targets(m4_data)),
+    tar_target(m4_body, body_part_questionable(m4_data)),
+    # Candidate parameters: derived from 2020-2023 only, then fixed in a committed
+    # file (pre-registration, E13). The pipeline fails if they ever disagree.
+    tar_target(m4_params_derived, m4_derive_params(m4_data))
+  ),
+  if (file.exists("research/m4_candidate_params.yml")) list(
+    tar_target(m4_params_file, "research/m4_candidate_params.yml", format = "file"),
+    tar_target(m4_params, {
+      p <- yaml::read_yaml(m4_params_file)
+      stopifnot(isTRUE(all.equal(p, m4_params_derived, check.attributes = FALSE)))
+      p
+    }),
+    tar_target(m4_preds, m4_candidate_preds(m4_data, m4_params), format = "parquet"),
+    tar_target(m4_dev_eval, m4_evaluate(m4_preds, M4_DEV))
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: its prospective section reads the live archive.
