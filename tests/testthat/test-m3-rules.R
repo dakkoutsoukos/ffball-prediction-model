@@ -116,3 +116,8 @@ test_that("expected-QB features use only pregame captures and prior starters", {
   fut <- expected_qb_features(sched, as.POSIXct("2026-10-08 12:00", tz = "UTC"), future_start, 2026, 5)
   expect_equal(fut$prior_starts[fut$team == "TB"], 0L)          # the week-5 start itself never counts
 })
+
+test_that("git commit times parse in both UTC 'Z' and offset forms", {
+  expect_equal(format(parse_git_iso("2021-12-05T15:45:11Z"), tz = "UTC"), "2021-12-05 15:45:11")
+  expect_equal(format(parse_git_iso("2021-12-05T10:45:11-05:00"), tz = "UTC"), "2021-12-05 15:45:11")
+})

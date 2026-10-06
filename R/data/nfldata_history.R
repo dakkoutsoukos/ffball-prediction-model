@@ -29,8 +29,30 @@ nfldata_version_before <- function(t, dir = NFLDATA_DIR) {
   sha <- git_out(dir, "rev-list", "-1", paste0("--before=", iso), "HEAD", "--", "data/games.csv")
   if (length(sha) == 0) return(list(sha = NA_character_, committed = as.POSIXct(NA, tz = "UTC")))
   ct <- git_out(dir, "show", "-s", "--format=%cI", sha)
-  list(sha = sha, committed = as.POSIXct(sub("([+-][0-9]{2}):([0-9]{2})$", "\\1\\2", ct),
-                                         format = "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"))
+  committed <- parse_git_iso(ct)
+  if (is.na(committed)) cli::cli_abort("Could not parse commit time {.val {ct}} for {sha}.")
+  list(sha = sha, committed = committed)
+}
+
+#' Parse git's strict ISO-8601 dates ("...Z" or "...+05:00") to UTC.
+parse_git_iso <- function(x) {
+  x <- sub("Z$", "+0000", x)                                    # git prints "Z" for UTC
+  x <- sub("([+-][0-9]{2}):([0-9]{2})$", "\\1\\2", x)          # "+05:00" -> "+0500"
+  as.POSIXct(x, format = "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
+}
+
+#' Fetch many file versions in ONE network round trip (a blob-less clone would
+#' otherwise fetch each version separately, ~10 s apiece).
+prefetch_versions <- function(shas, dir = NFLDATA_DIR) {
+  oids <- unique(vapply(unique(stats::na.omit(shas)), function(s) {
+    git_out(dir, "rev-parse", paste0(s, ":data/games.csv"))      # trees are local; no blob needed
+  }, character(1)))
+  if (length(oids) == 0) return(invisible(0L))
+  tmp <- tempfile(fileext = ".txt")
+  writeLines(oids, tmp)
+  # One request for all versions (objects already present are skipped by the server).
+  system2("git", c("-C", dir, "fetch", "-q", "--no-tags", "--stdin", "origin"), stdin = tmp)
+  invisible(length(oids))
 }
 
 #' As-of schedule state for each game at `kickoff - hours_before`.
@@ -38,9 +60,15 @@ nfldata_version_before <- function(t, dir = NFLDATA_DIR) {
 nfldata_asof <- function(games, hours_before = 2, dir = NFLDATA_DIR) {
   g <- games |>
     dplyr::distinct(.data$game_id, .data$kickoff_utc) |>
-    dplyr::mutate(cutoff_utc = .data$kickoff_utc - hours_before * 3600)
-  purrr::map(split(g, g$cutoff_utc), function(gg) {
-    v <- nfldata_version_before(gg$cutoff_utc[1], dir)
+    dplyr::mutate(cutoff_utc = .data$kickoff_utc - hours_before * 3600,
+                  key = format(.data$cutoff_utc, "%Y%m%dT%H%M%S", tz = "UTC"))
+  keys <- unique(g$key)
+  versions <- rlang::set_names(
+    purrr::map(keys, function(k) nfldata_version_before(g$cutoff_utc[match(k, g$key)], dir)), keys)
+  prefetch_versions(purrr::map_chr(versions, "sha"), dir)
+  purrr::map(keys, function(k) {
+    gg <- dplyr::select(g[g$key == k, ], -"key")
+    v <- versions[[k]]
     if (is.na(v$sha)) return(dplyr::mutate(gg, commit_sha = NA_character_, committed_utc = v$committed))
     txt <- git_out(dir, "show", paste0(v$sha, ":data/games.csv"))
     snap <- readr::read_csv(I(paste(txt, collapse = "\n")), show_col_types = FALSE, col_types = readr::cols(.default = "c"))
