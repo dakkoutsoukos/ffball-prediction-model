@@ -413,3 +413,58 @@ Fixed now:
    - structures: 1-for-1, 2-for-1, 1-for-2, 2-for-2;
    - generic pre-filter: |ΔTV| ≤ 40.
 6. **V1 is unchanged.** Generic values in the league's format come from a separate V1-methodology run under the league's settings.
+
+---
+
+## 2026-10-07 — VL1: V2 on the owner's league (league alias `league_605d88d7`)
+
+**Inputs.**
+- League snapshot `20261007T193259Z`: 8 teams, 141 rostered players.
+- League-format valuation run `20261007T193931Z`.
+- Analysis `20261007T200628Z`: streaming policy `empty_slots`, 200 draws, seed 20261007.
+- No league content is committed; only the alias and hashes are.
+
+**Settings mapped from ESPN.**
+- 8 teams; QB 1, RB 2, WR 2, TE 1, FLEX(RB/WR/TE) 2; bench 7; IR 1; roster 17 (K and D/ST each 1).
+- Position limits QB 4, RB 8, WR 8, TE 3.
+- Regular season 1–14; playoffs 15–17 (4 teams, two-week final).
+- **Scoring is ESPN PPR for QB/RB/WR/TE**, so the V1 ROS parameters and the M4 WR source apply unchanged.
+
+The 31 unmapped scoring items are K or D/ST stats, or negligible for skill players. The evidence:
+- across 124,829 skill-player stat lines in the local ESPN history, at most 0.00015 points per player-week (return TDs);
+- items 95–99 score only through D/ST-slot overrides.
+
+The general rule now in `lg_map_scoring()`: an unmapped item is relevant only if it can score for a skill slot and reaches 0.01 points per player-week.
+
+**ID coverage.** 124 skill players, all joined by ESPN id. No skill player without projections, no duplicate owners, no position or team mismatches. The 17 K and D/ST players are not valued.
+
+**Bugs found on real data, fixed generally and tested, before any result was used:**
+1. The playoff horizon came out as 15–14. ESPN reports `playoffMatchupPeriodLength = 0` with variable per-round lengths. Weeks now come from the matchup-period map, and `val_league()` rejects reversed ranges.
+2. Position limits counted IR players: a team with 8 active RBs plus 1 on IR was forced into an RB drop on every trade. Limits now apply to active players, and a pre-existing excess never forces a drop.
+
+Report-only fixes:
+- the summary previously counted only the archived top 15 per opponent; now every evaluated trade is archived;
+- a `summarise()` ordering bug in the TE ratio table;
+- the free-agent team label.
+
+**Results.**
+- **Actual waiver levels** (points per game, horizon mean of the best free agent each week) against V1 generic replacement in the league's format:
+
+  | | QB | RB | WR | TE |
+  |---|---|---|---|---|
+  | actual | 14.8 | 8.3 | 8.6 | 8.8 |
+  | generic | 14.8 | 9.0 | 9.0 | 8.1 |
+
+  RB and WR waivers are thinner than generic, TE waivers deeper.
+- **Power rankings** (expected ROS lineup points): 1,710 down to 1,507. The owner's team is 4th (1,603).
+- **Team-specific against generic value.**
+  - Mean team value / generic VOR = 0.86; correlation 0.99 for VOR > 10.
+  - The widest destination spreads are QBs, for example 32–67 for the top QB, set by whether a team's own QB is weak or on bye.
+- **TE.** Team value per generic VOR point: TE 0.64, against RB 0.89, WR 0.87 and QB 0.96. With actual rosters the V1 pooled display scale does overstate TEs; generic teams in V1 gave 0.51. The scale is not changed. Team-specific Δ is the decision variable, and V1 stays as registered.
+- **QB.** 1QB values stay below generic VOR. Under a hypothetical superflex slot (same rosters), the top QBs' value to other teams roughly doubles to triples (for example 48 → 93, 21 → 58).
+- **Search** (owner's team against all 7 opponents, 1,750 trades fully evaluated):
+  - 338 have both sides gaining;
+  - 33 are mild win-wins (both above ε = 5);
+  - 499 are fair (|ΔA − ΔB| ≤ 5);
+  - the largest surplus is +24.5.
+  - Model estimates only; acceptance is not modelled.
