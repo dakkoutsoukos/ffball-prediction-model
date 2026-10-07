@@ -66,6 +66,8 @@ lg_load <- function(season = as.integer(format(Sys.Date(), "%Y")), as_of = Sys.t
                    valuation_league_format = val$league_format, scoring_equals_espn_ppr = lc$scoring$equals_espn_ppr,
                    unmapped_scoring_items = nrow(lc$scoring$unmapped), policy = m$policy, sims = la$sims, seed = la$seed)
   m$season <- as.integer(season)
+  m$input_data <- list(weekly = val$weekly, roster = lg$roster, league = lc$league)  # for hypothetical rebuilds
+  m$my_team <- lg_my_team(lg$teams)
   m$diagnostics <- lg_id_diagnostics(lg$roster, dplyr::distinct(val$weekly, .data$espn_id, .data$player_id, .data$position, .data$team))
   m$la <- la
   m$scoring <- lc$scoring
@@ -116,12 +118,27 @@ lg_archive_analysis <- function(m, root = LG_ANALYSIS_ROOT, manifest = LG_ANALYS
   }) |>
     purrr::list_rbind()
   wc <- lg_waiver_comparison(m)
+  # my team against every other team: win-win and fair trades (model estimates)
+  my <- m$my_team %||% NA_integer_
+  searches <- NULL
+  if (!is.na(my)) {
+    sc <- m$la$search %||% list(top_n = 12, tv_band = 40, max_eval = 250)
+    searches <- purrr::map(setdiff(as.integer(names(m$state)), my), function(t) {
+      r <- lg_trade_search(m, my, t, mtv, top_n = sc$top_n, tv_band = sc$tv_band, max_eval = sc$max_eval,
+                           eps = m$la$eps, strong = m$la$strong)
+      if (!nrow(r)) return(NULL)
+      dplyr::mutate(utils::head(dplyr::select(r, -"a_rows", -"b_rows"), 15), other_team_id = t,
+                    other_team = lg_team_label(m, t), .before = 1)
+    }) |>
+      purrr::list_rbind()
+  }
   run_id <- utc_stamp()
   alias <- m$inputs$league_alias %||% "synthetic"
   dir <- file.path(root, alias, sprintf("season=%d", m$season %||% 2026L), paste0("run=", run_id))
   wp <- function(name, d) write_once(file.path(dir, paste0(name, ".parquet")), function(tmp) arrow::write_parquet(d, tmp))
   paths <- list(rankings = wp("power_rankings", pr), mtv = wp("mtv", mtv), needs = wp("team_needs", needs),
                 waiver = wp("waiver_levels", wc$levels), waiver_curves = wp("waiver_curves", wc$curves))
+  if (!is.null(searches) && nrow(searches)) paths$my_team_trades <- wp("my_team_trades", searches)
   git <- git_state()
   meta <- c(list(run_id = run_id, methodology_version = "valuation_v2", git_commit = git$commit, git_dirty = git$dirty,
                  league = m$league, horizon_weeks = m$weeks, elapsed_seconds = round(as.numeric(difftime(Sys.time(), t0, units = "secs")), 1)),
@@ -133,7 +150,32 @@ lg_archive_analysis <- function(m, root = LG_ANALYSIS_ROOT, manifest = LG_ANALYS
     policy = m$policy, rankings_sha256 = sha256_file(paths$rankings), mtv_sha256 = sha256_file(paths$mtv),
     meta_sha256 = sha256_file(mp), git_commit = git$commit
   ), manifest)
-  list(dir = dir, rankings = pr, mtv = mtv, needs = needs, waiver = wc, meta = meta)
+  list(dir = dir, rankings = pr, mtv = mtv, needs = needs, waiver = wc, searches = searches, meta = meta)
+}
+
+#' Latest archived analysis (verified), read back for reports.
+lg_latest_analysis <- function(alias, root = LG_ANALYSIS_ROOT, manifest = LG_ANALYSIS_MANIFEST) {
+  if (!file.exists(manifest)) return(NULL)
+  r <- readr::read_csv(manifest, col_types = readr::cols(.default = "c")) |> dplyr::filter(.data$league_alias == !!alias)
+  if (!nrow(r)) return(NULL)
+  r <- r[order(r$run_id, decreasing = TRUE)[1], ]
+  d <- list.files(file.path(root, alias), pattern = paste0("^run=", r$run_id, "$"), include.dirs = TRUE, recursive = TRUE,
+                  full.names = TRUE)[1]
+  meta_path <- file.path(d, "analysis_meta.json")
+  if (!identical(sha256_file(meta_path), r$meta_sha256)) cli::cli_abort("Analysis {r$run_id} does not match its manifest hash.")
+  read <- function(f) if (file.exists(file.path(d, f))) arrow::read_parquet(file.path(d, f), mmap = FALSE) else NULL
+  list(run_id = r$run_id, dir = d, meta = jsonlite::read_json(meta_path), rankings = read("power_rankings.parquet"),
+       mtv = read("mtv.parquet"), needs = read("team_needs.parquet"), waiver = read("waiver_levels.parquet"),
+       waiver_curves = read("waiver_curves.parquet"), my_team_trades = read("my_team_trades.parquet"))
+}
+
+#' Rebuild the model under a hypothetical league format (same rosters and projections),
+#' e.g. a superflex slot added, to compare marginal values.
+lg_hypothetical <- function(m, league) {
+  h <- lg_model(m$input_data$weekly, m$input_data$roster, league, m$current_week, policy = m$policy,
+                sims = m$sim$sims, seed = m$sim$seed, generic = m$generic, teams = m$teams)
+  h$inputs <- m$inputs
+  h
 }
 
 #' Latest archived analysis whose inputs match the model (to reuse its MTV matrix).

@@ -462,6 +462,10 @@ list(
   # Always re-render: it reads the latest archived valuation run.
   if (build_report && build_valuation && file.exists("reports/valuation_v1_report.qmd"))
     tar_quarto(report_valuation, "reports/valuation_v1_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
+  # V2 (league-specific): only where the owner's league snapshots exist locally; reads the archives.
+  if (build_report && file.exists("reports/valuation_v2_report.qmd") && file.exists(LG_SNAPSHOT_MANIFEST) &&
+      dir.exists(LG_SNAPSHOT_ROOT))
+    tar_quarto(report_valuation_v2, "reports/valuation_v2_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
   # Always re-render: its prospective section reads the live archive.
   if (build_report && file.exists("reports/milestone3_report.qmd"))
     tar_quarto(report_m3, "reports/milestone3_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),

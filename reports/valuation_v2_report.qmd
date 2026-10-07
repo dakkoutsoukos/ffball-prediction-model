@@ -1,0 +1,306 @@
+---
+title: "Valuation V2 — league-specific trade analysis"
+subtitle: "Expected optimized roster utility before vs after a trade, on the actual league"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(dplyr)
+library(ggplot2)
+suppressMessages(targets::tar_source("R"))
+fmt <- function(df, digits = 1) knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+POS_COL <- c(QB = "#2a78d6", RB = "#eb6834", WR = "#1baf7a", TE = "#eda100")
+INK <- "#52514e"
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        axis.text = element_text(colour = INK), plot.title.position = "plot",
+        legend.position = "top", legend.justification = "left", strip.text = element_text(face = "bold"))
+lg_snap <- tryCatch(lg_latest_snapshot(as.integer(format(Sys.Date(), "%Y"))), error = function(e) NULL)
+have <- !is.null(lg_snap)
+```
+
+```{r load, eval = have}
+m <- lg_load(allow_stale = TRUE, lg = lg_snap)
+an <- lg_latest_analysis(m$inputs$league_alias)
+an_matches <- !is.null(an) && identical(an$meta$league_raw_sha256, m$inputs$league_raw_sha256) &&
+  identical(an$meta$valuation_run_id, m$inputs$valuation_run_id)
+me <- m$my_team
+lbl <- function(t) vapply(t, function(x) lg_team_label(m, x), "")
+val_dir <- file.path(VAL_ARCHIVE_ROOT, sprintf("season=%d", m$season), sprintf("week=%02d", m$current_week),
+                     paste0("run=", m$inputs$valuation_run_id))
+base <- arrow::read_parquet(file.path(val_dir, "baselines.parquet"), mmap = FALSE)
+mt <- if (an_matches) an$mtv else lg_mtv_matrix(m, lg_all_rostered(m))
+gen <- m$generic
+```
+
+```{r none, results = "asis", eval = !have}
+cat("**No league snapshot.** Run `Rscript scripts/league_refresh.R`, `Rscript scripts/valuation_run.R --league --capture`, and `Rscript scripts/trade_analyzer.R snapshot` first.\n")
+```
+
+## Summary
+
+```{r summary, results = "asis", eval = have}
+pr <- if (an_matches) an$rankings else lg_power_rankings(m)
+cat(sprintf("- **League snapshot** %s (%.1f h old at render); **%d teams**; valuation run `%s`%s; streaming policy `%s`; horizon weeks %d–%d.\n",
+            m$inputs$league_captured_at_utc, m$inputs$league_age_hours, length(m$state), m$inputs$valuation_run_id,
+            if (m$inputs$valuation_league_format) " (valued in this league's format)" else " (default V1 format)",
+            m$policy, min(m$weeks), max(m$weeks)))
+cat(sprintf("- **My team:** %s, projected rank **%s** of %d by expected ROS lineup points.\n",
+            if (is.na(me)) "not detected" else lbl(me), if (is.na(me)) "-" else pr$rank[pr$team_id == me], nrow(pr)))
+if (an_matches && !is.null(an$my_team_trades)) {
+  ww <- filter(an$my_team_trades, win_win)
+  cat(sprintf("- **Mutually beneficial trades found** (model estimate): %d across %d opponents; the largest surplus is %+.1f points.\n",
+              nrow(ww), n_distinct(ww$other_team_id), if (nrow(ww)) max(ww$surplus) else NA))
+}
+cat("- Every value here is an expected rest-of-season lineup-point change from the projections; it does not predict that another manager would accept a trade.\n")
+```
+
+## A. What changed from V1?
+
+| | V1 (generic) | V2 (this league) |
+|---|---|---|
+| Rosters | simulated generic teams | actual rosters from ESPN |
+| Replacement | modelled waiver pool (starter shares × roster size) | **actual free agents**, week by week |
+| Unit of value | ROS VOR, 0–100 display | **Δ expected optimized ROS lineup points** of the two teams involved |
+| Packages | consolidation research on generic teams | every trade re-optimized with forced drops and waiver adds |
+| Positional need | not team-specific | emerges from each team's lineup; no multipliers |
+
+## B. What are the actual league settings?
+
+```{r settings, eval = have}
+L <- m$league
+tibble::tibble(
+  setting = c("teams", "starting slots", "bench", "IR slots", "roster size (incl. K/DST)", "non-skill starters",
+              "regular season", "playoffs", "position limits", "scoring"),
+  value = c(L$teams, paste(vapply(L$slots, function(s) paste0(s$count, " ", s$name, " {", paste(s$eligible, collapse = "/"), "}"), ""), collapse = "; "),
+            L$bench, L$ir_slots, L$roster_size, paste(names(L$nonskill_starters), unlist(L$nonskill_starters), collapse = ", "),
+            paste(L$regular_season_weeks, collapse = "-"), paste(L$playoff_weeks, collapse = "-"),
+            if (length(L$position_limits)) paste(names(L$position_limits), unlist(L$position_limits), collapse = ", ") else "none",
+            if (m$inputs$scoring_equals_espn_ppr) "identical to ESPN PPR (V1 ROS parameters and M4 apply)" else
+              sprintf("league-specific; %d unmapped non-zero items", m$inputs$unmapped_scoring_items))
+) |> knitr::kable()
+```
+
+**Player-ID coverage** (rosters joined to the valuation pool by ESPN id):
+
+```{r coverage, results = "asis", eval = have}
+d <- m$diagnostics
+cat(sprintf("- %d rostered players: %d QB/RB/WR/TE, %d K/D-ST (not valued).\n", d$rostered, d$skill, d$nonskill))
+cat(sprintf("- Skill players without projection rows (kept at 0 points, flagged): %d. Duplicate owners: %d. Position mismatches: %d. NFL-team mismatches: %d.\n",
+            nrow(d$no_projection), length(d$duplicate_owners), nrow(d$position_mismatch), nrow(d$team_mismatch)))
+if (nrow(d$no_projection)) print(knitr::kable(d$no_projection))
+```
+
+## C. What does the real waiver pool look like?
+
+```{r waivers, eval = have}
+wc <- lg_waiver_comparison(m, base)
+fmt(select(wc$levels, position, actual_fa_level, generic_replacement, actual_minus_generic, best_free_agents), 2)
+```
+
+```{r waiver-curves, eval = have, fig.height = 3.6}
+cur <- wc$curves |> mutate(position = factor(position, names(POS_COL)))
+gl <- wc$levels |> mutate(position = factor(position, names(POS_COL)))
+ggplot(cur, aes(fa_rank, ppg, colour = position)) +
+  geom_hline(data = gl, aes(yintercept = generic_replacement), colour = INK, linetype = "22", linewidth = 0.4) +
+  geom_line(linewidth = 0.7) + geom_point(size = 1.8) +
+  facet_wrap(~position, nrow = 1) + scale_colour_manual(values = POS_COL, guide = "none") +
+  scale_x_continuous(breaks = c(1, 5, 10)) +
+  labs(x = "Free-agent rank at the position", y = "Projected points per game (ROS)",
+       title = "Best available free agents in this league", subtitle = "Dashed: V1 generic replacement level for the same weeks") +
+  theme_report
+```
+
+The "actual FA level" is the mean, over the remaining weeks, of the best free agent's expectation in each week. Streaming picks the best free agent each week, so this level sits above any single free agent's average.
+
+## D. How strong is each roster?
+
+```{r rankings, eval = have}
+fmt(select(pr, rank, team, U, U_regular, U_playoffs, QB, RB, WR, TE, flex_points, bench_points, streamed_points), 1)
+```
+
+```{r rankings-plot, eval = have, fig.height = 4}
+pl <- pr |> select(team, U, QB, RB, WR, TE) |> tidyr::pivot_longer(c(QB, RB, WR, TE), names_to = "position", values_to = "pts") |>
+  mutate(position = factor(position, rev(names(POS_COL))), team = factor(team, rev(pr$team)))
+ggplot(pl, aes(pts, team, fill = position)) +
+  geom_col(width = 0.7, colour = "white", linewidth = 0.5) +
+  scale_fill_manual(values = POS_COL, breaks = names(POS_COL)) +
+  labs(x = "Expected ROS started points by player position", y = NULL, fill = NULL,
+       title = "Projection-based roster strength (not a standings prediction)") + theme_report
+```
+
+`bench_points` are points that bench-level players (starting under half their games) are expected to score when they cover byes and injuries. `streamed_points` come from free agents filling empty slots.
+
+**Team needs** (all derived from lineup attribution and marginal utility):
+
+```{r needs, eval = have}
+nd <- if (an_matches) an$needs else NULL
+if (!is.null(nd)) fmt(select(nd, rank, team, weakest_slot, strongest_slot, deepest_bench, largest_drop, best_waiver_add, best_waiver_drop, best_waiver_gain), 1)
+```
+
+## E. How does team-specific value differ from generic value?
+
+`MTV(player, team)` is the change in the team's expected ROS lineup points from adding the player, with a rational drop. For a team's own player, it is the loss from removing him and refilling the spot from waivers.
+
+```{r mtv-range, eval = have}
+own <- lg_owner(m)
+long <- mt |> tidyr::pivot_longer(starts_with("team_"), names_to = "team_id", values_to = "mtv") |>
+  mutate(team_id = as.integer(sub("team_", "", team_id))) |>
+  left_join(select(gen, player_id, vor, trade_value), by = "player_id")
+other <- long |> filter(is.na(owner) | team_id != owner)
+summ <- other |> summarise(generic_vor = first(vor), trade_value = first(trade_value), mtv_mean = mean(mtv),
+                           mtv_min = min(mtv), mtv_max = max(mtv), .by = c(player_name, position, owner)) |>
+  mutate(owner = lbl(owner), mtv_range = mtv_max - mtv_min)
+top <- summ |> arrange(desc(generic_vor)) |> head(25)
+fmt(select(top, player_name, position, owner, generic_vor, trade_value, mtv_mean, mtv_min, mtv_max), 1)
+```
+
+```{r mtv-plot, eval = have, fig.height = 6}
+tp <- top |> mutate(player_name = factor(player_name, rev(player_name)), position = factor(position, names(POS_COL)))
+ggplot(tp, aes(y = player_name)) +
+  geom_segment(aes(x = mtv_min, xend = mtv_max, yend = player_name), colour = "#bdbcb7", linewidth = 1.2) +
+  geom_point(aes(x = mtv_mean, colour = position), size = 2.6) +
+  geom_point(aes(x = generic_vor), shape = 4, size = 2.2, colour = INK) +
+  scale_colour_manual(values = POS_COL) +
+  labs(x = "Expected ROS lineup points added", y = NULL, colour = NULL,
+       title = "Value to each other team (grey range, dot = mean) vs generic VOR (×)") + theme_report
+```
+
+```{r mtv-text, results = "asis", eval = have}
+d <- filter(summ, generic_vor > 10)
+cat(sprintf("- Correlation of generic VOR with the mean team-specific value (players with VOR > 10): %.2f. Mean team-specific value per point of generic VOR: %.2f.\n",
+            cor(d$generic_vor, d$mtv_mean), sum(d$mtv_mean) / sum(d$generic_vor)))
+big <- arrange(d, desc(mtv_range)) |> head(5)
+cat(sprintf("- The largest destination spread: %s.\n", paste0(big$player_name, " (", big$position, ": ", round(big$mtv_min, 1), " to ", round(big$mtv_max, 1), ")", collapse = "; ")))
+cat("- A spread like that is positional need emerging from the lineups. The same player fills an empty or weak starting slot for one team and sits behind starters for another.\n")
+```
+
+## F. How are trades evaluated?
+
+1. Both rosters are optimized week by week over the Monte Carlo draws.
+2. The players are transferred.
+3. Roster limits are resolved: forced drops that maximize post-trade utility, then free-agent adds only if they help.
+4. Both rosters are re-optimized.
+5. Δ = after − before, per team.
+
+The worked example below is the top-ranked trade for my team from the search, chosen by rule:
+
+```{r example-1, results = "asis", eval = have && an_matches && !is.null(an$my_team_trades)}
+ex <- an$my_team_trades |> arrange(desc(win_win), desc(surplus)) |> head(1)
+tr <- lg_trade(m, me, strsplit(ex$a_gives, " + ", fixed = TRUE)[[1]], ex$other_team_id, strsplit(ex$b_gives, " + ", fixed = TRUE)[[1]],
+               m$la$eps, m$la$strong)
+print(fmt(select(tr$teams, team, gives, gets, U_before, U_after, delta, delta_regular, delta_playoffs, dropped, added,
+                 generic_vor_gives, generic_vor_gets, tv_gives, tv_gets), 1))
+cat("\n\n", paste0("- ", tr$explanations, collapse = "\n"), "\n", sep = "")
+```
+
+## G. How are 2-for-1 trades handled?
+
+- The team receiving one player frees a roster spot. It adds the best free agent only if that raises its expected lineup points; an empty slot that streaming would fill anyway gains nothing.
+- The team receiving two must drop the player whose loss costs least.
+- Both effects are part of the trade.
+
+```{r example-2, results = "asis", eval = have && an_matches && !is.null(an$my_team_trades)}
+ex2 <- an$my_team_trades |> filter(n_players >= 3) |> arrange(desc(n_drop + n_add > 0), desc(surplus)) |> head(1)
+if (nrow(ex2)) {
+  tr2 <- lg_trade(m, me, strsplit(ex2$a_gives, " + ", fixed = TRUE)[[1]], ex2$other_team_id, strsplit(ex2$b_gives, " + ", fixed = TRUE)[[1]],
+                  m$la$eps, m$la$strong)
+  print(fmt(select(tr2$teams, team, gives, gets, delta, dropped, drop_cost, added, add_gain, generic_vor_gives, generic_vor_gets), 1))
+  cat("\n\n", paste0("- ", tr2$explanations, collapse = "\n"), "\n", sep = "")
+}
+```
+
+## H. Can mutually beneficial trades exist?
+
+The search covered my team against each other team: 1-for-1, 2-for-1, 1-for-2 and 2-for-2. Packages had to be within 40 display points generically, and the most promising were fully re-optimized.
+
+```{r winwin, results = "asis", eval = have && an_matches && !is.null(an$my_team_trades)}
+tt <- an$my_team_trades
+cat(sprintf("- %d trades evaluated; **%d win-win** (both teams gain); %d fair (|ΔA − ΔB| ≤ %g); classification counts: %s.\n",
+            nrow(tt), sum(tt$win_win), sum(tt$fair), m$la$eps,
+            paste(names(table(tt$classification)), table(tt$classification), sep = " ", collapse = "; ")))
+print(fmt(tt |> filter(win_win) |> arrange(desc(surplus)) |> head(15) |>
+            select(other_team, a_gives, b_gives, delta_a, delta_b, surplus, classification, n_drop, n_add), 1))
+```
+
+**Target acquisition** (rule: the best player, by generic value, at my weakest starting slot who is on another team):
+
+```{r target, results = "asis", eval = have && !is.na(me)}
+nme <- lg_team_needs(m, me, pr)
+slot_pos <- m$league$slots[[nme$weakest_slot]]$eligible
+cand <- long |> filter(position %in% slot_pos, !is.na(owner), owner != me) |> distinct(player_id, player_name, owner, vor) |>
+  arrange(desc(vor)) |> head(1)
+if (nrow(cand)) {
+  off <- lg_target_offers(m, me, cand$player_id, NULL, top_n = m$la$target$top_n, tv_band = m$la$target$tv_band,
+                          max_eval = m$la$target$max_eval, eps = m$la$eps, strong = m$la$strong)
+  cat(sprintf("Weakest slot: **%s**. Target: **%s** (%s).\n\n", nme$weakest_slot, cand$player_name, lbl(cand$owner)))
+  if (nrow(off)) print(fmt(head(select(off, offer, tv_offer, tv_target, delta_me, delta_them, classification), 8), 1)) else cat("No package within the generic band leaves the other team within ε.\n")
+}
+```
+
+**Selling** (rule: my player whose best value to another team most exceeds his value to me):
+
+```{r sell, results = "asis", eval = have && !is.na(me)}
+mine <- long |> filter(owner == me)
+gap <- mine |> summarise(own = mtv[team_id == me][1], best_elsewhere = max(mtv[team_id != me]), .by = c(player_id, player_name)) |>
+  mutate(gap = best_elsewhere - own) |> arrange(desc(gap)) |> head(1)
+if (nrow(gap)) {
+  sd <- lg_sell_destinations(m, me, gap$player_id, NULL, n_teams = m$la$sell$n_teams, top_n = m$la$sell$top_n,
+                             tv_band = m$la$sell$tv_band, eps = m$la$eps, strong = m$la$strong)
+  cat(sprintf("Sell candidate: **%s**. Value to me %.1f, best elsewhere %.1f.\n\n", gap$player_name, gap$own, gap$best_elsewhere))
+  print(fmt(head(sd$destinations, 6), 1))
+  if (nrow(sd$offers)) print(fmt(head(select(sd$offers, team, returns, tv_return, delta_me, delta_them, classification), 8), 1))
+}
+```
+
+## I. How does the TE issue behave with actual rosters? (and QBs)
+
+V1 found that generic roster utility per VOR point was lower for TEs: 0.51, against about 0.8 for RB and WR. With actual rosters:
+
+```{r te, eval = have}
+r <- summ |> filter(generic_vor > 20)
+fmt(r |> summarise(players = n(), generic_vor = mean(generic_vor), mean_team_value = mean(mtv_mean),
+                   value_per_vor = sum(mtv_mean) / sum(generic_vor), .by = position) |> arrange(match(position, names(POS_COL))), 2)
+```
+
+```{r superflex, results = "asis", eval = have}
+has_sf <- any(vapply(m$league$slots, function(s) "QB" %in% s$eligible && length(s$eligible) > 1, TRUE))
+if (!has_sf) {
+  lsf <- m$league
+  lsf$slots <- c(lsf$slots, list(SUPERFLEX = list(name = "SUPERFLEX", eligible = c("QB", "RB", "WR", "TE"), count = 1L)))
+  lsf$roster_size <- lsf$roster_size + 1L
+  h <- lg_hypothetical(m, lsf)
+  qbs <- long |> filter(position == "QB", !is.na(owner)) |> distinct(row, player_name, vor) |> arrange(desc(vor)) |> head(6)
+  mh <- lg_mtv_matrix(h, qbs$row)
+  cmp <- qbs |> mutate(
+    one_qb = vapply(row, function(x) mean(unlist(mt[mt$row == x, paste0("team_", setdiff(names(m$state), own[x]))])), 0),
+    superflex = vapply(row, function(x) mean(unlist(mh[mh$row == x, paste0("team_", setdiff(names(m$state), own[x]))])), 0))
+  cat("**QB check**: mean value of the top rostered QBs to the other teams, in this 1QB league and in a hypothetical with one superflex slot added (same rosters, same projections):\n\n")
+  print(fmt(select(cmp, player_name, generic_vor = vor, one_qb, superflex), 1))
+}
+```
+
+**Reading.** Team-specific value uses each team's actual starters, so it measures TE scarcity directly. A TE adds roster utility only when he beats the TE a team already starts. If the TE value per VOR point stays below the RB/WR value here too, the pooled V1 display scale overstates TEs for trades in this league. That would be a measured property of these rosters, not a discount.
+
+## J. What remains for V3?
+
+- **Uncertainty.** Distributions of weekly and ROS points, player-level variance, playoff qualification and championship probabilities. These would allow a mathematically defined "contender" or "rebuilder" horizon.
+- **Waiver competition.** FAAB, priority and the probability of acquiring a free agent. V2 assumes the best free agent is always available.
+- **Prospective evaluation.** Archived analyses can be scored against the 2026 outcomes of the rosters at the time.
+- **Better providers.** Our own QB/RB/TE projections, and evaluation of ESPN's posted future weeks (VE-P1).
+- **Correlations.** Within-team stacks and handcuffs, and opponent schedules for head-to-head weeks.
+
+```{r provenance, results = "asis", eval = have}
+cat(sprintf("\n---\nLeague snapshot sha256 %s… · valuation run %s · analysis %s · policy %s · sims %d (seed %d).\n",
+            substr(m$inputs$league_raw_sha256, 1, 12), m$inputs$valuation_run_id, if (an_matches) an$run_id else "computed at render",
+            m$policy, m$inputs$sims, m$inputs$seed))
+```

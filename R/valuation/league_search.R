@@ -275,6 +275,8 @@ lg_team_needs <- function(m, team, rankings = NULL, cand_per_pos = 6) {
                    gain = lg_value(m, c(r$rows, s$ir_rows))$U - m$base[[as.character(team)]]$U)
   }) |>
     purrr::list_rbind() |>
+    # an "upgrade" that drops the player just added (or gains nothing) is no upgrade
+    dplyr::filter(.data$gain > 1e-6, .data$add != .data$drop) |>
     dplyr::arrange(dplyr::desc(.data$gain))
   list(team = lg_team_label(m, team), rank = rankings$rank[rankings$team_id == team], slots = slots, depth = depth,
        weakest_slot = slots$slot[1], strongest_slot = slots$slot[nrow(slots)],

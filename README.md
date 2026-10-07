@@ -7,6 +7,32 @@ The current question:
 > Do our football features add **repeatable, prospective** information about weekly
 > **WR** full-PPR scoring beyond a **calibrated** ESPN projection?
 
+## Valuation V2 (league-specific trade analyzer)
+
+V2 answers what acquiring or giving away a player does to **your actual team**:
+- **Decision variable:** expected optimized ROS lineup points after a trade minus before, for both teams.
+- **Rosters:** each team's actual roster, re-optimized week by week over Monte Carlo availability.
+- **Replacement:** the league's **actual free agents**.
+- **Uneven trades:** forced drops and waiver adds are part of the trade.
+- **Context:** generic V1 value is always reported alongside.
+
+Positional need, blocked bench players and consolidation emerge from the lineups; nothing is hand-set.
+
+```bash
+Rscript scripts/league_refresh.R                       # private league: cookies in git-ignored config/local.yml
+Rscript scripts/valuation_run.R --league --capture     # V1 values in this league's format
+Rscript scripts/trade_analyzer.R snapshot              # rankings, needs, real waiver levels, value matrix, win-win search
+Rscript scripts/trade_analyzer.R analyze --a "Team A" --give-a "P1;P2" --b "Team B" --give-b "P3"
+Rscript scripts/trade_analyzer.R fair --b "Team B" --win-win    |  target --player "X"  |  sell --player "X"
+```
+
+Privacy:
+- League data, the league id and the cookies never enter Git.
+- Committed manifests hold hashes under a random league alias.
+- `reports/valuation_v2_report.html` is rendered locally.
+
+Methodology: [docs/valuation_v2_methodology.md](docs/valuation_v2_methodology.md).
+
 ## Valuation V1 (separate track: rest-of-season player value)
 
 Projection research is paused at M4 while the 2026 WR record accumulates. Valuation is
