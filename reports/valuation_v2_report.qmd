@@ -210,7 +210,9 @@ cat("\n\n", paste0("- ", tr$explanations, collapse = "\n"), "\n", sep = "")
 - Both effects are part of the trade.
 
 ```{r example-2, results = "asis", eval = have && an_matches && !is.null(an$my_team_trades)}
-ex2 <- an$my_team_trades |> filter(n_players >= 3) |> arrange(desc(n_drop + n_add > 0), desc(surplus)) |> head(1)
+# rule: the best win-win 2-for-1 / 1-for-2 involving a forced drop, other than the trade shown in F
+ex2 <- an$my_team_trades |> filter(n_players == 3, win_win, !(a_gives == ex$a_gives & b_gives == ex$b_gives)) |>
+  arrange(desc(n_drop > 0), desc(surplus)) |> head(1)
 if (nrow(ex2)) {
   tr2 <- lg_trade(m, me, strsplit(ex2$a_gives, " + ", fixed = TRUE)[[1]], ex2$other_team_id, strsplit(ex2$b_gives, " + ", fixed = TRUE)[[1]],
                   m$la$eps, m$la$strong)
@@ -225,7 +227,7 @@ The search covered my team against each other team: 1-for-1, 2-for-1, 1-for-2 an
 
 ```{r winwin, results = "asis", eval = have && an_matches && !is.null(an$my_team_trades)}
 tt <- an$my_team_trades
-cat(sprintf("- %d trades evaluated; **%d win-win** (both teams gain); %d fair (|ΔA − ΔB| ≤ %g); classification counts: %s.\n",
+cat(sprintf("- %d trades fully evaluated; **%d win-win** (both teams gain); %d fair (|ΔA − ΔB| ≤ %g); classification counts: %s.\n",
             nrow(tt), sum(tt$win_win), sum(tt$fair), m$la$eps,
             paste(names(table(tt$classification)), table(tt$classification), sep = " ", collapse = "; ")))
 print(fmt(tt |> filter(win_win) |> arrange(desc(surplus)) |> head(15) |>
@@ -268,8 +270,9 @@ V1 found that generic roster utility per VOR point was lower for TEs: 0.51, agai
 
 ```{r te, eval = have}
 r <- summ |> filter(generic_vor > 20)
-fmt(r |> summarise(players = n(), generic_vor = mean(generic_vor), mean_team_value = mean(mtv_mean),
-                   value_per_vor = sum(mtv_mean) / sum(generic_vor), .by = position) |> arrange(match(position, names(POS_COL))), 2)
+fmt(r |> summarise(players = n(), value_per_vor = sum(mtv_mean) / sum(generic_vor),
+                   mean_generic_vor = mean(generic_vor), mean_team_value = mean(mtv_mean), .by = position) |>
+      arrange(match(position, names(POS_COL))), 2)
 ```
 
 ```{r superflex, results = "asis", eval = have}

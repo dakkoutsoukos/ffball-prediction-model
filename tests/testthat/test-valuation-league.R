@@ -352,3 +352,10 @@ test_that("unmapped scoring items count only if they score for skill players in 
   te$scoringSettings$scoringItems[[1]]$pointsOverrides <- list(`6` = 1.5)
   expect_false(lg_map_scoring(te, sdir, usage = usage)$equals_espn_ppr)
 })
+
+test_that("team labels handle free agents and unknown ids", {
+  m <- toy_lg(base_players)
+  expect_equal(lg_team_label(m, NA), "free agent")
+  expect_equal(lg_team_label(m, 1L), "Team One")
+  expect_equal(lg_team_label(m, 99L), "Team 99")
+})

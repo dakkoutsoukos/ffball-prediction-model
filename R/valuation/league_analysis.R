@@ -129,7 +129,8 @@ lg_archive_analysis <- function(m, root = LG_ANALYSIS_ROOT, manifest = LG_ANALYS
       r <- lg_trade_search(m, my, t, mtv, top_n = sc$top_n, tv_band = sc$tv_band, max_eval = sc$max_eval,
                            eps = m$la$eps, strong = m$la$strong)
       if (!nrow(r)) return(NULL)
-      dplyr::mutate(utils::head(dplyr::select(r, -"a_rows", -"b_rows"), 15), other_team_id = t,
+      # every fully evaluated trade is archived (not only the best), so counts are honest
+      dplyr::mutate(dplyr::select(r, -"a_rows", -"b_rows"), other_team_id = t,
                     other_team = lg_team_label(m, t), .before = 1)
     }) |>
       purrr::list_rbind()

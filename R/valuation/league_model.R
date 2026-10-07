@@ -314,10 +314,11 @@ lg_find_team <- function(m, x) {
 }
 
 lg_team_label <- function(m, team) {
+  if (length(team) != 1 || is.na(team)) return("free agent")
   tm <- m$teams
   if (is.null(tm)) return(paste("Team", team))
-  lbl <- tm$team_name[tm$team_id == team]
-  if (length(lbl) && !is.na(lbl) && nzchar(lbl)) lbl else paste("Team", team)
+  lbl <- tm$team_name[!is.na(tm$team_id) & tm$team_id == team]
+  if (length(lbl) == 1 && !is.na(lbl) && nzchar(lbl)) lbl else paste("Team", team)
 }
 
 lg_player_label <- function(m, rows) {
