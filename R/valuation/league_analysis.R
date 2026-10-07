@@ -20,7 +20,9 @@ lg_config <- function(cfg = read_valuation_config()) {
 #' League configuration (V1 league object + scoring) derived from a snapshot.
 lg_league_config <- function(lg) {
   league <- lg_map_settings(lg$settings)
-  sc <- lg_map_scoring(lg$settings)
+  ids <- vapply(lg$settings$scoringSettings$scoringItems %||% list(), function(i) as.character(i$statId), "")
+  usage <- lg_skill_stat_usage(setdiff(ids, names(VAL_ESPN_STAT_MAP)))
+  sc <- lg_map_scoring(lg$settings, usage = usage)
   league$scoring <- if (sc$equals_espn_ppr) "espn_ppr" else "league"
   list(league = league, scoring = sc, hash = val_league_hash(league))
 }

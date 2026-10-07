@@ -32,7 +32,9 @@ val_league <- function(x) {
     "bench must be >= 0" = league$bench >= 0,
     "regular season is [first, last]" = length(league$regular_season_weeks) == 2,
     "playoffs are [first, last]" = length(league$playoff_weeks) == 2,
-    "playoffs follow the regular season" = league$playoff_weeks[1] > league$regular_season_weeks[2]
+    "playoffs follow the regular season" = league$playoff_weeks[1] > league$regular_season_weeks[2],
+    "week ranges are [first, last] with first <= last" =
+      league$regular_season_weeks[1] <= league$regular_season_weeks[2] && league$playoff_weeks[1] <= league$playoff_weeks[2]
   )
   league
 }

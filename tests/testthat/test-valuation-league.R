@@ -322,3 +322,33 @@ test_that("analysis archive writes outputs and a manifest without private conten
   cached <- lg_cached_mtv(m, root = root, manifest = man)
   expect_equal(cached$team_1, a$mtv$team_1)
 })
+
+test_that("playoff weeks come from the matchup-period map (two-week final round)", {
+  st <- toy_settings()
+  st$scheduleSettings <- list(matchupPeriodCount = 14, playoffTeamCount = 4, playoffMatchupPeriodLength = 0,
+                              matchupPeriods = c(stats::setNames(as.list(1:15), 1:15), list(`16` = list(16, 17))))
+  lg <- lg_map_settings(st)
+  expect_equal(lg$regular_season_weeks, c(1L, 14L))
+  expect_equal(lg$playoff_weeks, c(15L, 17L))
+  expect_error(val_league(list(teams = 2, slots = list(list(name = "QB", eligible = "QB", count = 1)),
+                               regular_season_weeks = c(1, 14), playoff_weeks = c(15, 14))), "first <= last")
+})
+
+test_that("unmapped scoring items count only if they score for skill players in ESPN's history", {
+  sdir <- file.path(project_root, "config", "scoring")
+  st <- toy_settings()
+  st$scoringSettings$scoringItems <- c(st$scoringSettings$scoringItems,
+    list(list(statId = 77, points = 4),                                   # kicker FG: never recorded by skill players
+         list(statId = 95, points = 0, pointsOverrides = list(`16` = 2)), # D/ST-only override
+         list(statId = 93, points = 6)))                                  # return TD: recorded, but negligibly
+  usage <- tibble::tibble(stat_id = c("77", "95", "93"), entries = 1e5, abs_total = c(0, 80, 3))
+  sc <- lg_map_scoring(st, sdir, usage = usage)
+  expect_true(sc$equals_espn_ppr)
+  expect_setequal(sc$ignored$stat_id, c("77", "95", "93"))
+  # without usage evidence, scoring unmapped items are treated as relevant (conservative)
+  expect_false(lg_map_scoring(st, sdir)$equals_espn_ppr)
+  # a per-slot override on a skill slot (TE premium on receptions) is never ignored
+  te <- toy_settings()
+  te$scoringSettings$scoringItems[[1]]$pointsOverrides <- list(`6` = 1.5)
+  expect_false(lg_map_scoring(te, sdir, usage = usage)$equals_espn_ppr)
+})

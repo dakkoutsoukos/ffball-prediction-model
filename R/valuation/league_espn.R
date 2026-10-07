@@ -95,22 +95,30 @@ lg_map_settings <- function(settings, schedule_weeks = 18L) {
   skill <- intersect(names(counts), names(LG_SLOT_MAP))
   slots <- lapply(skill, function(id) c(LG_SLOT_MAP[[id]], list(count = as.integer(counts[[id]]))))
   sched <- settings$scheduleSettings %||% list()
-  reg_last <- as.integer(sched$matchupPeriodCount %||% 14)
-  # one scoring period per matchup period in the regular season (checked when matchupPeriods are given)
-  mp <- sched$matchupPeriods
-  if (!is.null(mp) && length(mp) >= reg_last) {
-    per <- vapply(mp[as.character(seq_len(reg_last))], length, 1L)
-    if (any(per != 1)) cli::cli_abort("Regular-season matchup periods span several weeks; not supported.")
-  }
+  reg_n <- as.integer(sched$matchupPeriodCount %||% 14)
   n_po <- as.integer(sched$playoffTeamCount %||% 4)
-  po_len <- as.integer(sched$playoffMatchupPeriodLength %||% 1)
-  po_last <- reg_last + ceiling(log2(max(n_po, 2))) * po_len
+  rounds <- as.integer(ceiling(log2(max(n_po, 2))))
+  mp <- sched$matchupPeriods
+  if (!is.null(mp) && length(mp) >= reg_n) {
+    # scoring periods of each matchup period (a playoff round can span two weeks)
+    weeks_of <- function(ids) sort(as.integer(unlist(mp[as.character(ids)])))
+    reg_weeks <- weeks_of(seq_len(reg_n))
+    if (!identical(reg_weeks, seq_len(reg_n))) cli::cli_abort("Regular-season matchup periods are not one week each; not supported.")
+    po_weeks <- weeks_of(reg_n + seq_len(rounds))
+    if (!length(po_weeks)) po_weeks <- reg_n + seq_len(rounds)
+  } else {
+    po_len <- max(1L, as.integer(sched$playoffMatchupPeriodLength %||% 1))
+    po_weeks <- reg_n + seq_len(rounds * po_len)
+  }
+  if (!identical(po_weeks, seq(min(po_weeks), max(po_weeks)))) cli::cli_abort("Fantasy playoff weeks are not contiguous.")
+  reg_last <- reg_n
+  po_last <- max(po_weeks)
   if (po_last > schedule_weeks) cli::cli_abort("League playoffs end in week {po_last}, after the NFL season.")
   nonskill <- intersect(names(counts), names(LG_NONSKILL_SLOTS))
   league <- val_league(list(
     name = "espn_league", teams = as.integer(settings$size), scoring = "league",
     slots = slots, bench = cnt(LG_BENCH_SLOT),
-    regular_season_weeks = c(1L, reg_last), playoff_weeks = c(reg_last + 1L, po_last)
+    regular_season_weeks = c(1L, reg_last), playoff_weeks = c(min(po_weeks), po_last)
   ))
   if (!val_slots_laminar(league)) {
     cli::cli_abort("League slot eligibility is not laminar (e.g. RB/WR together with WR/TE); the lineup evaluator would be inexact.")
@@ -125,14 +133,55 @@ lg_map_settings <- function(settings, schedule_weeks = 18L) {
   league
 }
 
-#' League scoring as V1 scoring rules. Items whose ESPN stat id has no mapping
-#' (bonuses, rare stats) and per-slot overrides are returned in `unmapped`.
-lg_map_scoring <- function(settings, scoring_dir = "config/scoring") {
+LG_SKILL_SLOT_IDS <- c("0", "2", "3", "4", "5", "6", "7", "20", "21", "23")
+
+#' How much skill players (QB/RB/WR/TE) actually record each ESPN stat id, from the
+#' local ESPN projection/actual history (week-of files and valuation captures).
+#' Cached as a small table of counts (no player data) in the git-ignored snapshot root.
+lg_skill_stat_usage <- function(ids, cache = file.path(LG_SNAPSHOT_ROOT, "skill_stat_usage.csv")) {
+  ids <- as.character(ids)
+  old <- if (file.exists(cache)) readr::read_csv(cache, col_types = "cdd") else
+    tibble::tibble(stat_id = character(), entries = double(), abs_total = double())
+  need <- setdiff(ids, old$stat_id)
+  if (length(need)) {
+    files <- c(list.files(VAL_ESPN_RAW_ROOT, pattern = "json[.]gz$", recursive = TRUE, full.names = TRUE),
+               list.files("data/raw/espn", pattern = "^espn_wr_.*json[.]gz$", recursive = TRUE, full.names = TRUE),
+               list.files(VAL_ESPN_SNAPSHOT_ROOT, pattern = "json[.]gz$", recursive = TRUE, full.names = TRUE))
+    tot <- stats::setNames(numeric(length(need)), need)
+    n <- 0
+    for (f in files) {
+      doc <- jsonlite::fromJSON(read_gz_text(f), simplifyVector = FALSE)
+      for (p in doc$players) {
+        if (!(p$player$defaultPositionId %||% 0) %in% 1:4) next
+        for (st in p$player$stats %||% list()) {
+          v <- unlist(st$stats)
+          if (!length(v)) next
+          n <- n + 1
+          h <- intersect(names(v), need)
+          if (length(h)) tot[h] <- tot[h] + abs(as.numeric(v[h]))
+        }
+      }
+    }
+    if (n == 0) return(NULL)
+    old <- dplyr::bind_rows(old, tibble::tibble(stat_id = need, entries = n, abs_total = unname(tot)))
+    dir.create(dirname(cache), recursive = TRUE, showWarnings = FALSE)
+    readr::write_csv(old, cache)
+  }
+  dplyr::filter(old, .data$stat_id %in% ids)
+}
+
+#' League scoring as V1 scoring rules. Unmapped items (stat ids outside
+#' VAL_ESPN_STAT_MAP) are RELEVANT to skill-player valuation only if they can score
+#' for a skill player (base points, or a per-slot override on a skill slot) AND skill
+#' players actually record the stat at >= `min_points` per player-week in ESPN's own
+#' history (`usage`). Without usage evidence every scoring unmapped item counts.
+lg_map_scoring <- function(settings, scoring_dir = "config/scoring", usage = NULL, min_points = 0.01) {
   items <- settings$scoringSettings$scoringItems %||% list()
   tab <- tibble::tibble(
     stat_id = vapply(items, function(i) as.character(i$statId), ""),
     points = vapply(items, function(i) as.numeric(i$points %||% 0), 0),
-    overrides = vapply(items, function(i) length(i$pointsOverrides %||% list()) > 0, TRUE)
+    skill_override = vapply(items, function(i) any(names(i$pointsOverrides %||% list()) %in% LG_SKILL_SLOT_IDS), TRUE),
+    overrides = vapply(items, function(i) paste(names(i$pointsOverrides %||% list()), collapse = ","), "")
   )
   tab$stat <- unname(VAL_ESPN_STAT_MAP[tab$stat_id])
   mapped <- dplyr::filter(tab, !is.na(.data$stat))
@@ -143,9 +192,20 @@ lg_map_scoring <- function(settings, scoring_dir = "config/scoring") {
   weights <- stats::setNames(rep(0, length(base$weights)), names(base$weights))
   weights[names(w)] <- w
   rules <- list(name = "ESPN league scoring", weights = weights, system = "league")
-  unm <- dplyr::filter(tab, (is.na(.data$stat) & .data$points != 0) | .data$overrides)
-  list(rules = rules, unmapped = unm,
-       equals_espn_ppr = isTRUE(all.equal(unname(weights[names(base$weights)]), unname(base$weights))) && !nrow(unm),
+  unm <- dplyr::filter(tab, is.na(.data$stat)) |>
+    dplyr::mutate(can_score_skill = .data$points != 0 | .data$skill_override)
+  if (!is.null(usage)) {
+    unm <- dplyr::left_join(unm, usage, by = "stat_id") |>
+      dplyr::mutate(points_per_player_week = abs(.data$points) * dplyr::coalesce(.data$abs_total, 0) /
+                      pmax(dplyr::coalesce(.data$entries, 1), 1),
+                    relevant = .data$can_score_skill & (.data$skill_override | .data$points_per_player_week >= min_points))
+  } else {
+    unm <- dplyr::mutate(unm, relevant = .data$can_score_skill)
+  }
+  rel <- dplyr::filter(unm, .data$relevant)
+  list(rules = rules, unmapped = rel, ignored = dplyr::filter(unm, !.data$relevant),
+       equals_espn_ppr = isTRUE(all.equal(unname(weights[names(base$weights)]), unname(base$weights))) &&
+         !nrow(rel) && !any(mapped$skill_override),
        items = tab)
 }
 

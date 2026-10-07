@@ -23,7 +23,7 @@ cli::cli_alert_success("Snapshot {.file {basename(snap$raw)}}: {nrow(lg$teams)} 
 lgx <- lc$league
 cli::cli_text("Slots: {paste(vapply(lgx$slots, function(s) paste0(s$count, ' ', s$name), ''), collapse = ', ')}; bench {lgx$bench}; IR {lgx$ir_slots}; roster {lgx$roster_size}; non-skill starters {paste(names(lgx$nonskill_starters), unlist(lgx$nonskill_starters), collapse = ', ')}")
 cli::cli_text("Regular season weeks {paste(lgx$regular_season_weeks, collapse = '-')}, playoffs {paste(lgx$playoff_weeks, collapse = '-')}")
-cli::cli_text("Scoring: {if (lc$scoring$equals_espn_ppr) 'identical to ESPN PPR (V1 parameters and M4 apply)' else 'differs from ESPN PPR'}; unmapped non-zero items: {nrow(lc$scoring$unmapped)}")
+cli::cli_text("Scoring for QB/RB/WR/TE: {if (lc$scoring$equals_espn_ppr) 'identical to ESPN PPR (V1 parameters and M4 apply)' else 'differs from ESPN PPR'}; relevant unmapped items: {nrow(lc$scoring$unmapped)}; K/D-ST-only or negligible items ignored: {nrow(lc$scoring$ignored)}")
 if (nrow(lc$scoring$unmapped)) print(lc$scoring$unmapped)
 me <- lg_my_team(lg$teams, cred)
 cli::cli_text("My team: {if (is.na(me)) 'not detected (set league.my_team_id)' else lg$teams$team_name[lg$teams$team_id == me]}")
