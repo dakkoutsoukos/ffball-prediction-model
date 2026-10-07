@@ -1,0 +1,455 @@
+---
+title: "Valuation V1 — rest-of-season player value"
+subtitle: "From weekly projections to replacement-level, lineup-aware value (QB/RB/WR/TE, ESPN PPR)"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(targets)
+library(dplyr)
+library(ggplot2)
+suppressMessages(tar_source("R"))
+vcfg <- read_valuation_config()
+lg <- vcfg$league
+fmt <- function(df, digits = 1) knitr::kable(mutate(df, across(where(is.double), ~ round(.x, digits))))
+# Reference categorical palette, fixed order by position (identity, never rank)
+POS_COL <- c(QB = "#2a78d6", RB = "#eb6834", WR = "#1baf7a", TE = "#eda100")
+INK <- "#52514e"
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        axis.text = element_text(colour = INK), plot.title.position = "plot",
+        legend.position = "top", legend.justification = "left", strip.text = element_text(face = "bold"))
+run <- latest_valuation_run(season = 2026)
+have_run <- !is.null(run)
+ve1 <- tar_read(val_ve1)
+ve1b <- tar_read(val_ve1b)
+ve1c <- tar_read(val_ve1c)
+diag <- tar_read(val_ros_diag)
+bt <- tar_read(val_backtest_results)
+params <- val_read_ros_params(vcfg$ros_params_file)
+```
+
+```{r run-data, eval = have_run}
+v <- run$values |> mutate(player = espn_name)
+meta <- run$meta
+wk <- run$weekly
+base <- run$baselines
+nm <- function(id) v$player[match(id, v$player_id)]
+cur_week <- meta$week
+```
+
+## Summary
+
+```{r summary, results = "asis", eval = have_run}
+sc <- run$scarcity
+top <- head(v, 12)
+cat(sprintf("- **Valuation run** `%s`: 2026 week %d, as of %s. Methodology `%s`, league `%s` (%d teams; %s; bench %d).\n",
+            meta$run_id, meta$week, meta$as_of_utc, meta$methodology_version, meta$league$name, meta$league$teams,
+            paste(vapply(meta$league$slots, function(s) paste0(s$count, " ", s$name), ""), collapse = ", "),
+            meta$league$bench))
+cat(sprintf("- **%d players valued**. Sources: %s. WR current week: archived M4 run `%s` (read only).\n",
+            nrow(v), paste(names(meta$sources_used), unlist(meta$sources_used), sep = " = ", collapse = "; "),
+            meta$provider_versions$m4_run_id %||% "none"))
+cat(sprintf("- **Top 12 overall by ROS VOR:** %s.\n",
+            paste0(top$player, " (", top$position, ")", collapse = ", ")))
+cat(sprintf("- **Overall top 30 by position:** %s.\n",
+            paste(names(table(head(v, 30)$position)), table(head(v, 30)$position), collapse = ", ")))
+cat(sprintf("- **Replacement level** (points per game, horizon mean): %s. **Marginal starter:** %s.\n",
+            paste0(sc$position, " ", round(sc$replacement_level, 1), collapse = ", "),
+            paste0(sc$position, " ", round(sc$starter_level, 1), collapse = ", ")))
+cat("- QBs are valued against a deep replacement pool (a starting-calibre QB is on waivers in a 10-team 1QB league), so mid-tier QBs carry little value despite high raw points. TE scarcity emerges from the gap between the marginal starter and replacement.\n")
+cat("- The display scale is convex in VOR because generic roster utility is: consolidation value emerges from lineup slots, with no stud premium assumed.\n")
+```
+
+```{r no-run, results = "asis", eval = !have_run}
+cat("**No archived valuation run yet.** Run `Rscript scripts/valuation_run.R --capture` (section H needs it).\n")
+```
+
+## A. What does "trade value" mean in this system?
+
+A player's value is **the expected contribution that owning him adds to a constrained fantasy
+roster, relative to the alternatives freely available**, over the rest of the fantasy season.
+
+- **Weekly projections** are inputs.
+- **ROS points** are an intermediate quantity.
+- **ROS VOR**, the primary economic value, is the expected starting-lineup points above the free
+  waiver alternative, summed week by week:
+  `Σ_t max(0, E_i(t) − R_p(t))`.
+  - The weekly floor reflects that a manager starts the free replacement in a week the player is below it, such as a bye or an injury.
+- **Generic marginal roster utility (MRU)** checks VOR against roster reality: on simulated generic teams, how much does adding the player (and dropping the team's least valuable player) raise expected ROS lineup points?
+  - Lineup slots, the team's existing starters and bench usefulness all enter.
+- **Trade value (0–100)** is a monotone transformation of VOR: `100 · f(VOR) / f(max VOR)`, where `f` is fitted from MRU.
+  - It is for display only. The raw VOR is kept.
+
+Methodology: `docs/valuation_methodology.md`. Decisions: `research/valuation_log.md` (VE0–VE3).
+
+## B. How are ROS projections produced?
+
+| Part | Weeks | Source | Status |
+|---|---|---|---|
+| Current week, QB/RB/TE | *w* | ESPN week-of projection × per-position calibration (`c0 + d0·ESPN`) | observed, calibrated |
+| Current week, WR | *w* | frozen `m4_two_stage_v1` from the archived official run | observed, calibrated, availability-adjusted |
+| Future weeks | *w*+1 … 17 | ESPN's **posted** future-week projection, passed through the fixed ROS model | observed future projection (**unvalidated**, VE-P1) |
+| Fallback | *w*+1 … 17 | `L_avg4`: mean of the last up-to-4 ESPN week-of projections, through the ROS model, plus the opponent term | extrapolated |
+| Byes and posted zeros | any | schedule, or ESPN posting 0 in a game week | 0 for that week only |
+
+The future-week model fixes `E = c + d·X + q·X² [+ g·X·(opp − 1)]` by position and horizon bucket.
+It was fit on 2019–2025, and attrition from new injuries and benchings is inside it.
+
+```{r ros-params}
+fmt(transmute(params$cd_tab, position, bucket, c = c, d = d, q = round(q, 4), opponent_g = g), 3)
+```
+
+**What future-week information exists (VE0).**
+- ESPN posts every remaining week. Healthy players' weeks are nearly flat (CV about 5%).
+  Injured players are 0 for the weeks ESPN expects them out.
+- The weekly values sum exactly to ESPN's season projection.
+- Past future-week projections are overwritten, so this path can only be validated prospectively.
+
+### VE1: which ROS level forecasts best? (relevant subset, ROS-total errors)
+
+```{r ve1}
+fmt(ve1$pooled |> filter(subset == "relevant") |> select(level, split, n, mae, rmse, bias) |> arrange(split, level), 2)
+```
+
+- **Selected `r ve1$selected`.** The current-week projection alone is about 3% worse.
+  Blending in actual points per game did not beat the tie band.
+- The opponent term passes its rule but changes weekly MAE by under 0.04%. It applies to extrapolated weeks only.
+
+```{r ve1-forms}
+fmt(bind_rows(ve1b$pooled, filter(ve1c$pooled, form == "quadratic")) |> arrange(split, form), 2)
+```
+
+The quadratic form (VE1c) was chosen because the linear form under-predicted the top level quintile:
+
+```{r ve1c-cal}
+cal <- ve1c$calibration |> filter(q %in% c(1, 5)) |>
+  mutate(quintile = ifelse(q == 1, "bottom", "top")) |>
+  select(split, position, quintile, form, L, forecast, actual) |> arrange(split, position, quintile, form)
+fmt(cal, 1)
+```
+
+**Does the ROS projection track ESPN's own?** (diagnostic; ESPN's ROS = sum of its posted weeks)
+
+```{r espn-ros, eval = have_run, results = "asis"}
+espn <- wk |> filter(proj_kind %in% c("current_week", "posted_future")) |>
+  summarise(espn_ros = sum(proj_raw[has_game], na.rm = TRUE), .by = "player_id")
+cmp <- v |> left_join(espn, by = "player_id") |> filter(position_rank <= c(QB = 24, RB = 48, WR = 60, TE = 24)[position])
+cat(sprintf("Spearman correlation (fantasy-relevant players): %.3f. Our ROS / ESPN ROS (median): %.3f.\n",
+            cor(cmp$ros_points, cmp$espn_ros, method = "spearman"), median(cmp$ros_points / cmp$espn_ros)))
+```
+
+Our ROS is systematically below ESPN's raw sum. That is expected: the calibration
+removes ESPN's over-projection, and the horizon model includes attrition that ESPN's
+"if healthy" future weeks omit.
+
+## C. How is replacement level determined?
+
+1. **Weekly starter allocation.**
+   - Each week the league's 10 × 7 skill starting spots are filled by an **exact** maximum-weight assignment (a transversal matroid with a Hall-condition check).
+   - FLEX takes whichever RB/WR/TE the projections favour.
+2. **Exchange baselines.**
+   - When a position-*p* starter leaves, the replacement is the best alternative that keeps the lineup seatable.
+   - Positions present in FLEX therefore share a baseline. TE, usually absent from FLEX, keeps its own.
+3. **Two baselines:**
+   - the **marginal starter** `S`, against all non-starters;
+   - the **waiver replacement** `R`, against players outside the rostered pool of 10 × 14.
+4. **Rostered pool (VE3).**
+   - Each position's share of league starters, from the weekly allocation, times the roster size, filled by ROS points.
+   - With bench = starters, every position rosters twice its league starters.
+   - The generic re-draft's own fixed point hoarded backup QBs and did not converge, so it is a sensitivity only.
+
+```{r baselines, eval = have_run, fig.height = 4.2}
+b <- base |> tidyr::pivot_longer(c("S", "R"), names_to = "baseline", values_to = "points") |>
+  mutate(baseline = ifelse(baseline == "S", "Marginal starter (S)", "Waiver replacement (R)"))
+lab <- b |> filter(week == max(week))
+ggplot(b, aes(week, points, colour = position)) +
+  geom_line(linewidth = 0.7) + geom_point(size = 1.6) +
+  geom_text(data = lab, aes(label = position), hjust = -0.3, size = 3.2, show.legend = FALSE) +
+  facet_wrap(~baseline) + scale_colour_manual(values = POS_COL) +
+  scale_x_continuous(breaks = unique(b$week), expand = expansion(mult = c(0.02, 0.08))) +
+  labs(x = "Week", y = "Expected points of the baseline player", colour = NULL,
+       title = "Weekly baselines by position (bye weeks move them)") + theme_report
+```
+
+```{r flex-use, eval = have_run}
+fmt(base |> summarise(league_starters = mean(n_starters), in_flex = mean(n_in_multi_slots),
+                      S = mean(S), R = mean(R), .by = position), 2)
+```
+
+**Rostered pool against ESPN's market** (diagnostic only; ESPN %owned spans all ESPN leagues):
+
+```{r pool-vs-market, eval = have_run}
+fmt(v |> summarise(modelled_rostered = sum(rostered), espn_owned_50 = sum(pct_owned >= 50, na.rm = TRUE),
+                   generic_teams = NA_integer_, .by = position) |>
+      mutate(generic_teams = as.integer(unlist(meta$generic_team_composition)[position])), 0)
+```
+
+## D. How does positional scarcity emerge?
+
+Scarcity is never declared. It is the shape of these curves under the league's lineup rules.
+
+```{r curves, eval = have_run, fig.height = 4.6}
+n_show <- c(QB = 30, RB = 60, WR = 80, TE = 30)
+cv <- v |> filter(position_rank <= n_show[position]) |>
+  tidyr::pivot_longer(c("ros_points", "vor", "vas", "trade_value"), names_to = "metric") |>
+  mutate(metric = factor(metric, c("ros_points", "vor", "vas", "trade_value"),
+                         c("ROS points", "ROS VOR (primary)", "ROS VAS", "Trade value (0-100)")))
+lab <- cv |> group_by(metric, position) |> filter(position_rank == 1)
+ggplot(cv, aes(position_rank, value, colour = position)) +
+  geom_hline(yintercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
+  geom_line(linewidth = 0.7) +
+  geom_text(data = lab, aes(label = position), hjust = 1.3, size = 3, show.legend = FALSE) +
+  facet_wrap(~metric, scales = "free_y", nrow = 2) + scale_colour_manual(values = POS_COL) +
+  labs(x = "Positional rank", y = NULL, colour = NULL, title = "Value curves by positional rank") + theme_report
+```
+
+```{r scarcity, eval = have_run}
+fmt(select(run$scarcity, position, elite_ppg, replacement_level, starter_level, elite_minus_replacement_ppg,
+           starter_minus_replacement_ppg, elite_vor, vor_rank12, n_vor_gt_0, n_vor_gt_50, n_vor_gt_100), 1)
+```
+
+Reading the curves:
+- **QB** has the highest raw points, but replacement is a starting-calibre QB, so VOR drops off quickly after the elite few.
+- **TE**'s marginal starter sits well above its replacement (the largest starter − replacement gap): a few TEs carry real scarcity.
+- **RB and WR** share the FLEX baseline. Their curves are long and steep at the top.
+
+## E. What is VOR, and how does it compare with VAS?
+
+- **VOR** is expected starting-lineup points above the free waiver alternative, week by week, floored at 0 in weeks below replacement.
+- **VAS** measures strength against the league's marginal starter. It is unfloored, so bench-level players go negative.
+- Both use the same weekly allocation.
+
+```{r vor-vas, eval = have_run, fig.height = 4}
+ggplot(filter(v, vor > 0), aes(vor, vas, colour = position)) +
+  geom_abline(slope = 1, intercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
+  geom_hline(yintercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
+  geom_point(size = 1.8, alpha = 0.85) + facet_wrap(~position, nrow = 1) +
+  scale_colour_manual(values = POS_COL, guide = "none") +
+  labs(x = "ROS VOR", y = "ROS VAS", title = "VAS against VOR: the gap is starter level minus replacement, per week played") +
+  theme_report
+```
+
+```{r vor-raw, eval = have_run, results = "asis"}
+d <- filter(v, vor > 0)
+cat(sprintf("- Floored and raw VOR agree for full-season starters. The floor matters for players with byes or injuries ahead: median floored − raw = %.1f points; largest = %.1f.\n",
+            median(d$vor - d$vor_raw), max(d$vor - d$vor_raw)))
+cat(sprintf("- Spearman correlation of VOR and VAS: %.3f overall. Within position they order players almost identically. The difference is the **cross-position** exchange rate: VAS compresses QB and TE further, because their starter and replacement levels differ by position.\n",
+            cor(d$vor, d$vas, method = "spearman")))
+```
+
+**Segments** (ROS VOR for the regular season and the fantasy playoffs, top 15 by playoff VOR):
+
+```{r segments, eval = have_run}
+fmt(v |> arrange(desc(vor_playoffs)) |> head(15) |>
+      select(player, position, team, ros_points_regular, vor_regular, ros_points_playoffs, vor_playoffs, vor), 1)
+```
+
+## F. Is elite-player consolidation captured?
+
+Generic roster utility (MRU) is **convex** in VOR:
+- A low-VOR player added to a typical team mostly displaces a near-equivalent starter, or sits on the bench.
+- An elite player displaces a much weaker starter every week.
+- The display map `f` is the monotone fit of MRU on VOR. Its curvature is emergent, not a chosen premium.
+
+```{r mru, eval = have_run, fig.height = 4}
+kn <- run$display_knots
+ggplot(filter(v, vor > 0), aes(vor, mru, colour = position)) +
+  geom_abline(slope = 1, intercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
+  geom_point(size = 1.8, alpha = 0.85) +
+  geom_line(data = kn, aes(vor, mru), colour = "#0b0b0b", linewidth = 0.6, inherit.aes = FALSE) +
+  facet_wrap(~position, nrow = 1) + scale_colour_manual(values = POS_COL, guide = "none") +
+  labs(x = "ROS VOR", y = "Generic roster utility (MRU)",
+       title = "MRU against VOR (black: fitted display map f; grey: MRU = VOR)") + theme_report
+```
+
+```{r mru-ratio, eval = have_run}
+fmt(filter(v, vor > 0) |> mutate(vor_band = cut(vor, c(0, 15, 30, 60, 100, Inf))) |>
+      summarise(players = n(), mean_vor = mean(vor), mean_mru = mean(mru), mru_per_vor = mean(mru) / mean(vor),
+                trade_value = mean(trade_value), .by = vor_band) |> arrange(vor_band), 2)
+```
+
+**Elite-for-two trades** between simulated teams with equal VOR sums (±15%). The single-player side
+receives A and adds the best free player; the pair side receives B + C and drops its least valuable player:
+
+```{r consolidation, eval = have_run, results = "asis"}
+cs <- run$consolidation
+cat(sprintf("- %d trades. The single-player side gained more than the pair side in **%d** (%.0f%%). Median edge %+.1f points; mean %+.1f.\n",
+            nrow(cs), sum(cs$consolidation_edge > 0), 100 * mean(cs$consolidation_edge > 0),
+            median(cs$consolidation_edge), mean(cs$consolidation_edge)))
+cat(sprintf("- Naive VOR sums call these trades even (median VOR_A − VOR_BC = %+.1f). The display values already lean toward the single player (median TV_A − TV_BC = %+.1f).\n",
+            median(cs$vor_A - cs$vor_BC), median(cs$tv_A - cs$tv_BC)))
+cat(sprintf("- Correlation of the utility edge with the TV difference: %.2f; with the VOR difference: %.2f.\n",
+            cor(cs$consolidation_edge, cs$tv_A - cs$tv_BC), cor(cs$consolidation_edge, cs$vor_A - cs$vor_BC)))
+```
+
+```{r consolidation-table, eval = have_run}
+fmt(cs |> mutate(A = nm(A), B = nm(B), C = nm(C), added = nm(single_side_added), dropped = nm(pair_side_dropped)) |>
+      select(A, B, C, vor_A, vor_BC, tv_A, tv_BC, gain_single_side, gain_pair_side, consolidation_edge, added, dropped) |>
+      arrange(desc(consolidation_edge)), 1)
+```
+
+The largest edges arise when the pair side already holds a starter at B's or C's
+position: the second player cannot enter its lineup. That is **roster fit**, which no
+naive sum can see. Negative edges arise when the single-player side has to give up two
+of its own starters.
+
+## G. How do values change with league settings?
+
+```{r sens, eval = have_run}
+ss <- run$sensitivity_scarcity
+fmt(ss |> mutate(cfg = paste(league, if_else(pool == "simulation", "(re-draft pool)", ""))) |>
+      select(cfg, position, replacement_level, starter_level, elite_vor, n_vor_gt_0, league_starters, in_flex) |>
+      tidyr::pivot_wider(names_from = position, values_from = c(replacement_level, elite_vor), id_cols = cfg), 1)
+```
+
+```{r sens-top, eval = have_run}
+sv <- run$sensitivity_values
+fmt(sv |> filter(overall_rank <= 30) |> count(league, pool, position) |>
+      tidyr::pivot_wider(names_from = position, values_from = n, values_fill = 0) |>
+      arrange(pool, league), 0)
+```
+
+- **More teams** lower every replacement level and stretch elite VOR. Scarcity grows faster at RB/WR than at QB.
+- **No FLEX** separates the RB and WR baselines.
+- **Superflex** links the QB baseline to the FLEX pool, and QB values jump. The architecture supports it with configuration only; V1 does not tune it.
+- **3 WR versus 2 FLEX** produce the same starting set when FLEX already prefers about 32 WRs. The baselines are then identical, which is a useful consistency check.
+- **Bench size** moves only the waiver level.
+- **The re-draft pool** (VE2) lowers the QB waiver level, because it hoards backup QBs, and so inflates QB VOR. This is why VE3 replaced it.
+
+## H. What are the current 2026 player values?
+
+```{r overall, eval = have_run}
+cols <- c("overall_rank", "player", "team", "position", "position_rank", "ros_points", "ros_points_regular",
+          "ros_points_playoffs", "games_remaining", "bye_weeks", "replacement_points", "vor", "vas", "mru",
+          "trade_value", "current_source", "injury_status")
+fmt(head(select(v, any_of(cols)), 75), 1)
+```
+
+Column notes:
+- `replacement_points` is the waiver baseline summed over the player's game weeks.
+- `vor` is the primary value; `trade_value` is display only.
+- `current_source` is the current-week provider.
+- `injury_status` is ESPN's status at capture. It affects the current week only (via M4 for WRs) and future weeks through ESPN's posted zeros.
+
+::: {.panel-tabset}
+
+### QB
+
+```{r t-qb, eval = have_run}
+fmt(head(select(filter(v, position == "QB"), any_of(setdiff(cols, "position"))), 32), 1)
+```
+
+### RB
+
+```{r t-rb, eval = have_run}
+fmt(head(select(filter(v, position == "RB"), any_of(setdiff(cols, "position"))), 60), 1)
+```
+
+### WR
+
+```{r t-wr, eval = have_run}
+fmt(head(select(filter(v, position == "WR"), any_of(setdiff(cols, "position"))), 80), 1)
+```
+
+### TE
+
+```{r t-te, eval = have_run}
+fmt(head(select(filter(v, position == "TE"), any_of(setdiff(cols, "position"))), 30), 1)
+```
+
+:::
+
+**Explainability: why is the overall #1 worth more than the top QB?** The example is chosen by rank, not by name:
+
+```{r explain, eval = have_run, results = "asis"}
+ex <- bind_rows(head(v, 1), head(filter(v, position == "QB"), 1)) |>
+  mutate(replacement_ppg = replacement_points / pmax(games_remaining, 1))
+print(fmt(ex |> transmute(player, position, points_per_game, games_remaining, ros_points, replacement_ppg,
+                          vor, vas, mru, trade_value), 1))
+cat(sprintf("
+
+%s scores %.1f points per game against a replacement of %.1f (%s). %s scores %.1f against a replacement of %.1f. Value is the points above that alternative in each week, so the gap per game (%.1f against %.1f), not raw points, decides.
+",
+            ex$player[1], ex$points_per_game[1], ex$replacement_ppg[1], ex$position[1], ex$player[2],
+            ex$points_per_game[2], ex$replacement_ppg[2], ex$points_per_game[1] - ex$replacement_ppg[1],
+            ex$points_per_game[2] - ex$replacement_ppg[2]))
+```
+
+## I. How should multi-player packages be interpreted?
+
+- **Do not add trade values.** A 2-for-1 is **A + the best free player versus B + C**, on a real roster:
+  - the side receiving one player fills the freed spot from waivers;
+  - the side receiving two must drop someone;
+  - only players who make the lineup in a given week add points.
+- `val_trade_eval(league_sim, team, give, get)` evaluates exactly this for any trade on the
+  simulated generic teams. Section F shows that equal-VOR packages systematically favour the side
+  receiving the single better player, and by how much depends on roster fit.
+- The 0–100 display scale is convex in VOR, so summing it partly accounts for consolidation. It still ignores roster fit.
+- The roster-aware evaluation is the reference. V2 applies it to actual league rosters.
+
+## Validation
+
+**Historical valuation backtest.** 2019–2025, weeks 4/8/12, default league, parameters from 2019–2023.
+It compares projected VOR with realized decision-based VOR: actual points minus realized
+replacement, in the weeks the projection said to start the player.
+
+```{r backtest}
+fmt(arrange(bt$calibration, split, position), 2)
+fmt(arrange(bt$spearman, split, position), 3)
+fmt(bt$top30_shares, 2)
+```
+
+- No position is flagged (±25% of the pooled realized/projected ratio).
+- Realized value exceeds projected value everywhere. Realized replacement is the mean of the 3 best waiver options, against the single best expected.
+- **QBs are not over-valued.** Their ratio is the highest, and they appear in the realized top 30 more often than projected.
+- Within-position rank correlation is 0.4–0.65. That is the ceiling set by ROS forecastability.
+
+**Uncertainty (reported, not yet used in value).**
+
+```{r unc}
+fmt(diag$ros_sd, 2)
+```
+
+**Questionable carry-over (diagnostic):** future availability of players listed Questionable at *w*, against unlisted players.
+
+```{r q-carry}
+fmt(diag$questionable_future |> tidyr::pivot_wider(names_from = status_w, values_from = c(A, n)), 3)
+```
+
+**Sanity checks against the success criteria:**
+- Ordering within each position follows ROS points.
+- QB values reflect the deep 1QB replacement pool.
+- TE scarcity emerges.
+- Bye weeks and posted absences zero only their own weeks.
+- League-size, FLEX, bench and superflex sensitivities move in the economically expected directions.
+- Consolidation is emergent.
+- The test suite covers allocation optima, FLEX and exchange baselines, VOR floors, display monotonicity, scoring, providers, 2-for-1 accounting and archive integrity.
+
+## J. What remains for V2?
+
+1. **Our own QB/RB/TE projection providers**, through the provider interface. That is configuration only.
+2. **Level uncertainty in the simulation.** It would let bench composition (and so replacement) emerge from upside, not only availability, and it allows risk-aware values.
+3. **Actual league rosters and free agents.** These would give team-specific trade analysis built on `val_trade_eval()`.
+4. **Prospective evaluation (VE-P1).**
+   - ESPN posted future weeks against the extrapolated level, on 2026 outcomes.
+   - Archived valuations against realized value.
+5. A validated Questionable adjustment for QB/RB/TE. WR future-week carry-over (VE1 diagnostic).
+6. Scoring-specific ROS parameters for non-PPR formats. Waiver competition (FAAB, priority) instead of free streaming.
+7. K and D/ST, and IR slots.
+
+```{r provenance, results = "asis", eval = have_run}
+cat(sprintf("\n---\nRun `%s` · capture `%s` (sha256 %s…) · ROS params %s (sha256 %s…) · git %s · %s s.\n",
+            meta$run_id, meta$provider_versions$espn_capture, substr(meta$provider_versions$espn_capture_sha256, 1, 12),
+            meta$provider_versions$ros_params_version, substr(meta$provider_versions$ros_params_sha256, 1, 12),
+            substr(meta$git_commit, 1, 7), meta$elapsed_seconds))
+```

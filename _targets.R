@@ -20,6 +20,7 @@ tar_source("R")
 report_file <- "reports/milestone1_report.qmd"
 report2_file <- "reports/milestone2_report.qmd"
 build_report <- nzchar(find_quarto()) && file.exists(report_file)
+build_valuation <- isTRUE(read_project_config()$espn$enabled) || dir.exists(VAL_ESPN_RAW_ROOT)
 
 list(
   # ---- Configuration ------------------------------------------------------
@@ -414,8 +415,53 @@ list(
     })
   ),
 
+  # ---- Valuation V1 (separate track: docs/valuation_v1_plan.md) -------------
+  # Historical studies only; live valuations are point-in-time runs made by
+  # scripts/valuation_run.R. Nothing here feeds any projection lineage. Built
+  # when ESPN is enabled or the QB/RB/TE week-of history is cached.
+  if (build_valuation) list(
+    tar_target(val_config_file, "config/valuation.yml", format = "file"),
+    tar_target(val_config, read_valuation_config(val_config_file)),
+    tar_target(val_week_grid, dplyr::filter(regular_season_weeks(raw_schedules), season >= 2019)),
+    tar_target(val_raw_espn, val_fetch_espn_weeks(val_week_grid, league_defaults_id = config$espn$league_defaults_id,
+                                                  pause = config$espn$request_pause_seconds,
+                                                  enabled = isTRUE(config$espn$enabled))),
+    tar_target(val_espn_hist, {
+      wr <- raw_espn$path[as.integer(sub(".*_([0-9]{4})_w.*", "\\1", basename(raw_espn$path))) >= 2019]
+      val_espn_weekly(val_raw_espn$path, wr)
+    }, format = "parquet"),
+    tar_target(val_crosswalk, build_espn_crosswalk(dplyr::distinct(val_espn_hist, espn_id, espn_name),
+                                                   rosters_weekly, players, ff_playerids)),
+    tar_target(val_frame, val_history_frame(val_espn_hist, val_crosswalk, player_stats, rosters_weekly, team_games)),
+    # VE1 (levels, schedule term; linear form of VE1a), VE1b (two-stage), VE1c (quadratic)
+    tar_target(val_ve1, val_ve1_study(val_frame)),
+    tar_target(val_ve1b, val_ve1b_form(val_frame, val_ve1$selected, val_ve1$keep_opponent, alternative = "two_stage")),
+    tar_target(val_ve1c, val_ve1b_form(val_frame, val_ve1$selected, val_ve1$keep_opponent, alternative = "quadratic")),
+    tar_target(val_ros_params_derived, val_derive_ros_params(val_frame, val_ve1$selected, val_ve1$keep_opponent,
+                                                             form = val_ve1c$chosen)),
+    # The committed parameters must equal a fresh derivation (fails otherwise).
+    tar_target(val_ros_params_file, val_config$ros_params_file, format = "file"),
+    tar_target(val_ros_params_check, {
+      p <- yaml::read_yaml(val_ros_params_file)
+      ok <- isTRUE(all.equal(p, val_ros_params_derived, check.attributes = FALSE, tolerance = 1e-8))
+      if (!ok) cli::cli_abort("{.file {val_ros_params_file}} differs from the derived ROS parameters.")
+      p$version
+    }),
+    tar_target(val_ros_fit, val_fit_ros(val_frame$future, val_ve1$selected, 2019:2025,
+                                        opponent = val_ve1$keep_opponent, form = val_ve1c$chosen)),
+    tar_target(val_ros_diag, val_ros_diagnostics(val_frame, val_ros_fit, injuries)),
+    tar_target(val_backtest_results, {
+      val_ros_params_check
+      val_backtest(val_frame, val_config$league, level = val_ve1$selected, opponent = val_ve1$keep_opponent,
+                   form = val_ve1c$chosen)
+    })
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
+  # Always re-render: it reads the latest archived valuation run.
+  if (build_report && build_valuation && file.exists("reports/valuation_v1_report.qmd"))
+    tar_quarto(report_valuation, "reports/valuation_v1_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
   # Always re-render: its prospective section reads the live archive.
   if (build_report && file.exists("reports/milestone3_report.qmd"))
     tar_quarto(report_m3, "reports/milestone3_report.qmd", quiet = TRUE, cue = tar_cue(mode = "always")),
