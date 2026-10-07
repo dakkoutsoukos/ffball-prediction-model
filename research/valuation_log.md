@@ -391,3 +391,25 @@ Projected VOR is compared with realized decision-based VOR among each position's
   - TE in the top 30: 2.1 against 2.3 (development) and 1.0 against 2.0 (check).
 - Nothing was changed in response. Per VE2 these are reported, not tuned. The QB under-valuation is consistent with the remaining top-end
   under-prediction after VE1c (QB top quintile 18.7 against 19.1). It is listed for V2.
+
+---
+
+## 2026-10-07 — VL0: Valuation V2 pre-specification (before any league data was analysed)
+
+**Plan.** `docs/valuation_v2_plan.md`. One unauthenticated probe of the owner's league returned
+HTTP 401: the league is private, so the owner's cookies are needed. No league content has been seen.
+
+Fixed now:
+1. **Decision variable.** `ΔU = U_after − U_before` per team.
+   - U is the expected ROS optimized starting-lineup points from rostered players.
+   - Weekly availability is Monte Carlo (S = 200, seed 20261007, common random numbers).
+2. **Streaming policy `empty_slots`.**
+   - A free agent at the actual weekly FA level fills a slot only when no rostered eligible player is active.
+   - Sensitivity runs use `none` and `unlimited`.
+3. **Forced drops** are greedy, maximizing post-trade U. **Adds** take the best FA by U gain, only if the gain is above 0. Candidates are the top 6 per position.
+4. **Classification thresholds:** ε = 5 and S = 20 expected ROS lineup points, with the rule order of plan §11.
+5. **Search bounds:**
+   - candidates: VOR > 5 or MTV > 2, top 12 per team;
+   - structures: 1-for-1, 2-for-1, 1-for-2, 2-for-2;
+   - generic pre-filter: |ΔTV| ≤ 40.
+6. **V1 is unchanged.** Generic values in the league's format come from a separate V1-methodology run under the league's settings.
