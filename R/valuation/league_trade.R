@@ -93,7 +93,7 @@ lg_check_invariants <- function(m, tr, team_a, ga, team_b, gb) {
                                                                     m$state[[as.character(team_b)]]$rows, others)),
     "dropped players are free agents" = all(c(tr$a$dropped, tr$b$dropped) %in% tr$fa_rows),
     "roster sizes are legal" = length(tr$a$rows) <= lg_capacity(m, team_a) && length(tr$b$rows) <= lg_capacity(m, team_b),
-    "position limits are met" = !length(lg_over_limits(m, ra)) && !length(lg_over_limits(m, rb))
+    "position limits are met" = !length(lg_over_limits(m, tr$a$rows, team_a)) && !length(lg_over_limits(m, tr$b$rows, team_b))
   )
   invisible(TRUE)
 }

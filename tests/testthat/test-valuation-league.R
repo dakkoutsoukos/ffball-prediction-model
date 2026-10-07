@@ -359,3 +359,14 @@ test_that("team labels handle free agents and unknown ids", {
   expect_equal(lg_team_label(m, 1L), "Team One")
   expect_equal(lg_team_label(m, 99L), "Team 99")
 })
+
+test_that("position limits count active players only; a pre-existing excess forces no drop", {
+  lg <- toy_lg_league(limits = list(RB = 2))
+  p <- c(base_players, `1_RB_ir2` = 0)
+  m <- toy_lg(p, ir = "1_RB_ir2", league = lg)   # Team One: 2 active RBs + 1 on IR (3 RBs in all)
+  expect_length(lg_over_limits(m, m$state[["1"]]$rows, 1), 0)
+  tr <- lg_trade(m, 1, "1_WR_a5", 2, "2_WR_b4")  # no RB moves: no forced drop
+  expect_equal(tr$teams$dropped[tr$teams$team_id == 1], "")
+  tr2 <- lg_trade(m, 1, "1_WR_a5", 2, "2_RB_b2") # a third active RB exceeds the limit: an RB is dropped
+  expect_equal(tr2$teams$dropped[tr2$teams$team_id == 1] %in% c("1_RB_a4", "2_RB_b2", "1_RB_a2"), TRUE)
+})

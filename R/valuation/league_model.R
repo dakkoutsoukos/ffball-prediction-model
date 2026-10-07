@@ -210,8 +210,19 @@ lg_capacity <- function(m, team) {
   (m$league$roster_size %||% val_roster_size(m$league)) - st$nonskill
 }
 
-lg_over_limits <- function(m, rows) {
+#' Effective position limits for a team: ESPN limits apply to ACTIVE (non-IR)
+#' players; a team already above a limit (which ESPN evidently allowed) keeps its
+#' current count as the limit, so a pre-existing excess never forces a drop.
+lg_limits <- function(m, team) {
   lim <- unlist(m$league$position_limits %||% list())
+  if (!length(lim) || is.null(team)) return(lim)
+  cur <- table(factor(m$sim$players$position[m$state[[as.character(team)]]$rows], VAL_POSITIONS))
+  pmax(lim, as.numeric(cur[names(lim)]))
+}
+
+#' Positions over their (effective) limit among active rows.
+lg_over_limits <- function(m, rows, team = NULL) {
+  lim <- lg_limits(m, team)
   if (!length(lim)) return(character())
   cnt <- table(factor(m$sim$players$position[rows], VAL_POSITIONS))
   names(lim)[cnt[names(lim)] > lim]
@@ -237,7 +248,7 @@ lg_resolve <- function(m, team, rows, ir_rows, fa_rows, stream, cand_per_pos = 6
     t
   }
   repeat {
-    over <- lg_over_limits(m, c(rows, ir_rows))
+    over <- lg_over_limits(m, rows, team)
     if (length(rows) <= cap && !length(over)) break
     cands <- if (length(over)) rows[pos[rows] %in% over] else rows
     if (!length(cands)) cli::cli_abort("Team {team}: roster limits cannot be met by dropping players.")
@@ -253,9 +264,9 @@ lg_resolve <- function(m, team, rows, ir_rows, fa_rows, stream, cand_per_pos = 6
   added <- integer()
   add_gain <- numeric()
   if (allow_adds) {
-    lim <- unlist(m$league$position_limits %||% list())
+    lim <- lg_limits(m, team)
     while (length(rows) < cap && length(fa_rows)) {
-      full_pos <- names(lim)[table(factor(pos[c(rows, ir_rows)], VAL_POSITIONS))[names(lim)] >= lim]
+      full_pos <- names(lim)[table(factor(pos[rows], VAL_POSITIONS))[names(lim)] >= lim]
       cands <- unlist(lapply(setdiff(m$spec$positions, full_pos), function(p) {
         r <- fa_rows[pos[fa_rows] == p]
         r[order(-m$sim$ros[r], m$sim$players$player_id[r])][seq_len(min(length(r), cand_per_pos))]
