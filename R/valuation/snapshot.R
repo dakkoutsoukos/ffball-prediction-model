@@ -63,8 +63,9 @@ run_valuation <- function(season, week, as_of = Sys.time(), cfg = read_valuation
     as_of_utc = format(as_of, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     methodology_version = cfg$methodology_version, git_commit = git$commit, git_dirty = git$dirty,
     league = cfg$league, league_hash = val_league_hash(cfg$league),
-    scoring_file = file.path("config", "scoring", paste0(cfg$league$scoring, ".yml")),
-    scoring_sha256 = sha256_file(file.path("config", "scoring", paste0(cfg$league$scoring, ".yml"))),
+    scoring_file = if (is.null(cfg$scoring_rules)) file.path("config", "scoring", paste0(cfg$league$scoring, ".yml")) else "league settings",
+    scoring_sha256 = if (is.null(cfg$scoring_rules)) sha256_file(file.path("config", "scoring", paste0(cfg$league$scoring, ".yml")))
+                     else digest_text(yaml::as.yaml(as.list(cfg$scoring_rules$weights))),
     valuation_config_sha256 = sha256_file(cfg$path),
     projection_sources = cfg$projection_sources,
     provider_versions = list(

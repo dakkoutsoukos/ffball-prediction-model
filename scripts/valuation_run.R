@@ -7,6 +7,9 @@
 #   options: --capture       one ESPN request (QB/RB/WR/TE, this week .. week 18); ESPN opt-in required
 #            --no-archive    compute and print only (nothing written)
 #            --no-sensitivity skip the sensitivity leagues (faster)
+#            --league        value in the owner's ACTUAL league format (settings and scoring from the
+#                            latest league snapshot, scripts/league_refresh.R); generic V1 methodology,
+#                            archived as its own run (league hash). Used by the V2 trade analyzer.
 #
 # Uses the latest live nflverse retrieval (refreshed by scripts/weekly_run.R) and,
 # for WRs, the latest ARCHIVED official M4 run of the week (read only). Run it
@@ -48,8 +51,20 @@ if ("--capture" %in% flags) {
   cli::cli_alert_success("ESPN capture {.file {basename(cap)}}")
 }
 
+if ("--league" %in% flags) {
+  lgs <- lg_latest_snapshot(season, as_of = now)
+  if (is.null(lgs)) stop("No league snapshot: run scripts/league_refresh.R first.")
+  lc <- lg_league_config(lgs)
+  cfg$league <- lc$league
+  if (!lc$scoring$equals_espn_ppr) {
+    cfg$scoring_rules <- lc$scoring$rules
+    # the frozen M4 WR model predicts ESPN PPR points: not used for other scoring
+    cfg$projection_sources$current_week$WR <- setdiff(unlist(cfg$projection_sources$current_week$WR), "m4_archive")
+  }
+  cli::cli_alert_info("League format: {paste(vapply(lc$league$slots, function(s) paste0(s$count, ' ', s$name), ''), collapse = ', ')}, {lc$league$teams} teams, bench {lc$league$bench}; scoring {if (lc$scoring$equals_espn_ppr) 'ESPN PPR' else 'league-specific'}")
+}
 res <- run_valuation(season, week, as_of = now, cfg = cfg, archive = archive,
-                     sensitivity = !"--no-sensitivity" %in% flags)
+                     sensitivity = !"--no-sensitivity" %in% flags && !"--league" %in% flags)
 v <- res$values
 cli::cli_alert_success("Valued {nrow(v)} players in {res$meta$elapsed_seconds} s; M4 run {res$meta$provider_versions$m4_run_id %||% 'none'}")
 print(utils::head(dplyr::select(v, "overall_rank", "espn_name", "position", "team", "ros_points", "vor", "trade_value"), 25))

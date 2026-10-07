@@ -93,3 +93,17 @@ sensitivity_leagues:
       - {name: TE, eligible: [TE], count: 1}
       - {name: FLEX, eligible: [RB, WR, TE], count: 1}
       - {name: SUPERFLEX, eligible: [QB, RB, WR, TE], count: 1}
+
+# Valuation V2: league-specific analysis (docs/valuation_v2_plan.md; VL0 fixed the
+# policy, thresholds and search bounds before any league data was analysed).
+league_analysis:
+  policy: empty_slots      # empty_slots | none | unlimited (V1-style streaming)
+  eps: 5                   # classification: negligible band (expected ROS lineup points)
+  strong: 20               # classification: strong
+  sims: 200
+  seed: 20261007
+  max_age_hours: 24        # refuse older league snapshots unless --allow-stale
+  mtv_free_agents: 30      # top free agents included in the marginal-value matrix
+  search: {top_n: 12, tv_band: 40, max_eval: 250}
+  target: {top_n: 10, tv_band: 25, max_eval: 120}
+  sell: {n_teams: 4, top_n: 10, tv_band: 30}

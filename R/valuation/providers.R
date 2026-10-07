@@ -45,7 +45,8 @@ val_live_context <- function(season, week, as_of = Sys.time(), cfg = read_valuat
                              history_weeks = NULL) {
   if (is.na(capture_path)) cli::cli_abort("No valuation ESPN capture for {season} week {week} at or before {as_of}.")
   capture <- arrow::read_parquet(capture_path)
-  rules <- read_scoring_rules(cfg$league$scoring)
+  # V2 league-format runs may pass the league's own scoring rules (cfg$scoring_rules)
+  rules <- cfg$scoring_rules %||% read_scoring_rules(cfg$league$scoring)
   live <- function(ds) latest_live_file(ds, season, as_of)
   team_games <- clean_team_games(live("schedules"), "REG")
   stats <- clean_player_stats(live("player_stats"), rules, "REG")
