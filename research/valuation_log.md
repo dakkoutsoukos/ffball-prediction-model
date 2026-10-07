@@ -107,6 +107,33 @@ fantasy points best? Is a schedule (opponent) adjustment worth keeping?
 
 ---
 
+## 2026-10-07 — VE1a: Amendment to the VE1 model form (written before any candidate comparison was computed)
+
+**What was seen.** The study frame was built: 26,226 (player, *w*) rows and about
+190,000 future team-game rows. Its raw availability table showed the share of
+rows with a stat line at *h* = 1:
+- QB 0.71, RB 0.83, TE 0.77 (the WR column was not displayed).
+
+That is because the population (projection > 0) includes many deep backups who
+rarely record a stat. Availability therefore depends strongly on the level `L`.
+
+**Problem with the registered form.** `E = A_p(h) · (c + d · L)` uses an `A` that does not
+depend on `L`. Every starter would be multiplied by a backup-diluted
+availability, which biases the product. This is a general property of the
+population, not a property of any player.
+
+**Amended form.** The level candidates, population, metric, selection rule,
+schedule test and seasons are all unchanged.
+- `E = c_{p,b} + d_{p,b} · L [+ g_p · L · (opp − 1)]`, by least squares on **all**
+  future team-game rows (0 without a stat line), by position and horizon bucket.
+  Attrition is then inside `c` and `d` and depends on the horizon.
+- `A = plogis(a_{p,b} + e_{p,b} · log L)`, a logistic model of having a stat line, by position and bucket.
+  It is used **only** to draw availability in the roster simulation (`lvl = E / A`) and never enters `E`.
+  A numerical guard `A ≥ E / 60` keeps `lvl` finite.
+- Weeks with ESPN posted 0 in a game week have `E = 0` and `A = 0`.
+
+---
+
 ## 2026-10-07 — VE2: Pre-specification of the valuation methodology (before any value is computed)
 
 Fixed now, so that no player-level output can steer them:
