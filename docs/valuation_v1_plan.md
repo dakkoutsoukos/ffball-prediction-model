@@ -1,5 +1,11 @@
 # Valuation V1 plan: rest-of-season player value
 
+> **Status (end of V1).** This plan is kept as written. Three logged changes followed:
+> - VE1a/VE1c: the ROS functional form, now quadratic, fit on all rows.
+> - VE3: the waiver baseline uses the proportional rostered pool. The re-draft builds the generic teams only.
+>
+> See `research/valuation_log.md` and `docs/valuation_methodology.md`.
+
 Written 2026-10-07, before any valuation experiment was run. This is a separate
 track from projection research: Projection M5 is paused, and the frozen lineages
 M1–M4 and their 2026 prospective record are not touched.

@@ -7,6 +7,39 @@ The current question:
 > Do our football features add **repeatable, prospective** information about weekly
 > **WR** full-PPR scoring beyond a **calibrated** ESPN projection?
 
+## Valuation V1 (separate track: rest-of-season player value)
+
+Projection research is paused at M4 while the 2026 WR record accumulates. Valuation is
+a separate namespace that never touches the frozen lineages:
+- code in `R/valuation/`;
+- settings in `config/valuation.yml`;
+- fixed parameters in `models/valuation/`;
+- decisions in `research/valuation_log.md`.
+
+> A player's value is the expected contribution that owning him adds to a constrained
+> fantasy roster, relative to the alternatives freely available at his position.
+
+| Layer | V1 |
+|---|---|
+| Projections (QB/RB/WR/TE) | ESPN for QB/RB/TE. For WRs, the current week comes from the frozen `m4_two_stage_v1`, read from the archived official run. All sources sit behind a provider interface. |
+| ROS | ESPN's posted future weeks (unvalidated, VE0) through a fixed historical horizon model (VE1: `L_avg4` level, quadratic, fit on 2019–2025), with byes and posted absences |
+| League | ESPN standard PPR: 10 teams, 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX, bench 7, playoffs weeks 15–17. All configurable, superflex included. |
+| Replacement | Exact weekly starter allocation (matroid). FLEX-aware exchange baselines. Rostered pool from starter shares (VE3). |
+| Value | **ROS VOR** = Σ_t max(0, E − replacement), plus VAS and generic roster utility. The 0–100 display scale is monotone in VOR, with its curvature fitted from roster utility. |
+| Packages | Roster-aware trade evaluation with waiver adds and forced drops (A + replacement vs B + C) |
+| Validation | VE1 ROS backtest; projected vs realized VOR by position (2019–2025); sensitivity leagues; toy-league tests |
+
+Run after a weekly prospective run (clean tree):
+
+```bash
+Rscript scripts/valuation_run.R --capture         # one ESPN request; values every QB/RB/WR/TE; archives the run
+git add archive/valuation_*.csv && git commit -m "Valuation run 2026 W<week>"
+```
+
+The report is `reports/valuation_v1_report.html`, rendered by `tar_make()` from the latest archived
+run. Like every report here, it contains ESPN-derived values and stays out of Git.
+Methodology: [docs/valuation_methodology.md](docs/valuation_methodology.md).
+
 ## Status: Milestone 4 (availability intelligence and opportunity modeling)
 
 | Item | State |
@@ -188,6 +221,7 @@ R/features/    point-in-time feature engines (M1 frozen; M2 extends it) + leakag
 R/models/      model specs (tidymodels, glmnet, xgboost), frozen-lineage registry, M2 candidates
 R/evaluation/  metrics, chronological backtests, bootstraps, M2 protocol and studies
 R/live/        live 2026 data layer, prospective runs, archive verification and scoring
+R/valuation/   rest-of-season valuation (separate track): providers, ROS, allocation, VOR, simulation
 R/utils/       config and validation helpers
 models/        frozen registries (m1.yml, m2.yml) and prediction fingerprints
 archive/       committed append-only SHA-256 manifests (prospective predictions, ESPN snapshots)
@@ -323,7 +357,9 @@ and limitations are in [docs/data_provenance.md](docs/data_provenance.md).
    - Do not add complexity unless 2026 supports M4 over M3b.
 3. Distributional outputs: floor, median, ceiling, boom and bust probabilities via quantile models.
 4. Extend to RB/TE/QB.
-5. Rest-of-season valuation, then trade calculator and market comparison, then win-probability start/sit.
+5. Rest-of-season valuation: **V1 done** (see above). V2 adds our own QB/RB/TE providers, level
+   uncertainty, actual league rosters for team-specific trades, and the prospective VE-P1 check.
+   Then win-probability start/sit.
 
 ## Prior work
 

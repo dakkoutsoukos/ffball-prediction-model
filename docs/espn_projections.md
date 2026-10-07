@@ -86,6 +86,12 @@ Request log for 2026-10-05:
   - 107 historical requests (2020–2025 regular-season weeks, 1.5 s apart);
   - 2 requests for one live snapshot.
 
+Request log for 2026-10-07 (Valuation V1, same opt-in; QB/RB/TE added for the separate valuation track):
+- 1 exploratory request: all positions, every 2026 scoring period. Its result is the future-week audit, VE0 in `research/valuation_log.md`.
+- 128 historical week-of requests, one per season-week for QB/RB/TE together (2019–2025 and 2026 weeks 1–4), 1.5 s apart, cached in `data/raw/espn_valuation/`.
+- Valuation captures: one request each (QB/RB/WR/TE, current through week 18), stored in
+  `data/snapshots/espn_valuation/` with hashes in `archive/valuation_espn_capture_manifest.csv`.
+
 No ESPN data is in this repository.
 
 ### Opting in
