@@ -240,3 +240,17 @@ test_that("ROS fit recovers a known linear relation and buckets horizons", {
   expect_equal(pr$E, fut$pts, tolerance = 1e-8)
   expect_equal(pr$E, pr$A * pr$lvl, tolerance = 1e-8)
 })
+
+test_that("latest_valuation_run can be restricted to one league format", {
+  root <- withr::local_tempdir()
+  man <- file.path(root, "m.csv")
+  mk <- function(id, hash) list(values = tibble::tibble(player_id = "a", vor = 1), weekly = tibble::tibble(player_id = "a", week = 5L),
+    baselines = tibble::tibble(week = 5L), scarcity = tibble::tibble(position = "QB"), rosters = tibble::tibble(team = 1L),
+    display_knots = tibble::tibble(vor = 0, mru = 0), sensitivity = NULL, consolidation = NULL,
+    meta = list(run_id = id, season = 2026L, week = 5L, as_of_utc = "t", methodology_version = "valuation_v1",
+                league_hash = hash, n_players = 1L, provider_versions = list(), git_commit = "c"))
+  val_archive_run(mk("20261007T010000Z", "default"), root, man)
+  val_archive_run(mk("20261007T020000Z", "league"), root, man)
+  expect_equal(latest_valuation_run(manifest = man, root = root)$run_id, "20261007T020000Z")
+  expect_equal(latest_valuation_run(manifest = man, root = root, league_hash = "default")$run_id, "20261007T010000Z")
+})

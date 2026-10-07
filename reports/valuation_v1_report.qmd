@@ -28,7 +28,7 @@ theme_report <- theme_minimal(base_size = 11) +
   theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
         axis.text = element_text(colour = INK), plot.title.position = "plot",
         legend.position = "top", legend.justification = "left", strip.text = element_text(face = "bold"))
-run <- latest_valuation_run(season = 2026)
+run <- latest_valuation_run(season = 2026, league_hash = val_league_hash(lg))  # the default V1 league's runs
 have_run <- !is.null(run)
 ve1 <- tar_read(val_ve1)
 ve1b <- tar_read(val_ve1b)

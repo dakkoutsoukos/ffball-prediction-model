@@ -140,11 +140,17 @@ verify_valuation_archive <- function(manifest = VAL_MANIFEST, root = VAL_ARCHIVE
 }
 
 #' The latest verified archived run (optionally for one season-week).
-latest_valuation_run <- function(season = NULL, week = NULL, manifest = VAL_MANIFEST, root = VAL_ARCHIVE_ROOT) {
+latest_valuation_run <- function(season = NULL, week = NULL, manifest = VAL_MANIFEST, root = VAL_ARCHIVE_ROOT,
+                                 league_hash = NULL) {
   v <- verify_valuation_archive(manifest, root)
   if (!nrow(v)) return(NULL)
   if (!is.null(season)) v <- v[v$season == season, ]
   if (!is.null(week)) v <- v[v$week == week, ]
+  if (!is.null(league_hash)) {
+    # runs valued in a given league format only (V2 adds league-format runs to the same archive)
+    lh <- readr::read_csv(manifest, col_types = readr::cols(.default = "c"))
+    v <- v[v$run_id %in% lh$run_id[lh$league_hash == league_hash], ]
+  }
   v <- v[v$verified, ]
   if (!nrow(v)) return(NULL)
   r <- v[order(v$run_id, decreasing = TRUE)[1], ]
