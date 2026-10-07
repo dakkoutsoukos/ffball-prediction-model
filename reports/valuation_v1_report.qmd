@@ -170,15 +170,22 @@ removes ESPN's over-projection, and the horizon model includes attrition that ES
 
 ```{r baselines, eval = have_run, fig.height = 4.2}
 b <- base |> tidyr::pivot_longer(c("S", "R"), names_to = "baseline", values_to = "points") |>
-  mutate(baseline = ifelse(baseline == "S", "Marginal starter (S)", "Waiver replacement (R)"))
-lab <- b |> filter(week == max(week))
+  mutate(baseline = ifelse(baseline == "S", "Marginal starter (S)", "Waiver replacement (R)"),
+         position = factor(position, names(POS_COL)))
+# RB and WR share the FLEX baseline most weeks: RB is drawn dashed on top, one label per distinct end value
+lab <- b |> filter(week == max(week)) |>
+  summarise(label = paste(as.character(position), collapse = " = "), .by = c("baseline", "points")) |>
+  mutate(position = factor(sub(" = .*", "", label), names(POS_COL)))
 ggplot(b, aes(week, points, colour = position)) +
   geom_line(linewidth = 0.7) + geom_point(size = 1.6) +
-  geom_text(data = lab, aes(label = position), hjust = -0.3, size = 3.2, show.legend = FALSE) +
+  geom_line(data = filter(b, position == "RB"), linewidth = 0.7, linetype = "22") +  # RB on top, dashed
+  geom_text(data = lab, mapping = aes(x = max(b$week), y = points, label = label),
+            hjust = -0.15, size = 3.2, colour = INK, inherit.aes = FALSE) +
   facet_wrap(~baseline) + scale_colour_manual(values = POS_COL) +
-  scale_x_continuous(breaks = unique(b$week), expand = expansion(mult = c(0.02, 0.08))) +
+  scale_x_continuous(breaks = seq(min(b$week), max(b$week), 2), expand = expansion(mult = c(0.02, 0.28))) +
   labs(x = "Week", y = "Expected points of the baseline player", colour = NULL,
-       title = "Weekly baselines by position (bye weeks move them)") + theme_report
+       title = "Weekly baselines by position", subtitle = "Bye weeks move them; RB (dashed) and WR share the FLEX baseline") +
+  theme_report
 ```
 
 ```{r flex-use, eval = have_run}
@@ -203,12 +210,11 @@ n_show <- c(QB = 30, RB = 60, WR = 80, TE = 30)
 cv <- v |> filter(position_rank <= n_show[position]) |>
   tidyr::pivot_longer(c("ros_points", "vor", "vas", "trade_value"), names_to = "metric") |>
   mutate(metric = factor(metric, c("ros_points", "vor", "vas", "trade_value"),
-                         c("ROS points", "ROS VOR (primary)", "ROS VAS", "Trade value (0-100)")))
-lab <- cv |> group_by(metric, position) |> filter(position_rank == 1)
+                         c("ROS points", "ROS VOR (primary)", "ROS VAS", "Trade value (0-100)")),
+         position = factor(position, names(POS_COL)))
 ggplot(cv, aes(position_rank, value, colour = position)) +
   geom_hline(yintercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
   geom_line(linewidth = 0.7) +
-  geom_text(data = lab, aes(label = position), hjust = 1.3, size = 3, show.legend = FALSE) +
   facet_wrap(~metric, scales = "free_y", nrow = 2) + scale_colour_manual(values = POS_COL) +
   labs(x = "Positional rank", y = NULL, colour = NULL, title = "Value curves by positional rank") + theme_report
 ```
@@ -219,6 +225,7 @@ fmt(select(run$scarcity, position, elite_ppg, replacement_level, starter_level, 
 ```
 
 Reading the curves:
+
 - **QB** has the highest raw points, but replacement is a starting-calibre QB, so VOR drops off quickly after the elite few.
 - **TE**'s marginal starter sits well above its replacement (the largest starter − replacement gap): a few TEs carry real scarcity.
 - **RB and WR** share the FLEX baseline. Their curves are long and steep at the top.
@@ -230,7 +237,7 @@ Reading the curves:
 - Both use the same weekly allocation.
 
 ```{r vor-vas, eval = have_run, fig.height = 4}
-ggplot(filter(v, vor > 0), aes(vor, vas, colour = position)) +
+ggplot(filter(v, vor > 0) |> mutate(position = factor(position, names(POS_COL))), aes(vor, vas, colour = position)) +
   geom_abline(slope = 1, intercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
   geom_hline(yintercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
   geom_point(size = 1.8, alpha = 0.85) + facet_wrap(~position, nrow = 1) +
@@ -263,13 +270,22 @@ Generic roster utility (MRU) is **convex** in VOR:
 
 ```{r mru, eval = have_run, fig.height = 4}
 kn <- run$display_knots
-ggplot(filter(v, vor > 0), aes(vor, mru, colour = position)) +
+ggplot(filter(v, vor > 0) |> mutate(position = factor(position, names(POS_COL))), aes(vor, mru, colour = position)) +
   geom_abline(slope = 1, intercept = 0, colour = "#bdbcb7", linewidth = 0.3) +
   geom_point(size = 1.8, alpha = 0.85) +
   geom_line(data = kn, aes(vor, mru), colour = "#0b0b0b", linewidth = 0.6, inherit.aes = FALSE) +
   facet_wrap(~position, nrow = 1) + scale_colour_manual(values = POS_COL, guide = "none") +
   labs(x = "ROS VOR", y = "Generic roster utility (MRU)",
        title = "MRU against VOR (black: fitted display map f; grey: MRU = VOR)") + theme_report
+```
+
+```{r mru-pos, eval = have_run, results = "asis"}
+mp <- filter(v, vor > 30) |> summarise(n = n(), ratio = sum(mru) / sum(vor), .by = position)
+cat(sprintf("**MRU per point of VOR by position** (players with VOR > 30): %s. ",
+            paste0(mp$position, " ", round(mp$ratio, 2), " (n = ", mp$n, ")", collapse = ", ")))
+cat("A TE upgrade adds less roster utility than its VOR suggests. A generic team already starts a TE well above the TE waiver level, and that position has the largest starter − replacement gap, so the gain is measured from that TE, not from replacement. The pooled display map (VE2) does not distinguish positions. That is a V1 limitation, and V2 should test position-aware maps or use MRU directly.
+
+")
 ```
 
 ```{r mru-ratio, eval = have_run}
