@@ -304,3 +304,90 @@ not by any player's value.
   It builds the generic teams used for MRU, the display map and packages.
 - The fixed-point pool is reported as a sensitivity (`simulation.pool: simulation`).
 - V2 should add level uncertainty to the simulation before its bench composition can define replacement.
+
+---
+
+## 2026-10-07 — VE2 results: first archived valuation (2026 week 5) and the historical backtest
+
+**Run** `20261007T062429Z`.
+- ESPN capture 06:24Z.
+- WR current week from archived M4 run `20261006T062916Z` (145 WRs). The other 319 current-week rows are calibrated ESPN, and all 5,568 future rows are posted ESPN weeks.
+- 464 players; 201 s.
+- Methodology `valuation_v1`, ROS parameters `ros_v1`, git `c95aaea`.
+
+**Replacement levels** (points per game, horizon mean) and scarcity:
+
+| | QB | RB | WR | TE |
+|---|---|---|---|---|
+| waiver replacement R | 13.7 | 8.9 | 8.9 | 7.2 |
+| marginal starter S | 14.3 | 9.6 | 9.6 | 8.9 |
+| elite (top-3) points per game | 17.2 | 19.6 | 18.9 | 13.7 |
+| elite (top-3) VOR | 44 | 130 | 119 | 77 |
+| players with VOR > 50 | 1 | 12 | 11 | 3 |
+
+- RB and WR share one baseline through FLEX: FLEX holds 2.8 RBs and 7.2 WRs.
+- TE has the largest starter − replacement gap (1.7 points per game against 0.6–0.7).
+- Overall top 30: 12 RB, 12 WR, 5 TE, 1 QB. QB1 is 18th overall.
+
+**VOR against VAS.**
+- Spearman correlation 0.96.
+- VAS compresses QB and TE further. The floored and raw VOR differ only for players with byes or absences ahead.
+
+**Roster utility (MRU) and display.** MRU/VOR rises with VOR:
+
+| VOR band | 0–15 | 15–30 | 30–60 | 60–100 | 100+ |
+|---|---|---|---|---|---|
+| MRU/VOR | 0.54 | 0.50 | 0.64 | 0.80 | 0.89 |
+
+So the display map is convex. VOR 75 maps to about TV 41 and VOR 121 to TV 72 (top = 159 → 100).
+
+**Consolidation** (40 equal-VOR elite-for-two trades between generic teams; median VOR_A − VOR_BC = +0.06):
+- The single-player side gained more in 30 of 40.
+- Median edge +8.3 points of expected ROS lineup points; mean +12.2.
+- The edge correlates with the TV difference (0.44) and with the VOR difference (0.56).
+- It is largest when the pair side cannot start the second player because the position is already filled (roster fit).
+
+**Sensitivity** (waiver replacement QB/RB/WR/TE; elite VOR in parentheses):
+
+| league | replacement QB / RB / WR / TE | elite VOR QB / RB / WR / TE |
+|---|---|---|
+| 8 teams | 14.6 / 9.0 / 9.0 / 7.9 | 35 / 129 / 118 / 69 |
+| **10 teams (default)** | **13.7 / 8.9 / 8.9 / 7.2** | **44 / 130 / 119 / 77** |
+| 12 teams | 12.5 / 6.9 / 6.9 / 6.5 | 57 / 154 / 143 / 86 |
+| 14 teams | 12.3 / 6.1 / 6.2 / 5.8 | 59 / 165 / 152 / 94 |
+| no FLEX | 12.9 / 8.3 / 8.7 / 6.8 | 53 / 136 / 122 / 83 |
+| 2 FLEX | 13.9 / 8.2 / 8.2 / 7.4 | 41 / 139 / 128 / 76 |
+| 3 WR | identical to 2 FLEX (FLEX already prefers ~32 WRs) | |
+| bench 5 / 9 | QB 14.6 / 12.8, RB 9.0 / 8.0 | |
+| superflex | 9.0 / 9.0 / 9.0 / 7.3 | 99 / 129 / 118 / 77 (11 QBs in the top 30) |
+| re-draft pool (VE2) | QB 10.7 | QB 80: the hoarding effect VE3 removed |
+
+**Secondary diagnostics.**
+- The modelled rostered pool sits close to ESPN ≥50%-owned:
+
+  | | QB | RB | WR | TE |
+  |---|---|---|---|---|
+  | rostered pool | 20 | 46 | 54 | 20 |
+  | ESPN ≥50% owned | 20 | 45 | 57 | 19 |
+
+- Our ROS against ESPN's own ROS (the sum of its posted weeks), on fantasy-relevant players: Spearman 0.993, median ratio 0.81.
+  - The difference is calibration plus attrition. ESPN's future weeks are "if healthy".
+
+**Historical valuation backtest** (2019–2025, weeks 4/8/12, parameters from 2019–2023).
+Projected VOR is compared with realized decision-based VOR among each position's top 2 × league starters:
+
+| | QB | RB | WR | TE | pooled |
+|---|---|---|---|---|---|
+| realized/projected, dev | 1.32 | 1.04 | 1.15 | 0.86 | 1.11 |
+| realized/projected, check | 1.44 | 1.22 | 1.25 | 1.23 | 1.26 |
+| Spearman, dev | 0.50 | 0.56 | 0.58 | 0.38 | |
+| Spearman, check | 0.49 | 0.66 | 0.47 | 0.41 | |
+
+- **No position is flagged.** The largest deviation is QB in development, +19% against pooled.
+- The ratios exceed 1 everywhere because realized replacement averages the 3 best waiver options, while projected replacement is the single best expected one.
+- **QBs are not over-valued.**
+  - They have the highest ratio, a mild under-valuation.
+  - The top 30 holds 3.5 QBs projected against 5.3 realized (development), and 3.7 against 5.7 (check).
+  - TE in the top 30: 2.1 against 2.3 (development) and 1.0 against 2.0 (check).
+- Nothing was changed in response. Per VE2 these are reported, not tuned. The QB under-valuation is consistent with the remaining top-end
+  under-prediction after VE1c (QB top quintile 18.7 against 19.1). It is listed for V2.
