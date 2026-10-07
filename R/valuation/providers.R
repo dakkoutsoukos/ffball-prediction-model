@@ -105,9 +105,9 @@ val_std_rows <- function(sk, proj, kind, source, version, as_of, p_active = 1, l
   tibble::tibble(
     player_id = sk$player_id, espn_id = sk$espn_id, player_name = sk$espn_name, position = sk$position,
     team = sk$team, season = sk$season, week = sk$week, opponent = sk$opponent, has_game = sk$has_game,
-    proj = proj, proj_raw = proj_raw, proj_kind = kind, source = source, source_version = version,
-    as_of_utc = format(as_of, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"), availability_status = sk$injury_status,
-    p_active = p_active, lvl = lvl
+    proj = unname(as.numeric(proj)), proj_raw = unname(as.numeric(proj_raw)), proj_kind = kind, source = source,
+    source_version = version, as_of_utc = format(as_of, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    availability_status = sk$injury_status, p_active = unname(as.numeric(p_active)), lvl = unname(as.numeric(lvl))
   )
 }
 

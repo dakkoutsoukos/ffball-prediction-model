@@ -76,7 +76,8 @@ val_team_tops <- function(rows, sim, spec) {
 
 #' Expected ROS lineup points from top-K matrices and streamer vectors.
 val_lineup_value <- function(tops, stream, spec, sims) {
-  C <- length(stream[[1]])
+  C <- ncol(tops[[1]])
+  stream <- lapply(stream, rep_len, C)
   idx <- seq_len(C)
   ptr <- lapply(tops, function(m) rep(1L, C))
   total <- numeric(C)

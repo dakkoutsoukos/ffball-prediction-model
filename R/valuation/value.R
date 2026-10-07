@@ -95,20 +95,23 @@ val_value_curves <- function(values, n = c(QB = 30, RB = 60, WR = 80, TE = 30)) 
 #' levels (ROS points), drop-offs, counts above VOR thresholds, and FLEX use.
 val_scarcity <- function(values, baselines, league, current_week) {
   wk <- val_horizon_weeks(league, current_week, "full")
-  b <- dplyr::filter(baselines, .data$week %in% wk)
-  lvl <- b |>
-    dplyr::summarise(marginal_starter_points = sum(.data$S), replacement_points = sum(.data$R),
-                     mean_league_starters = mean(.data$n_starters), mean_in_flex = mean(.data$n_in_multi_slots),
+  # per-week levels averaged over the horizon (bye weeks change them week to week)
+  lvl <- dplyr::filter(baselines, .data$week %in% wk) |>
+    dplyr::summarise(starter_level = mean(.data$S), replacement_level = mean(.data$R),
+                     league_starters = mean(.data$n_starters), in_flex = mean(.data$n_in_multi_slots),
                      .by = "position")
   values |>
+    dplyr::arrange(dplyr::desc(.data$vor)) |>
     dplyr::summarise(
-      elite_points = mean(sort(.data$ros_points, decreasing = TRUE)[1:3]),
-      elite_vor = mean(sort(.data$vor, decreasing = TRUE)[1:3]),
-      n_vor_gt_0 = sum(.data$vor > 0), n_vor_gt_50 = sum(.data$vor > 50), n_vor_gt_100 = sum(.data$vor > 100),
+      elite_ppg = mean(utils::head(.data$points_per_game, 3)),
+      elite_vor = mean(utils::head(.data$vor, 3)),
+      vor_rank12 = .data$vor[12] %||% NA_real_,
+      n_vor_gt_0 = sum(.data$vor > 0), n_vor_gt_25 = sum(.data$vor > 25), n_vor_gt_50 = sum(.data$vor > 50),
+      n_vor_gt_100 = sum(.data$vor > 100),
       .by = "position") |>
     dplyr::left_join(lvl, by = "position") |>
-    dplyr::mutate(elite_minus_replacement = .data$elite_points - .data$replacement_points,
-                  starter_minus_replacement = .data$marginal_starter_points - .data$replacement_points) |>
+    dplyr::mutate(elite_minus_replacement_ppg = .data$elite_ppg - .data$replacement_level,
+                  starter_minus_replacement_ppg = .data$starter_level - .data$replacement_level) |>
     dplyr::arrange(match(.data$position, VAL_POSITIONS))
 }
 
