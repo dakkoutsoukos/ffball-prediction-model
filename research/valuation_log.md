@@ -134,6 +134,92 @@ schedule test and seasons are all unchanged.
 
 ---
 
+## 2026-10-07 — VE1 result (linear form of VE1a)
+
+The relevant subset, ROS-total errors in points:
+
+| level | dev MAE | dev RMSE | check MAE | check RMSE |
+|---|---|---|---|---|
+| `L_cur` | 30.44 | 39.99 | 34.01 | 44.70 |
+| **`L_avg4`** | **29.49** | **39.05** | **32.92** | **43.53** |
+| `L_blend` | 29.39 | 39.15 | 32.82 | 43.53 |
+
+- **Selected `L_avg4`.**
+  - `L_blend` is 0.3% lower on development MAE, inside the 0.5% tie band, with a worse RMSE. The simpler level wins.
+  - `L_avg4` beats `L_cur` by 3% on MAE in both development and check, and on RMSE, at every position.
+  - Within-position rank correlation of ROS totals: 0.45–0.65.
+- **Schedule term.** Weekly MAE improved in both splits, so by the rule it is **kept**.
+  - Development 6.5639 → 6.5616; check 6.5968 → 6.5963.
+  - The effect is negligible. The coefficient is `g` ≈ 0.09–0.21: a defence allowing 20% more than average adds about 2–4% to an extrapolated week.
+  - It never applies to posted ESPN weeks, which already include the opponent.
+- **Calibration diagnostic** (relevant subset, by level quintile):
+  - The top quintile is **under-predicted** for QB (development forecast 17.1 against actual 19.1; check 16.9 against 19.0).
+  - It is also under-predicted for WR (development 14.3 against 15.2) and for RB in the check seasons (14.4 against 16.5).
+  - The bottom quintile is slightly over-predicted.
+  - The reason is general, not player-specific. Decay with horizon is pooled across levels, and elite players keep their level across the horizon better than marginal ones, who lose roles.
+
+## 2026-10-07 — VE1b: two-stage form (post-result check of the VE1a amendment)
+
+The original registered idea with level-dependent availability:
+`E = plogis(a + e · log L) · (c + d · L)`, fit on rows with a stat line.
+
+| form | dev MAE | dev RMSE | check MAE |
+|---|---|---|---|
+| linear | 29.49 | 39.05 | 32.95 |
+| two-stage | 29.91 | 39.44 | 33.29 |
+
+By the VE1 rule the **linear form stays**. The two-stage form also worsens the top-quintile under-prediction (QB 15.9 against 19.1).
+
+## 2026-10-07 — VE1c: Pre-registration of one functional-form alternative (written before running it)
+
+**Why.** The top-quintile bias would compress elite players' ROS value, and so
+their trade value, in every position. This matters for cross-position valuation.
+
+**Candidate.** Add a quadratic term per position and horizon bucket:
+`E = c + d · L + q · L² [+ g · L · (opp − 1)]`. One more parameter per cell, fit on the same rows.
+
+**Rule.** Unchanged from VE1:
+- lower development MAE (relevant subset) with RMSE not worse;
+- a difference under 0.5% is a tie won by the linear form;
+- check seasons are reported;
+- the calibration by quintile is reported for both forms.
+
+Nothing else is tried after this. If the quadratic form loses, the linear form is
+production and the top-end bias is documented as a V1 limitation.
+
+**Result.**
+
+| form | dev MAE | dev RMSE | check MAE | check RMSE |
+|---|---|---|---|---|
+| linear | 29.49 | 39.05 | 32.95 | 43.58 |
+| **quadratic** | **29.32** (−0.59%) | **38.95** | **32.74** | **43.42** |
+
+- **The quadratic form is selected**: outside the tie band, with better RMSE, and also better in the check seasons.
+- Top-quintile calibration, forecast against actual:
+
+  | split | QB | WR | RB |
+  |---|---|---|---|
+  | dev | 18.7 / 19.1 | 15.0 / 15.2 | 14.6 / 14.5 |
+  | check | 18.2 / 19.0 | 14.7 / 13.9 | 14.5 / 16.5 |
+
+- Production ROS design (frozen as `models/valuation/ros_params_v1.yml`, re-estimated on 2019–2025):
+  - level `L_avg4`;
+  - quadratic form per position and horizon bucket;
+  - opponent term kept (negligible);
+  - availability for the simulation from the logistic `A(log L)`;
+  - current-week calibration linear in ESPN's projection, with slopes 0.93–0.96.
+
+**Diagnostics (no decisions).**
+- **Weekly residual SD:** about 7–10 points for starter-level projections (10–20), and 2–4 for players projected under 5.
+- **ROS-total residual SD:** about 45% of the forecast for QB/WR/TE and 48–53% for RB. It shrinks slightly with more remaining games.
+- **Questionable at *w*:**
+  - WR future availability is lower by about 4–5 points over the next 1–3 weeks (0.80 against 0.84 at *h* = 1), then converges.
+  - RB and TE show no difference.
+  - QB is confounded by level, since listed QBs are mostly starters.
+  - V1 does not extrapolate the designation. The WR carry-over is noted for V2.
+
+---
+
 ## 2026-10-07 — VE2: Pre-specification of the valuation methodology (before any value is computed)
 
 Fixed now, so that no player-level output can steer them:
@@ -179,3 +265,42 @@ For every archived valuation run from 2026 week 5 on, at season end:
 
 No valuation decision uses 2026 outcomes before then. This check is valuation-only
 and separate from the WR projection record.
+
+---
+
+## 2026-10-07 — VE3: Rostered pool for the waiver baseline (methodology change, written before the production values were computed)
+
+**What was run.** One trial valuation of 2026 week 5 under VE2 item 3: the generic re-draft
+fixed point, without MRU. Its top-10 overall list was printed and seen. The
+change below is justified by the **composition and convergence diagnostics**,
+not by any player's value.
+
+**Findings.**
+1. **No fixed point.** Six iterations never repeated the drafted set: 4, 1, 2, 1 and 4 players changed.
+2. **Self-reinforcing hoarding (multiple equilibria).**
+   - The draft rostered **30 QBs** in a 10-team 1QB league. Ten of them came in rounds 8–9 as backups.
+   - Once backups are rostered, the streaming level drops (best undrafted QB: 10.7 points a week).
+   - A lower streaming level makes backups look worth drafting, so the hoarding sustains itself.
+   - Starting from fewer rostered QBs, the streaming level is 13.7.
+   - The fixed point therefore depends on where the iteration starts.
+3. **Missing driver.** The draft values a bench player only for availability coverage
+   (byes and injuries). It ignores ROS level uncertainty, which VE1 estimates at
+   45–53% of the forecast. Level uncertainty is the main reason managers roster RB and WR depth.
+   Without it, bench value is pushed toward high-floor positions.
+4. **External reference (diagnostic only, not a target).** Rostered counts by position:
+
+   | | QB | RB | WR | TE |
+   |---|---|---|---|---|
+   | proportional rule | 20 | 46 | 54 | 20 |
+   | ESPN ≥50% owned | 20 | 45 | 57 | 19 |
+   | re-draft fixed point | 30 | 41 | 47 | 22 |
+
+**Decision (valuation_v1).**
+- The rostered pool for the waiver baseline `R` is the **proportional pool**.
+  - Each position's share of league starters, from the weekly allocation over the horizon, times teams × roster size.
+  - Within each position the pool is filled by ROS points.
+  - The shares come from the projections and the lineup rules. The only assumption is that bench shares mirror starter shares.
+- The re-draft is run **once, with streaming at the proportional pool's waiver level**.
+  It builds the generic teams used for MRU, the display map and packages.
+- The fixed-point pool is reported as a sensitivity (`simulation.pool: simulation`).
+- V2 should add level uncertainty to the simulation before its bench composition can define replacement.

@@ -1,0 +1,95 @@
+# Valuation configuration (separate from config/project.yml, which drives the
+# frozen projection research). Read by read_valuation_config() (R/valuation/league.R).
+# Methodology: docs/valuation_methodology.md. Decisions: research/valuation_log.md.
+
+methodology_version: valuation_v1
+
+# Default league: ESPN standard PPR. Every field is configurable; alternative
+# leagues are given as overrides under `sensitivity_leagues`.
+league:
+  name: espn_standard_ppr_10
+  teams: 10
+  scoring: espn_ppr            # config/scoring/<name>.yml
+  # Starting slots per team. Each slot lists its eligible positions. D/ST and K
+  # are outside the valuation (they never use QB/RB/WR/TE players).
+  slots:
+    - {name: QB, eligible: [QB], count: 1}
+    - {name: RB, eligible: [RB], count: 2}
+    - {name: WR, eligible: [WR], count: 2}
+    - {name: TE, eligible: [TE], count: 1}
+    - {name: FLEX, eligible: [RB, WR, TE], count: 1}
+  bench: 7                     # assumed to hold QB/RB/WR/TE; the IR slot is ignored
+  regular_season_weeks: [1, 14]
+  playoff_weeks: [15, 17]      # week 18 is excluded (common ESPN setting)
+
+# Forecast sources per position, in priority order (first provider covering a
+# player-week wins). Providers: R/valuation/providers.R.
+projection_sources:
+  current_week:
+    QB: [espn_calibrated]
+    RB: [espn_calibrated]
+    WR: [m4_archive, espn_calibrated]
+    TE: [espn_calibrated]
+  future_weeks:
+    QB: [espn_posted_future, extrapolated]
+    RB: [espn_posted_future, extrapolated]
+    WR: [espn_posted_future, extrapolated]
+    TE: [espn_posted_future, extrapolated]
+m4_model_id: m4_two_stage_v1   # frozen M4 primary (models/registry/m4.yml), read from the archive only
+
+# Player pool: QB/RB/WR/TE with an NFL team and a positive projection this week
+# or in a recent/posted week.
+pool:
+  recent_weeks: 4
+
+# ROS parameters (fixed, derived from 2019-2025 by the pipeline; VE1).
+ros_params_file: models/valuation/ros_params_v1.yml
+
+# Generic league (VE2, VE3). Rostered pool for the waiver baseline:
+#   proportional - each position's share of league starters (weekly allocation)
+#                  x league roster size, filled by ROS points (production, VE3)
+#   simulation   - fixed point of the generic re-draft (sensitivity)
+# The re-draft (streaming at the pool's waiver level) builds the generic teams
+# used for roster utility (MRU) and package evaluation.
+simulation:
+  enabled: true
+  pool: proportional
+  sims: 200
+  seed: 20261007
+  candidates_per_position: 6
+  max_iterations: 6
+
+sensitivity_leagues:
+  teams_8:  {teams: 8}
+  teams_12: {teams: 12}
+  teams_14: {teams: 14}
+  no_flex:
+    slots:
+      - {name: QB, eligible: [QB], count: 1}
+      - {name: RB, eligible: [RB], count: 2}
+      - {name: WR, eligible: [WR], count: 2}
+      - {name: TE, eligible: [TE], count: 1}
+  two_flex:
+    slots:
+      - {name: QB, eligible: [QB], count: 1}
+      - {name: RB, eligible: [RB], count: 2}
+      - {name: WR, eligible: [WR], count: 2}
+      - {name: TE, eligible: [TE], count: 1}
+      - {name: FLEX, eligible: [RB, WR, TE], count: 2}
+  three_wr:
+    slots:
+      - {name: QB, eligible: [QB], count: 1}
+      - {name: RB, eligible: [RB], count: 2}
+      - {name: WR, eligible: [WR], count: 3}
+      - {name: TE, eligible: [TE], count: 1}
+      - {name: FLEX, eligible: [RB, WR, TE], count: 1}
+  bench_5: {bench: 5}
+  bench_9: {bench: 9}
+  superflex:
+    slots:
+      - {name: QB, eligible: [QB], count: 1}
+      - {name: RB, eligible: [RB], count: 2}
+      - {name: WR, eligible: [WR], count: 2}
+      - {name: TE, eligible: [TE], count: 1}
+      - {name: FLEX, eligible: [RB, WR, TE], count: 1}
+      - {name: SUPERFLEX, eligible: [QB, RB, WR, TE], count: 1}
