@@ -18,7 +18,7 @@ Last updated: 2026-10-13.
 | F0 | Prospective operations hardening | 0 | — | COMPLETED (build) 2026-10-13; ongoing criteria tracked | 6d7965c, 2fc776c, 75448a1. Task `FFball_dispatch` registered; smoke test and in-task self-test pass |
 | F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | COMPLETED 2026-10-13 (pending the owner's push) | E16/E17 committed before any 2026 scoring; power corrected (X-008) |
 | D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | COMPLETED 2026-10-13 | ea4a669; ledger rows to be hooked in F5; prior used for WR too (X-011) |
-| F3 | League state v2 (lite now; full after O8 items) | 1 | — | NOT STARTED | O8: `view=mMatchup` approved (2026-10-13); other O8 items not asked |
+| F3 | League state v2 (lite now; full after O8 items) | 1 | — | F3-lite COMPLETED 2026-10-13; F3-full NOT STARTED (O8 items) | c9fc3dc; live checks all pass; ESPN playoff odds absent (X-004) |
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | NOT STARTED | |
 | F2 | Evaluation framework (lite now; full after R1) | 1 | — | NOT STARTED | |
 | P0 | Baseline outcome distributions (E18) | 1 | F2-lite | NOT STARTED | |
@@ -80,11 +80,12 @@ Findings: power is lower than the plan said (X-008); the pre-registered bootstra
 4. ✅ Real-league run (2026-10-13): structure correct. It found that the current ESPN lineup (snapshot 07:06Z) starts a player on bye; the recommended changes add +33.7 expected points (owner informed; names never printed in chat).
 5. Ledger rows: deferred to F5 (D0 lists F5 as optional).
 
-### F3 — League state v2 (lite)
-1. `view=mMatchup` added to the existing single request (approved). No additional requests.
-2. Parsed: schedule (matchup periods, home/away, bye, scores, winner, playoff tier); records, seeds, ranks; rules (schedule settings, tie rules, top-half bonus flag, trade deadline, keepers); acquisition settings, waiver rank, budget spent.
-3. Hand-written JSON fixtures; invariants (one game per team per period; recomputed standings equal ESPN's seeds/records); privacy grep test; write-once alias snapshots; hash-only manifests.
-4. Keys only printed on the first live response; `deadlineDate` reported relative to today.
+### F3 — League state v2 (lite) — COMPLETED 2026-10-13
+1. ✅ `view=mMatchup` added to the existing single request (`LG_VIEWS`, `lg_league_url()`; test pins the exact view list). No additional requests.
+2. ✅ Parsed (`R/valuation/league_state.R`, team ids only): schedule (period, home/away, bye, points, winner, playoff tier); standings (records, seeds, ranks, waiver rank, counters, ESPN playoff odds if returned); rules (playoff format and round lengths, tie rules, home bonus, top-half bonus, deadline, keepers, waiver/FAAB settings).
+3. ✅ Hand-written synthetic responses (tie, bye, two-week final, tampered records); the V2 parse is identical with or without the schedule; privacy test over every tracked file (`test-privacy.R`); snapshots stay write-once under the alias with hash-only manifests.
+4. ✅ First live response (2026-10-13): keys only in the earlier inspection; `league_refresh.R` prints a name-free summary. **All five invariants pass on the live league**: one game per team per period; all 8 teams in all 14 periods; records, points for and points against recomputed from the schedule equal ESPN's; seeds follow TOTAL_POINTS_SCORED. Deadline 2026-12-02 (49.8 days away).
+5. Findings: 56 regular-season matchups; playoff matchups not yet created by ESPN (S0 must build the bracket from seeds: 4 teams, semifinal 1 week, final 2 weeks); `currentSimulationResults` absent (X-004).
 
 ### F5 — Decision ledger
 1. `decision_record` schema (id, type, alias, season, week, `as_of_utc`, input hashes, recommendation, alternatives with metrics, model versions, owner-action flag).

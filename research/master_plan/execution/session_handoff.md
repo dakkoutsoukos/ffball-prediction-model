@@ -41,6 +41,10 @@ Last updated: 2026-10-13 (session 1, start of execution).
 - E17 (R3) may run in season: it uses projections only, and its adoption rules are mechanical.
 - Pipeline targets `f1_noise`, `f1_reference` and `f1_mde` hold the power table. Build new report-only targets with `tar_make(names = ..., shortcut = TRUE)` so upstream frozen targets are never rebuilt by accident.
 
+## League state (F3-lite)
+
+`lg_state_from_snapshot(lg_latest_snapshot(2026))` → rules, schedule (team ids), standings, status. Live checks pass (2026-10-13). Playoff matchups are not in the schedule until ESPN creates them: build the bracket from seeds (4 teams; semifinal = period 15, one week; final = period 16, weeks 16–17).
+
 ## Exact next action
 
-F3-lite (league state; `view=mMatchup` approved): extend `R/valuation/league_espn.R` (`lg_`) without changing existing parsing: add `view=mMatchup` to the single league request; new parsers for schedule, records/seeds/ranks, rules (schedule settings, tie rules, top-half bonus, trade deadline, keepers), acquisition settings, waiver ranks; hand-written JSON fixtures; invariants (one game per team per period; recomputed standings equal ESPN's); privacy grep test. First live response: keys only. Known facts (X-003): deadline 2026-12-02, no FAAB, no keepers, no top-half bonus, 14 regular-season periods, 4 playoff teams, `currentSimulationResults` absent.
+F5 (decision ledger, records only): `R/valuation/ledger.R` (`lg_ledger_*`): `decision_record` schema; private rows in `data/archive/decisions/`; hash-only `archive/decision_manifest.csv`; outcome-of-record definition; outcome join implemented but SEALED behind a guard until the 2027 decision pre-registrations (VL8–VL11) are committed; hooks in `trade_analyzer.R` (every query, including `lineup`). Tests: schema, write-once, join on synthetic data, seal guard.
