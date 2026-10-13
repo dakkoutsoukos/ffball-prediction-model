@@ -9,9 +9,9 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | — |
-| In progress | F0 |
-| Next (ready) | F1 → D0 → F3-lite → F5 → F2-lite → P0 → S0 |
+| Completed | F0 (build; season-long criteria tracked) |
+| In progress | F1 |
+| Next (ready) | D0 → F3-lite → F5 → F2-lite → P0 → S0 |
 | Blocked | — |
 | Deferred | — |
 
@@ -19,7 +19,7 @@
 
 | Label | Meaning | Items |
 |---|---|---|
-| Implemented | Code exists and its tests pass | (existing M1–M4, V1, V2) |
+| Implemented | Code exists and its tests pass | (existing M1–M4, V1, V2); F0 dispatcher and scheduled task (operational, no statistical claim) |
 | Statistically validated | Passed a pre-registered evaluation | (existing: M3b/M4 historical checks; prospective tests pending R1) |
 | Experimental | Built, not yet validated | — |
 | Planned | Not built | Everything in the tracker not listed above |
@@ -35,4 +35,4 @@
 
 | Date | Session | Work |
 |---|---|---|
-| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created; started F0 |
+| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). Started F1. |

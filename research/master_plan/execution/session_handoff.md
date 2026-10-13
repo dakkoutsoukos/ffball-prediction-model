@@ -29,6 +29,12 @@ Last updated: 2026-10-13 (session 1, start of execution).
 - Tests: `"C:/Program Files/R/R-4.5.1/bin/Rscript.exe" -e "testthat::test_dir('tests/testthat')"` (baseline 2026-10-13: 156 blocks, 550 expectations, 0 failures).
 - Status: `Rscript scripts/status.R`.
 
+## Operations now running (F0)
+
+- Task Scheduler task `FFball_dispatch` fires hourly at :05 (owner logged on) → `scripts/ops_dispatch.R`. Check `data/ops/status.txt`, `data/ops/dispatch_log.csv`, `data/ops/logs/`. `Rscript scripts/ops_setup.R --status` shows the last result.
+- If you change the wrapper logic, regenerate it with `Rscript scripts/ops_setup.R` (no re-registration needed; the task points at the same `.cmd`).
+- Self-test inside the task environment: create `data/ops/self_test.flag`, then `Rscript scripts/ops_setup.R --run-now`; the result is the last `self-test` row of the dispatch log.
+
 ## Exact next action
 
-Implement F0 (see the tracker's F0 criteria): `R/live/dispatch.R` (slate plan, due logic, post-report coverage), `scripts/ops_dispatch.R`, wrapper generator, tests, protocol "Automation" section; commit; register the Task Scheduler task (O1 approved) and verify with a manual trigger before Thu 2026-10-15 21:15Z.
+F1: write `R/evaluation/power.R::mde_table()` + tests; compute σ_w from historical comparison targets only (no 2026 outcome); write E16 (addendum) and E17 (R3 outcome-free plan) in `research/experiment_log.md`; commit. Then D0.
