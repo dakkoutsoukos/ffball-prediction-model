@@ -5,7 +5,8 @@
 # whether a run is due (R/live/dispatch.R). If one is, and ONLY on a clean code tree:
 #   1. Rscript scripts/weekly_run.R <season> <week> --commit      (local commit of the prediction manifests)
 #   2. Rscript scripts/valuation_run.R <season> <week> --capture   (all-position ESPN capture; one request)
-#   3. a local commit of the changed archive/valuation_*.csv manifests (pathspec-limited)
+#   3. Rscript scripts/pod_archive.R <season> <week>                (P0 outcome distributions; local only)
+#   4. a local commit of the changed archive/valuation_*.csv and distribution_manifest.csv (pathspec-limited)
 # It then writes data/ops/status.txt and appends data/ops/dispatch_log.csv (both git-ignored).
 # It never pushes, never stashes and never touches uncommitted work: a dirty tree is logged and skipped.
 #
@@ -34,7 +35,7 @@ rscript_path <- function() {
 #' Commit the valuation manifests a capture run changed (only those paths; never pushes).
 commit_valuation_manifests <- function(season, week) {
   st <- system2("git", c("status", "--porcelain", "--", "archive"), stdout = TRUE)
-  changed <- grep("^archive/valuation_[a-z_]+[.]csv$", trimws(substring(st, 4)), value = TRUE)
+  changed <- grep("^archive/(valuation_[a-z_]+|distribution_manifest)[.]csv$", trimws(substring(st, 4)), value = TRUE)
   if (!length(changed)) return("unchanged")
   system2("git", c("add", "--", changed))
   msg <- sprintf("Valuation capture %d W%d (scheduled run; all positions)", season, week)
@@ -103,6 +104,11 @@ main <- function() {
       } else {
         vlog <- file.path(DISPATCH_ROOT, "logs", paste0(stamp, "_valuation_capture.log"))
         code2 <- system2(rscript_path(), c("scripts/valuation_run.R", season, dec$week, "--capture"), stdout = vlog, stderr = vlog)
+        if (identical(as.integer(code2), 0L)) {
+          # P0 outcome distributions of this run (E18; local computation, no ESPN request)
+          plog <- file.path(DISPATCH_ROOT, "logs", paste0(stamp, "_pod_archive.log"))
+          system2(rscript_path(), c("scripts/pod_archive.R", season, dec$week), stdout = plog, stderr = plog)
+        }
         committed <- commit_valuation_manifests(season, dec$week)
         result <- sprintf("weekly_run ok (manifests committed locally); valuation capture %s; valuation manifests %s",
                           if (identical(as.integer(code2), 0L)) "ok" else sprintf("FAILED (exit %s; see %s)", code2, vlog),

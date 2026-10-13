@@ -1205,3 +1205,53 @@ P0 is an assumption-light baseline. It feeds S0 (shadow odds), and P2 must beat 
 - Failing cells: where spread depends on more than base level and position (status, TD share, game script). These are the covariates P2 (X4) tests.
 
 **Influence on later choices.** No 2024–2026 outcome is used. The development results cannot change the bands, τ grid or method fixed here.
+
+### E18 Result (development 2020–2023, out of sample by season; computed after the entry above was committed in e2db81e)
+
+**Frame.** 31,225 projected player-weeks for 2019–2023, of which 29,197 were active. Active share among projected rows,
+2020–2023 (the late-horizon P(active)):
+
+| Position | Active share | Comment |
+|---|---|---|
+| QB | 0.75 | Backup QBs carry small ESPN projections and rarely take a snap; 25% of QB rows have no snap record |
+| RB | 0.95 | |
+| TE | 0.98 | |
+| WR | 0.98 | |
+
+**Coverage gate (05 §6): PASSED in all 12 cells.** Empirical coverage, with week-clustered 95% CI:
+
+| Position | 50% | 80% | 90% |
+|---|---|---|---|
+| QB | 0.512 [0.490, 0.535] | 0.800 [0.785, 0.815] | 0.898 [0.886, 0.909] |
+| RB | 0.491 [0.477, 0.503] | 0.797 [0.787, 0.807] | 0.898 [0.891, 0.905] |
+| WR | 0.501 [0.492, 0.509] | 0.806 [0.798, 0.815] | 0.902 [0.896, 0.908] |
+| TE | 0.504 [0.489, 0.517] | 0.813 [0.802, 0.823] | 0.902 [0.894, 0.910] |
+
+Holm-adjusted p = 1 in every cell: no cell's interval excludes the ±3 pp band.
+
+**Scores and calibration by position:**
+
+| Position | n | CRPS | Normal reference CRPS | Difference | 80% interval score | PIT uniformity χ² (9 df) |
+|---|---|---|---|---|---|---|
+| QB | 2,383 | 3.97 | 4.02 | −1.2% | 25.5 | 10.5 (p 0.31) |
+| RB | 6,140 | 2.92 | 3.03 | −3.5% | 18.8 | 8.0 (p 0.53) |
+| WR | 9,701 | 3.09 | 3.21 | −3.7% | 19.8 | 5.5 (p 0.79) |
+| TE | 5,267 | 2.26 | 2.35 | −3.9% | 15.0 | **26.1 (p 0.002)** |
+
+- The empirical quantiles beat a normal distribution with the same base and spread by 1–4% CRPS: they capture skew.
+- **TE's PIT departs from uniformity** even though its coverage passes. The top decile holds 8.8% of outcomes and the 9th holds 11.0%: the extreme upper quantile is slightly too wide. This is a target for P2 (spread covariates, X4).
+
+**Frozen production table.**
+- File: `models/probabilistic/pod_baseline_v0.yml`, 21 cells. Merges: QB 0–12; RB, WR and TE top bands into 15+, 15+ and 12+.
+- Floors: QB −5.74, RB −2, WR −4, TE −0.7.
+- The pipeline re-derivation passes (target `pd_table_check`). Fingerprint `905e3ca0e663a0c0bfd8b5424bf48859bbbb03f1ae05d7bacf270b3b6877e80b`.
+
+**Prospective archive** started 2026-10-13: W6, 326 PODs from valuation run 20261013T070931Z
+(`archive/distribution_manifest.csv`). From now on the dispatcher archives the PODs after every capture.
+
+**Reading.** P0 is a calibrated baseline at the late horizon for active players. It is suitable as S0's weekly-noise
+component and as the bar P2 must beat. Its known gaps:
+- no horizon spread term, until R3;
+- availability from a published prior, until P1;
+- TE upper-tail shape;
+- the prospective base is the valuation projection rather than P0's own calibration.

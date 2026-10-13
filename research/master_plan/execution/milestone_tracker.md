@@ -21,7 +21,7 @@ Last updated: 2026-10-13.
 | F3 | League state v2 (lite now; full after O8 items) | 1 | — | F3-lite COMPLETED 2026-10-13; F3-full NOT STARTED (O8 items) | c9fc3dc; live checks all pass; ESPN playoff odds absent (X-004) |
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | COMPLETED 2026-10-13 | 781889c; S0 must add its own hook |
 | F2 | Evaluation framework (lite now; full after R1) | 1 | — | F2-lite COMPLETED 2026-10-13; F2-full NOT STARTED (after R1) | 06b5d7a |
-| P0 | Baseline outcome distributions (E18) | 1 | F2-lite | NOT STARTED | |
+| P0 | Baseline outcome distributions (E18) | 1 | F2-lite | COMPLETED 2026-10-13 | E18 e2db81e (pre-registration); coverage gate passed in all 12 cells; frozen; archive started |
 | S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | NOT STARTED | Condition met: trade deadline 2026-12-02 (~7 weeks after 2026-10-13) |
 | R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
 | I1 | Platform runtime (renv profile) and modularisation | Season end | R1 | NOT STARTED | |
@@ -100,12 +100,14 @@ Findings: power is lower than the plan said (X-008); the pre-registered bootstra
 3. ✅ Draft `config/pit_registry.yml` (historical ESPN = late horizon).
 4. ✅ Regression test reproduces `m2_holdout_comparisons` exactly. Stored M1–M4 fingerprint checks read "identical", and no frozen code, model artefact or `renv.lock` changed this session (git diff since e0cfe70 is empty). 50 test expectations.
 
-### P0 — Baseline outcome distributions (E18)
-1. E18 committed before any computation.
-2. POD table for QB/RB/WR/TE: new rolling-origin per-position linear calibration (MSE); empirical quantiles of (actual − base) on active rows by position × fixed bands; τ grid; interpolation and floor; POD_h = P(active | h)·F + (1 − P)·δ₀.
-3. Production table fit on 2020–2023 only; nothing computed or viewed on 2024–2025.
-4. `models/probabilistic/pod_baseline_v0.yml` re-derived by the pipeline + fingerprint; `validate_pod_table()`; prospective archive + manifest.
-5. Development coverage meets the 05 §6 gate (descriptive).
+### P0 — Baseline outcome distributions (E18) — COMPLETED 2026-10-13
+1. ✅ E18 committed (e2db81e) before any computation. Schema-only inspection beforehand.
+2. ✅ `R/probabilistic/pod_baseline.R` (`pd_`): active = at least one offensive snap; rolling-origin per-position OLS base (closed form; a planted outlier does not move its own week's base); residual quantiles by position × fixed bands with small-cell merging; τ grid with 0.25/0.75; floors; `pd_pods()` for POD_h = p·F + (1 − p)·δ₀.
+3. ✅ Production table on 2020–2023 only; `pd_frame()` refuses 2024–2026 through the contamination register (tested).
+4. ✅ `models/probabilistic/pod_baseline_v0.yml` frozen; the pipeline re-derives it exactly (`pd_table_check`, fingerprint 905e3ca0…); `validate_pod_table()`; prospective archive (`R/probabilistic/pod_archive.R`, `scripts/pod_archive.R`, run by the dispatcher after each capture; `archive/distribution_manifest.csv`). First archive: W6, 326 PODs.
+5. ✅ **Coverage gate passed in all 12 cells** (development, out of sample by season). CRPS is 1–4% better than a normal reference. TE PIT deviates mildly (χ² p = 0.002, upper tail), recorded for P2.
+
+Tests: 37 expectations (frame/activity, register refusal, rolling base without leakage, cell merging, floors, YAML round trip, archive write-once with a hash-only manifest).
 
 ### S0 — Shadow league simulator (VL3)
 1. VL3 committed first (σ_L by simulation matching on 2019–2023; log L ~ N(−σ²/2, σ²); sensitivity bands; archive evaluation-only).

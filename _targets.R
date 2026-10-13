@@ -468,6 +468,31 @@ list(
     })
   ),
 
+  # ---- Master plan P0 (E18): baseline outcome distributions -----------------
+  # Distribution stack, development seasons 2020-2023 (2019 warm-up). pd_frame() refuses any
+  # other season (contamination register); nothing reads 2024-2026 outcomes.
+  if (build_valuation) list(
+    tar_target(contamination_register_file, CONTAMINATION_REGISTER, format = "file"),
+    tar_target(pd_frame_dev, pd_frame(val_frame$current, snaps, register = read_contamination_register(contamination_register_file)),
+               format = "parquet"),
+    tar_target(pd_based, pd_rolling_base(pd_frame_dev), format = "parquet"),
+    tar_target(pd_active_shares, pd_active_share(pd_frame_dev)),
+    tar_target(pd_dev_eval, pd_dev_evaluation(pd_based)),
+    tar_target(pd_table_derived, pd_freeze_table(pd_based)),
+    # The frozen table must equal a fresh derivation (fails otherwise); its hash is the fingerprint.
+    if (file.exists(POD_TABLE_FILE)) list(
+      tar_target(pd_table_file, POD_TABLE_FILE, format = "file"),
+      tar_target(pd_table_check, {
+        frozen <- yaml::read_yaml(pd_table_file)
+        derived <- yaml::yaml.load(yaml::as.yaml(pd_table_derived))
+        if (!isTRUE(all.equal(frozen, derived, check.attributes = FALSE, tolerance = 1e-9))) {
+          cli::cli_abort("{.file {pd_table_file}} differs from the derived P0 table.")
+        }
+        digest_text(yaml::as.yaml(frozen))
+      })
+    )
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: it reads the latest archived valuation run.
