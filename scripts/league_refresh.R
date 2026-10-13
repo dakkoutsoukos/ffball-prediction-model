@@ -11,7 +11,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 args <- commandArgs(trailingOnly = TRUE)
-season <- if (length(args) >= 1) as.integer(args[[1]]) else as.integer(format(Sys.Date(), "%Y"))
+season <- if (length(args) >= 1) as.integer(args[[1]]) else nfl_season()  # January games belong to the previous season
 pcfg <- read_project_config()
 cred <- lg_credentials(pcfg)
 cli::cli_h1("League refresh {season}")
@@ -27,4 +27,19 @@ cli::cli_text("Scoring for QB/RB/WR/TE: {if (lc$scoring$equals_espn_ppr) 'identi
 if (nrow(lc$scoring$unmapped)) print(lc$scoring$unmapped)
 me <- lg_my_team(lg$teams, cred)
 cli::cli_text("My team: {if (is.na(me)) 'not detected (set league.my_team_id)' else lg$teams$team_name[lg$teams$team_id == me]}")
+# League state v2 (master plan F3-lite): schedule, standings, rules - no names printed
+st <- lg_league_state(read_gz_text(snap$raw))
+cli::cli_h2("League state")
+cli::cli_text("Rules: {lg_rules_summary(st$rules)}")
+if (st$has_schedule) {
+  cli::cli_text("Schedule: {nrow(st$schedule)} matchups over {length(unique(st$schedule$matchup_period))} periods; current period {st$status$current_matchup_period}.")
+} else {
+  cli::cli_alert_warning("No schedule in the response (view=mMatchup missing?).")
+}
+cli::cli_text("ESPN playoff odds in the response: {if (all(is.na(st$standings$espn_playoff_pct))) 'absent' else 'present'}")
+chk <- lg_state_checks(st)
+for (i in seq_len(nrow(chk))) {
+  f <- if (isTRUE(chk$passed[i])) cli::cli_alert_success else if (is.na(chk$passed[i])) cli::cli_alert_info else cli::cli_alert_danger
+  f("{chk$check[i]}{if (nzchar(chk$detail[i])) paste0(' (', chk$detail[i], ')') else ''}: {if (is.na(chk$passed[i])) 'not checkable' else if (chk$passed[i]) 'ok' else 'FAILED'}")
+}
 cli::cli_text("Commit the manifest:  git add archive/league_snapshot_manifest.csv && git commit -m \"League snapshot\"")

@@ -1,6 +1,9 @@
 # Valuation V2: the owner's actual ESPN league ----------------------------------------------
-# One request returns settings, teams, rosters and status:
-#   GET {ESPN_API}/seasons/{S}/segments/0/leagues/{id}?view=mSettings&view=mTeam&view=mRoster&view=mStatus
+# One request returns settings, teams, rosters, status and (from 2026-10-13, master plan F3-lite,
+# approved by the owner) the matchup schedule:
+#   GET {ESPN_API}/seasons/{S}/segments/0/leagues/{id}?view=mSettings&view=mTeam&view=mRoster&view=mStatus&view=mMatchup
+# Adding a view changes what the one request returns, not how many requests are made. The schedule,
+# standings and rules are parsed by R/valuation/league_state.R.
 # Private leagues need the owner's espn_s2 and SWID cookies, read from the git-ignored
 # config/local.yml (league: {espn_league_id, espn_s2, swid}) or from the environment
 # variables ESPN_S2 / ESPN_SWID. They are never printed, logged or archived.
@@ -62,12 +65,20 @@ lg_request <- function(url, cred) {
   httr2::req_error(req, is_error = function(r) FALSE)
 }
 
-#' Fetch the league (settings, teams, rosters, status) as raw JSON text.
+#' The views of the single league request. Changing this list changes what is requested from
+#' ESPN: owner decision O8 (mMatchup approved 2026-10-13).
+LG_VIEWS <- c("mSettings", "mTeam", "mRoster", "mStatus", "mMatchup")
+
+lg_league_url <- function(season, league_id, views = LG_VIEWS) {
+  sprintf("%s/seasons/%d/segments/0/leagues/%s?%s", ESPN_API, season, league_id,
+          paste0("view=", views, collapse = "&"))
+}
+
+#' Fetch the league (settings, teams, rosters, status, schedule) as raw JSON text.
 lg_fetch_league <- function(season, cred = lg_credentials(), enabled = FALSE) {
   stop_if_espn_disabled(enabled)
   if (is.na(cred$league_id)) cli::cli_abort("No league id: set {.field league.espn_league_id} in config/local.yml.")
-  url <- sprintf("%s/seasons/%d/segments/0/leagues/%s?view=mSettings&view=mTeam&view=mRoster&view=mStatus",
-                 ESPN_API, season, cred$league_id)
+  url <- lg_league_url(season, cred$league_id)
   resp <- httr2::req_perform(lg_request(url, cred))
   st <- httr2::resp_status(resp)
   if (st == 401) {
