@@ -536,3 +536,20 @@ Report-only fixes:
 - Every odds query is ledgered (type `odds`).
 
 **Influence on later choices.** No 2024–2026 outcome is used: σ_L comes from 2019–2023 development rows, and P0 from 2020–2023.
+
+### VL3 result 1: σ_L by simulation matching (computed after the entry above was committed in f4f1e06)
+
+Rows: 93,709 player-weeks (11,756 player-season-as-of groups), 2019–2023, as-of weeks 5–11. ROS totals run
+through each season's last week.
+
+| Position | Groups | Observed ROS residual SD | S0 SD without a level shock | σ_L | Matched SD | Mean bias: simulated / observed |
+|---|---|---|---|---|---|---|
+| QB | 1,593 | 41.1 | 22.3 (54%) | **0.368** | 41.1 | −1.5 / −2.2 |
+| RB | 3,025 | 31.3 | 18.1 (58%) | **0.373** | 31.3 | −0.2 / −1.4 |
+| WR | 4,646 | 29.1 | 18.5 (64%) | **0.345** | 29.1 | −1.2 / −0.1 |
+| TE | 2,492 | 23.2 | 14.1 (61%) | **0.388** | 23.2 | −0.0 / −0.9 |
+
+- **Without a season-long level shock, S0 would understate ROS spread by 36–46%.** Odds built on independent weeks would be badly overconfident (the plan's concern; master plan 02 §9).
+- With one σ_L per position, the matched SD is within −4% to +8% of the observed SD at every as-of week from 5 to 11 (`s0_sigma_by_week`). A constant shock fits all the horizons S0 faces.
+- Mean biases are small against ROS totals of around 50–150 points.
+- **Frozen:** `models/simulation/s0_params_v0.yml`. The pipeline re-derives it (`s0_params_check`), fingerprint `2632efe5…`. A synthetic test recovers a known σ_L = 0.30 within 0.05.

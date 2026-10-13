@@ -493,6 +493,32 @@ list(
     )
   ),
 
+  # ---- Master plan S0 (VL3): level-shock scale by simulation matching -------
+  # Development seasons 2019-2023 of the ROS frame (as-of weeks 5-11); frozen ROS forecasts and
+  # the frozen P0 table. No 2024-2026 outcome.
+  if (build_valuation && file.exists(POD_TABLE_FILE)) list(
+    tar_target(s0_ros_params, val_read_ros_params(val_ros_params_file)),
+    tar_target(s0_match_rows, sim_match_rows(val_frame$future, s0_ros_params,
+                                             register = read_contamination_register(contamination_register_file)),
+               format = "parquet"),
+    tar_target(s0_match_prep, sim_match_prepare(s0_match_rows, read_pod_table(pd_table_file))),
+    tar_target(s0_sigma, sim_match_sigma(s0_match_prep)),
+    tar_target(s0_sigma_by_week, sim_match_by_week(s0_match_prep, s0_sigma)),
+    tar_target(s0_params_derived, sim_params_list(s0_sigma)),
+    # The frozen S0 parameters must equal a fresh derivation (fails otherwise).
+    if (file.exists(S0_PARAMS_FILE)) list(
+      tar_target(s0_params_file, S0_PARAMS_FILE, format = "file"),
+      tar_target(s0_params_check, {
+        frozen <- yaml::read_yaml(s0_params_file)
+        derived <- yaml::yaml.load(yaml::as.yaml(s0_params_derived))
+        if (!isTRUE(all.equal(frozen, derived, check.attributes = FALSE, tolerance = 1e-9))) {
+          cli::cli_abort("{.file {s0_params_file}} differs from the derived S0 parameters.")
+        }
+        digest_text(yaml::as.yaml(frozen))
+      })
+    )
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: it reads the latest archived valuation run.

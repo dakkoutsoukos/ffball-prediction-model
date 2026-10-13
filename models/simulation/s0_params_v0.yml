@@ -1,0 +1,34 @@
+# S0 level-shock scale sigma_L by position, FROZEN 2026-10-13 (master plan S0; pre-registration VL3).
+# Simulation matching on development seasons 2019-2023 (as-of weeks 5-11) of the ROS frame, with the
+# frozen ROS forecasts and the frozen P0 table. Re-derived by the pipeline (target s0_params_check).
+# Never edit: a change is s0_params_v1 with its own pre-registration.
+version: s0_params_v0
+pre_registration: VL3
+seasons:
+- 2019
+- 2020
+- 2021
+- 2022
+- 2023
+asof_weeks:
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+pod_table: pod_baseline_v0
+ros_params: ros_v1
+draws: 200
+seed: 20261013
+sigma_L:
+  QB: 0.3684
+  RB: 0.3728
+  WR: 0.3451
+  TE: 0.3881
+sd_observed:
+  QB: 41.141
+  RB: 31.336
+  WR: 29.129
+  TE: 23.2
