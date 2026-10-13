@@ -17,7 +17,7 @@ Last updated: 2026-10-13.
 | Step 0 | Manual W6 runs (owner) | 0 | — | DEFERRED (superseded) | F0's scheduled task covers the W6 Thu/Sun/Mon slates from 2026-10-15 if the PC is on and logged on; the owner still pushes, and the W6 Tuesday manifest (5d36f3b) was not yet on origin on 2026-10-13 |
 | F0 | Prospective operations hardening | 0 | — | COMPLETED (build) 2026-10-13; ongoing criteria tracked | 6d7965c, 2fc776c, 75448a1. Task `FFball_dispatch` registered; smoke test and in-task self-test pass |
 | F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | COMPLETED 2026-10-13 (pending the owner's push) | E16/E17 committed before any 2026 scoring; power corrected (X-008) |
-| D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | NOT STARTED | |
+| D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | COMPLETED 2026-10-13 | ea4a669; ledger rows to be hooked in F5; prior used for WR too (X-011) |
 | F3 | League state v2 (lite now; full after O8 items) | 1 | — | NOT STARTED | O8: `view=mMatchup` approved (2026-10-13); other O8 items not asked |
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | NOT STARTED | |
 | F2 | Evaluation framework (lite now; full after R1) | 1 | — | NOT STARTED | |
@@ -73,10 +73,12 @@ Deviation from the prompt (recorded in decisions X-006): new functions instead o
 
 Findings: power is lower than the plan said (X-008); the pre-registered bootstrap is anti-conservative at 13 weeks (S8 added). The anytime-valid analysis runs only at R1 (X-009). Push-time evidence added (X-010).
 
-### D0 — Lineup helpers
-1. New pure `val_flex_slotting()`: among equal-EV assignments the latest-kickoff eligible starter goes in FLEX; expected points never change (test).
-2. Game-time plan per Questionable starter: P(active) (M4 for WR, fixed prior Q ≈ 0.71 / D ≈ 0.07 otherwise, in a YAML), best pivot kicking off after the starter's inactive announcement (≈ 90 min before his kickoff), and whether one exists.
-3. V1/V2 bit-identity tests; CLI `trade_analyzer.R lineup`; toy weeks with known answers; ESPN lock-at-kickoff rule.
+### D0 — Lineup helpers — COMPLETED 2026-10-13
+1. ✅ `val_flex_slotting()`: the latest-kickoff starters take the flexible slots; tests show the starting set and expected points are unchanged, every starter is eligible for his slot, and ties keep the higher value in the specific slot.
+2. ✅ `val_gametime_plan()`: P(active) from `config/availability_prior.yml` (Q 0.71, D 0.07, Out 0), decision time = kickoff − 90 min, the best pivot still unlocked then that fits the open slots (including cross-position moves via FLEX), plan EV, and advice; shared pivots are flagged. **Deviation:** the prior is used for WR too, because archived M4 runs do not store P(active) and M4 is never recomputed (X-011).
+3. ✅ Bit-identity guard for `val_allocate()`/`val_assign_slots()`; CLI `trade_analyzer.R lineup`; toy weeks with known answers; the lock-at-kickoff rule (locked starters keep their ESPN slots, locked bench players cannot enter). 51 test expectations.
+4. ✅ Real-league run (2026-10-13): structure correct. It found that the current ESPN lineup (snapshot 07:06Z) starts a player on bye; the recommended changes add +33.7 expected points (owner informed; names never printed in chat).
+5. Ledger rows: deferred to F5 (D0 lists F5 as optional).
 
 ### F3 — League state v2 (lite)
 1. `view=mMatchup` added to the existing single request (approved). No additional requests.

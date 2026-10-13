@@ -9,9 +9,9 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it) |
-| In progress | D0 |
-| Next (ready) | F3-lite → F5 → F2-lite → P0 → S0 |
+| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0 |
+| In progress | F3-lite |
+| Next (ready) | F5 → F2-lite → P0 → S0 |
 | Blocked | — |
 | Deferred | — |
 
@@ -19,7 +19,7 @@
 
 | Label | Meaning | Items |
 |---|---|---|
-| Implemented | Code exists and its tests pass | (existing M1–M4, V1, V2); F0 dispatcher and scheduled task (operational, no statistical claim) |
+| Implemented | Code exists and its tests pass | (existing M1–M4, V1, V2); F0 dispatcher and scheduled task (operational, no statistical claim); F1 power tools; D0 lineup helpers (advisory: kickoff slotting is exact; game-time plans use an unvalidated published prior) |
 | Statistically validated | Passed a pre-registered evaluation | (existing: M3b/M4 historical checks; prospective tests pending R1) |
 | Experimental | Built, not yet validated | — |
 | Planned | Not built | Everything in the tracker not listed above |
@@ -35,4 +35,4 @@
 
 | Date | Session | Work |
 |---|---|---|
-| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. Started D0. |
+| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. **D0 completed** (kickoff slotting, game-time plans, `lineup` CLI; on the real league it found a bye-week starter in the current ESPN lineup). Started F3-lite. |

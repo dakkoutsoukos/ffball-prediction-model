@@ -43,4 +43,4 @@ Last updated: 2026-10-13 (session 1, start of execution).
 
 ## Exact next action
 
-D0 (lineup helpers): new pure `val_flex_slotting()` after the allocator, a game-time plan (fixed prior Q ≈ 0.71 / D ≈ 0.07 in a small YAML; M4's P(active) for WR), CLI `trade_analyzer.R lineup`, V1/V2 bit-identity tests. Read `R/valuation/allocation.R`, `league_model.R` and `scripts/trade_analyzer.R` first.
+F3-lite (league state; `view=mMatchup` approved): extend `R/valuation/league_espn.R` (`lg_`) without changing existing parsing: add `view=mMatchup` to the single league request; new parsers for schedule, records/seeds/ranks, rules (schedule settings, tie rules, top-half bonus, trade deadline, keepers), acquisition settings, waiver ranks; hand-written JSON fixtures; invariants (one game per team per period; recomputed standings equal ESPN's); privacy grep test. First live response: keys only. Known facts (X-003): deadline 2026-12-02, no FAAB, no keepers, no top-half bonus, 14 regular-season periods, 4 playoff teams, `currentSimulationResults` absent.

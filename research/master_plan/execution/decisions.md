@@ -141,3 +141,22 @@ The late-push sensitivity analysis (E16 §4) needs the time each manifest reache
 3. The dispatcher's hourly record of `@{u}` (an upper bound).
 
 The pushes before 2026-10-13 have only GitHub's record.
+
+## X-011 · 2026-10-13 · D0 uses the published prior for every position, WR included
+
+The plan (07 D0) said P(active) should come from M4 for WRs. The archived M4 predictions store only the
+final prediction, not M4's P̂(active), and the valuation rules forbid recomputing M4. D0 therefore uses the
+fixed prior (`config/availability_prior.yml`) for all positions until P1 supplies calibrated P(active).
+
+**Related assumption.** ESPN's current-week (pre-inactive) projection is treated as the player's
+expected points *if he plays*, and the prior supplies availability. This is consistent with E13: before
+inactives, ESPN does not price most of the inactive risk. For WRs from the M4 archive the prediction already
+includes M4's post-inactive P̂(active), 0.93–0.98 for listed groups, so the plan EV double-counts availability
+by at most a few percent. P1 and R3 will replace both pieces.
+
+## X-012 · 2026-10-13 · D0 advises; it never changes the recommended starters
+
+The starting set is the expected-points optimum on the same projections V2 uses. The designation prior
+enters only the game-time plan, never the optimiser. D0 can therefore never lower expected points
+relative to the existing logic, which is the plan's requirement. Whether starters should be re-chosen with
+availability-adjusted values is a D1 question for 2027.
