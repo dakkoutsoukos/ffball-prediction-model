@@ -468,3 +468,14 @@ Report-only fixes:
   - 499 are fair (|ΔA − ΔB| ≤ 5);
   - the largest surplus is +24.5.
   - Model estimates only; acceptance is not modelled.
+
+## 2026-10-13 — VL2: `--capture` runs used an older ESPN capture (fixed)
+
+**Bug.** `scripts/valuation_run.R` took its as-of time before the ESPN capture. Inputs are looked up "at or before as_of", so the capture taken in the same invocation was always skipped. The run silently fell back to the newest earlier capture of that week, or stopped if there was none.
+
+**Affected runs** (archives are write-once and stay as they are; nothing is re-run):
+- `20261007T062429Z` (week 5) used capture `20261007T060535Z`, not `20261007T062430Z`.
+- `20261007T193931Z` (week 5, league format) used capture `20261007T062430Z`, not `20261007T193933Z` as the commit message of e9597dd states.
+- The first week 6 attempt on 2026-10-13 stopped with "No valuation ESPN capture for 2026 week 6". Run `20261013T070931Z` was then made without `--capture` and used capture `20261013T070639Z` as intended.
+
+**Fix.** The as-of time is now taken again right after the capture. Stamps are truncated to the second, so a capture always sorts at or before it. `scripts/weekly_run.R` is not affected: it does not pass the earlier time to `run_prospective()`.

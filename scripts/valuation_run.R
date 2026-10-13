@@ -49,6 +49,9 @@ if ("--capture" %in% flags) {
   if (!isTRUE(pcfg$espn$enabled)) stop("ESPN is not enabled (config/local.yml).")
   cap <- capture_espn_valuation(week = week, league_defaults_id = pcfg$espn$league_defaults_id, enabled = TRUE)
   cli::cli_alert_success("ESPN capture {.file {basename(cap)}}")
+  # the run's as-of moment follows its own capture: inputs are looked up "at or before as_of",
+  # and an as_of taken before the capture silently fell back to an older capture (or none)
+  now <- Sys.time()
 }
 
 if ("--league" %in% flags) {
