@@ -13,6 +13,10 @@
 #   Rscript scripts/trade_analyzer.R lineup [--team "Team"] [--now 2026-10-18T14:00:00Z]
 #        # this week's lineup: expected-points starters (players already locked by kickoff keep their ESPN
 #        # slots), latest kickoffs in FLEX, and a game-time plan for every designated starter (master plan D0)
+#   Rscript scripts/trade_analyzer.R ledger-action --decision <id> --action followed|partially|ignored [--note "..."]
+# Recommendations (lineup, analyze, fair, target, sell, waivers) are recorded in the private decision
+# ledger (master plan F5; data/archive/decisions/, hashes in archive/decision_manifest.csv). Their
+# outcomes stay sealed until after the season and the 2027 decision pre-registrations.
 # Common options: --allow-stale  --policy empty_slots|none|unlimited  --horizon full|regular|playoffs  --season 2026
 # Teams: name, abbreviation or id. Players: name (resolved to ESPN ids) or ESPN id. "--me" defaults
 # to the team owned by the configured SWID. Results are model estimates of expected rest-of-season
@@ -22,7 +26,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -34,6 +38,14 @@ split_players <- function(x) trimws(strsplit(x, ";", fixed = TRUE)[[1]])
 season <- as.integer(opt$season %||% nfl_season())  # January games belong to the previous season
 horizon <- opt$horizon %||% "full"
 options(width = 200, pillar.sigfig = 4, tibble.print_max = 40)
+
+# Record what you did with a ledgered recommendation (master plan F5); no league model needed.
+if (cmd == "ledger-action") {
+  if (is.null(opt$decision) || is.null(opt$action)) stop("Usage: trade_analyzer.R ledger-action --decision <id> --action followed|partially|ignored [--note \"...\"]")
+  lg_ledger_action(opt$decision, opt$action, opt$note %||% "", alias = lg_credentials()$alias)
+  cli::cli_alert_success("Recorded {opt$action} for {opt$decision} (private).")
+  quit(save = "no", status = 0)
+}
 
 m <- lg_load(season, allow_stale = isTRUE(opt[["allow-stale"]]), policy = opt$policy)
 la <- m$la
@@ -157,4 +169,14 @@ res <- switch(cmd,
 if (!is.null(res)) {
   q <- lg_archive_query(m, cmd, opt, res)
   cli::cli_text("Archived query {.file {basename(q)}}")
+  # Decision ledger (master plan F5): every recommendation, with its information state; outcomes sealed
+  ledger_type <- unname(c(lineup = "lineup", analyze = "trade_analyze", fair = "trade_search", target = "trade_target",
+                          sell = "trade_sell", waivers = "waivers")[cmd])
+  if (!is.na(ledger_type)) {
+    p <- if (cmd == "lineup") lg_ledger_lineup_payload(adv) else list(recommendation = res, alternatives = NULL, metrics = list())
+    d <- lg_ledger_record(ledger_type, m$inputs, season, m$current_week, p$recommendation, p$alternatives, p$metrics,
+                          options = opt, model_versions = list(methodology = "valuation_v2", query_file = basename(q),
+                                                               prior = if (cmd == "lineup") adv$prior_source else NULL))
+    cli::cli_text("Ledgered decision {.val {d$decision_id}} (record it with: ledger-action --decision {d$decision_id} --action followed|partially|ignored)")
+  }
 }

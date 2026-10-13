@@ -152,8 +152,8 @@ test_that("lineup advice joins roster, projections and kickoffs and respects ESP
                            player_name = d$player_name, position = d$position, nfl_team = paste0("T", seq_len(nrow(d))),
                            lineup_slot_id = c(0L, 2L, 2L, 23L, 20L, 4L, 4L, 23L, 20L, 6L, 20L, 21L),
                            injury_status = d$status, is_ir_slot = d$is_ir)
-  weekly <- tibble::tibble(espn_id = roster$espn_id, week = 6L, proj = d$proj, has_game = TRUE,
-                           team = roster$nfl_team, opponent = "X")
+  weekly <- tibble::tibble(espn_id = roster$espn_id, player_id = paste0("00-", roster$espn_id), week = 6L, proj = d$proj,
+                           has_game = TRUE, team = roster$nfl_team, opponent = "X")
   tg <- tibble::tibble(season = 2026L, week = 6L, team = roster$nfl_team, kickoff_utc = d$kickoff_utc)
   m <- list(current_week = 6L, season = 2026L, league = lh_league(),
             input_data = list(roster = roster, weekly = weekly))

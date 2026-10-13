@@ -151,7 +151,7 @@ lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read
   wk <- m$current_week
   ros <- dplyr::filter(m$input_data$roster, .data$team_id == !!team, .data$is_skill)
   w <- dplyr::filter(m$input_data$weekly, .data$week == !!wk) |>
-    dplyr::select("espn_id", "proj", "has_game", nfl = "team", "opponent")
+    dplyr::select("espn_id", "player_id", "proj", "has_game", nfl = "team", "opponent")
   ko <- team_games |>
     dplyr::filter(.data$season == !!m$season, .data$week == !!wk) |>
     dplyr::distinct(nfl = .data$team, .data$kickoff_utc)
@@ -174,6 +174,7 @@ lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read
                                              .data$starter, .data$slot, .data$is_ir), m$league, prior, now)
   lineup <- d |>
     dplyr::transmute(slot = dplyr::coalesce(.data$slot, ifelse(.data$is_ir, "IR", "BE")), player = .data$player_name,
+                     .data$player_id, .data$espn_id,
                      .data$position, nfl = .data$nfl, kickoff_utc = .data$kickoff_utc, .data$proj, .data$status, .data$locked,
                      espn_slot = dplyr::coalesce(.data$espn_slot, ifelse(.data$is_ir, "IR", "BE")),
                      change = dplyr::case_when(.data$starter & !.data$current_starter ~ "start",

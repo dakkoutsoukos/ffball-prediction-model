@@ -1,0 +1,2 @@
+decision_id,league_alias,season,week,type,as_of_utc,record_sha256,git_commit
+20261013T213423Z_lineup_556bc56a,league_605d88d7,2026,6,lineup,2026-10-13T21:34:23Z,b51ea957aaaf44e0ae0dc5aba067a0b73037fed3f2523ff26df7b394efddbd39,910764d255fd1dd7b24b35f288897c32341e13eb
