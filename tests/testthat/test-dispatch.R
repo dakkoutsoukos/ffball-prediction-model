@@ -205,6 +205,7 @@ test_that("the lock blocks a second dispatcher until it goes stale", {
 test_that("the wrapper and task definition quote paths with spaces and never push", {
   cmd <- ops_wrapper_cmd("C:/Users/x/My Project", "C:/Program Files/R/R-4.5.1/bin/Rscript.exe")
   expect_true(any(grepl('cd /d "C:\\Users\\x\\My Project"', cmd, fixed = TRUE)))
+  expect_true(any(grepl('if not defined HOME set "HOME=%USERPROFILE%"', cmd, fixed = TRUE)))   # git identity
   expect_true(any(grepl('"C:\\Program Files\\R\\R-4.5.1\\bin\\Rscript.exe" scripts\\ops_dispatch.R', cmd, fixed = TRUE)))
   expect_false(any(grepl("push", cmd, ignore.case = TRUE) & !grepl("^rem", cmd)))
   xml <- ops_task_xml("C:/Users/x/My Project/scripts/ops/ffball_dispatch.cmd", "C:/Users/x/My Project",
