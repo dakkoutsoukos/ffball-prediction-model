@@ -24,7 +24,13 @@ Rscript scripts/valuation_run.R --league --capture     # V1 values in this leagu
 Rscript scripts/trade_analyzer.R snapshot              # rankings, needs, real waiver levels, value matrix, win-win search
 Rscript scripts/trade_analyzer.R analyze --a "Team A" --give-a "P1;P2" --b "Team B" --give-b "P3"
 Rscript scripts/trade_analyzer.R fair --b "Team B" --win-win    |  target --player "X"  |  sell --player "X"
+Rscript scripts/trade_analyzer.R lineup                # this week: starters, latest kickoffs in FLEX, game-time plans (D0)
 ```
+
+`lineup` (master plan D0) never changes expected points.
+- It keeps players already locked by kickoff in their ESPN slots.
+- It puts the latest kickoffs in FLEX, so swaps stay possible.
+- For each Questionable or Doubtful starter it gives a game-time plan: P(active) from a fixed published prior (`config/availability_prior.yml`), the time inactives are announced, and the best bench pivot still unlocked then.
 
 Privacy:
 - League data, the league id and the cookies never enter Git.

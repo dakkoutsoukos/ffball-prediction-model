@@ -10,6 +10,9 @@
 #   Rscript scripts/trade_analyzer.R target --player "Player" [--me "My team"]
 #   Rscript scripts/trade_analyzer.R sell --player "Player" [--me "My team"]
 #   Rscript scripts/trade_analyzer.R snapshot          # archive rankings, needs, waiver levels, value matrix
+#   Rscript scripts/trade_analyzer.R lineup [--team "Team"] [--now 2026-10-18T14:00:00Z]
+#        # this week's lineup: expected-points starters (players already locked by kickoff keep their ESPN
+#        # slots), latest kickoffs in FLEX, and a game-time plan for every designated starter (master plan D0)
 # Common options: --allow-stale  --policy empty_slots|none|unlimited  --horizon full|regular|playoffs  --season 2026
 # Teams: name, abbreviation or id. Players: name (resolved to ESPN ids) or ESPN id. "--me" defaults
 # to the team owned by the configured SWID. Results are model estimates of expected rest-of-season
@@ -19,7 +22,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -28,7 +31,7 @@ while (i <= length(a)) {
   if (i < length(a) && !startsWith(a[[i + 1]], "--")) { opt[[k]] <- a[[i + 1]]; i <- i + 2 } else { opt[[k]] <- TRUE; i <- i + 1 }
 }
 split_players <- function(x) trimws(strsplit(x, ";", fixed = TRUE)[[1]])
-season <- as.integer(opt$season %||% format(Sys.Date(), "%Y"))
+season <- as.integer(opt$season %||% nfl_season())  # January games belong to the previous season
 horizon <- opt$horizon %||% "full"
 options(width = 200, pillar.sigfig = 4, tibble.print_max = 40)
 
@@ -124,6 +127,30 @@ res <- switch(cmd,
     print(dplyr::select(s$rankings, "rank", "team", "U", "QB", "RB", "WR", "TE", "bench_points"))
     cli::cli_alert_success("Archived {.file {s$dir}} ({s$meta$elapsed_seconds} s)")
     NULL
+  },
+  lineup = {
+    team <- if (!is.null(opt$team)) lg_find_team(m, opt$team) else me
+    if (is.na(team)) stop("Set --team (your team could not be detected).")
+    now <- if (!is.null(opt$now)) as.POSIXct(opt$now, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC") else Sys.time()
+    if (is.na(now)) stop("--now must look like 2026-10-18T14:00:00Z")
+    tg <- clean_team_games(latest_live_file("schedules", season, now), "REG")
+    adv <- lg_lineup_advice(m, team, tg, now)
+    cli::cli_h2("{lg_team_label(m, team)}: week {adv$week} lineup as of {fmt_et(now)}")
+    print(dplyr::transmute(adv$lineup, .data$slot, .data$player, .data$position, .data$nfl,
+                           kickoff = ifelse(is.na(.data$kickoff_utc), "-", format(.data$kickoff_utc, "%a %H:%M", tz = DISPATCH_TZ)),
+                           proj = round(.data$proj, 1), .data$status, .data$locked, espn = .data$espn_slot, .data$change))
+    cli::cli_text("Expected points: recommended {round(adv$ev_recommended, 1)} vs current ESPN lineup {round(adv$ev_current, 1)}. Flexible slots hold the latest kickoffs (no change in expected points).")
+    if (nrow(adv$plan)) {
+      cli::cli_h3("Game-time plans")
+      print(dplyr::transmute(adv$plan, .data$player, .data$status, p_active = .data$p_active,
+                             if_active = round(.data$proj_if_active, 1), decide_by = format(.data$decision_utc, "%a %H:%M", tz = DISPATCH_TZ),
+                             .data$pivot, pivot_E = round(.data$pivot_E, 1), plan_ev = round(.data$plan_ev, 1), .data$advice))
+    } else {
+      cli::cli_text("No designated starters: no game-time plan needed.")
+    }
+    cli::cli_text("P(active) prior: {adv$prior_source}. Projections are this week's (pre-inactive); a plan is advice, not a forecast.")
+    list(lineup = adv$lineup, plan = adv$plan,
+         ev = tibble::tibble(recommended = adv$ev_recommended, current = adv$ev_current, as_of_utc = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")))
   },
   stop("Unknown command ", cmd)
 )

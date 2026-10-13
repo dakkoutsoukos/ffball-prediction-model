@@ -1,0 +1,19 @@
+# Fixed designation prior for game-time decision plans (master plan D0), used until P1
+# (calibrated availability v2) exists. Probability that a player with this ESPN injury status
+# plays (records at least one offensive snap).
+#
+# Source: Hutchison (Footballguys, 2025), "Chance to Play: Questionable vs. Doubtful", NFL 2017-2024:
+# Questionable 70.7% played, Doubtful 6.9% played. Rounded to two decimals; fixed, never tuned.
+# DAY_TO_DAY is ESPN's mid-week label before an official designation; it gets the Questionable
+# prior. Statuses not listed (NORMAL, ACTIVE, PROBABLE) need no plan (p = 1).
+source: "Hutchison 2025 (Footballguys): Questionable 70.7% / Doubtful 6.9% played, 2017-2024"
+p_active:
+  QUESTIONABLE: 0.71
+  DAY_TO_DAY: 0.71
+  DOUBTFUL: 0.07
+  OUT: 0
+  INJURY_RESERVE: 0
+  SUSPENSION: 0
+default: 1
+# Official game-day inactive lists are released about 90 minutes before each kickoff.
+decision_lead_minutes: 90
