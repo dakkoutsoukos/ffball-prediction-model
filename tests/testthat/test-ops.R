@@ -23,6 +23,17 @@ test_that("coverage shows which upcoming games have a run made before their kick
   expect_equal(cov$latest_valid_run, c("r1", "r2", "r2"))   # Thursday game only covered by r1
 })
 
+test_that("neutral-site games (no home row) still appear in the kickoff overview", {
+  tg <- dplyr::bind_rows(
+    ops_games(),
+    tibble::tibble(season = 2026L, week = 6L, game_id = "g_london", team = c("E", "F"), home = FALSE,
+                   kickoff_utc = as.POSIXct("2026-10-18 13:30", tz = "UTC"))
+  )
+  ko <- week_kickoffs(tg, 2026, 6, as.POSIXct("2026-10-14 12:00", tz = "UTC"))
+  expect_setequal(ko$game_id, c("g4", "g_london"))
+  expect_equal(nrow(ko), 2L)
+})
+
 test_that("snapshot verification detects tampering", {
   root <- withr::local_tempdir()
   dir <- file.path(root, "season=2026", "week=05")

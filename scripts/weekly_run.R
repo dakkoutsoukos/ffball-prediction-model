@@ -22,7 +22,7 @@ flags <- args[startsWith(args, "--")]
 pos <- args[!startsWith(args, "--")]
 cfg <- read_project_config()
 now <- Sys.time()
-season <- if (length(pos) >= 1) as.integer(pos[[1]]) else as.integer(format(Sys.Date(), "%Y"))
+season <- if (length(pos) >= 1) as.integer(pos[[1]]) else nfl_season()  # January games belong to the previous season
 lineages <- if (length(pos) >= 3) strsplit(pos[[3]], ",")[[1]] else frozen_lineages()
 
 # --- preflight -------------------------------------------------------------------

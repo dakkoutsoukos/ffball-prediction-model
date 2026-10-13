@@ -36,6 +36,9 @@ data/processed/*
 data/snapshots/*
 data/archive/*
 data/.last_backup
+# Scheduled-run state and logs (F0 dispatcher) and the machine-specific Task Scheduler wrapper
+data/ops/
+scripts/ops/
 !data/**/.gitkeep
 *.duckdb
 *.duckdb.wal

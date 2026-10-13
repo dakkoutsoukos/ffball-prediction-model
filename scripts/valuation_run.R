@@ -26,7 +26,7 @@ pos <- args[!startsWith(args, "--")]
 pcfg <- read_project_config()
 cfg <- read_valuation_config()
 now <- Sys.time()
-season <- if (length(pos) >= 1) as.integer(pos[[1]]) else as.integer(format(Sys.Date(), "%Y"))
+season <- if (length(pos) >= 1) as.integer(pos[[1]]) else nfl_season()  # January games belong to the previous season
 archive <- !"--no-archive" %in% flags
 
 g <- git_state()

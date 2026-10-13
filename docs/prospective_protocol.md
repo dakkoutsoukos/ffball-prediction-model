@@ -169,6 +169,62 @@ never regenerated or back-filled. M3 results never enter the M1/M2 primary test.
   made **before** that stays clearly pre-inactive. It remains a valid standard run
   either way, because only kickoff time matters.
 
+## Automation (master plan F0, added 2026-10-13)
+
+This section adds scheduling only. **Every rule above is unchanged:** the official prediction for a game
+is still the latest archived standard-horizon run made before its kickoff, runs still need a clean
+committed code tree, and nothing is ever pushed by a script.
+
+**What runs.** The owner approved a Windows Task Scheduler task (`FFball_dispatch`, owner decision O1).
+It starts `scripts/ops_dispatch.R` every hour at :05 while the owner is logged on. The dispatcher reads
+the NFL schedule and `archive/prediction_manifest.csv` and decides whether a run is due
+(`R/live/dispatch.R`):
+
+| Run | When | Purpose |
+|---|---|---|
+| Early-week | From 12 h after the previous week's last kickoff until 24 h before the week's first kickoff, if the week has no run yet | An early-horizon record and capture |
+| Slate | In [first kickoff − 3 h, first kickoff − 1.5 h) of each slate, unless a run already exists in that window | After every team's final injury report, before game-day inactives (about kickoff − 90 min) |
+| Catch-up | From the end of a missed slate window until first kickoff − 30 min | When the PC was off or a run failed |
+
+A slate is the set of games on one US/Eastern date. A morning game (before 12:00 ET, e.g. an
+international game) on a date with later games is its own slate. Thursday, Saturday, holiday and
+Monday slates follow from the schedule; nothing is keyed to fixed weekdays. A slate is attempted at most twice.
+
+**Each due run, on a clean tree only:**
+1. `Rscript scripts/weekly_run.R <season> <week> --commit` (all frozen lineages; local commit of the manifests);
+2. `Rscript scripts/valuation_run.R <season> <week> --capture` (the all-position ESPN capture; one request, approved with O1);
+3. a local commit of the changed `archive/valuation_*.csv` manifests only.
+
+If tracked code has uncommitted changes, the run is **skipped and logged**. Work is never stashed.
+The `late_pregame` horizon is never run by the dispatcher.
+
+**Files** (git-ignored): `data/ops/status.txt` (written every hour: the decision, the next window,
+games lacking a post-report run, captures per week, and **PUSH NEEDED** when local commits are not on
+origin), `data/ops/dispatch_log.csv` (every decision and result), and `data/ops/logs/` (each run's console
+output). `scripts/status.R` shows the same information in its "Scheduled operations" section.
+
+**"Post-report" in the status checks.** A run counts as post-report for a game when both teams' final
+reports (at least one game designation) are in that run's injury capture, or when the capture was made
+within 26 h of kickoff. The second branch covers teams with no designations, which never show a "final"
+report. These checks read no outcome.
+
+**What remains the owner's job:**
+- **Push before kickoff** (`git push`) whenever the status file says PUSH NEEDED. How runs whose manifest
+  reached GitHub only after kickoff are analysed is fixed by the prospective analysis addendum (master
+  plan F1, research/experiment_log.md).
+- Keep tracked code committed around slate windows (for example, Thursday about 17:15–18:45 ET and Sunday
+  about 10:00–11:30 ET).
+- Keep the PC on and logged on. A missed trigger starts as soon as the PC is available, and the catch-up
+  rule applies until 30 minutes before kickoff.
+
+**Setup:** `Rscript scripts/ops_setup.R --register` writes the git-ignored wrapper
+`scripts/ops/ffball_dispatch.cmd` and the task definition, then registers the task. The task runs hidden,
+is allowed on battery, runs one instance at a time and stops after 2 hours. `--run-now` triggers one
+dispatch as a smoke test, `--status` shows the last result, and `--unregister` removes the task.
+
+**Season default.** `weekly_run.R`, `valuation_run.R` and `status.R` now default to the NFL season
+(January games belong to the previous season), so week 18 runs in January need no arguments.
+
 ## Guardrails
 
 2026 outcomes are never used to select features or models, tune

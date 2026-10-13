@@ -18,9 +18,10 @@ infer_target_week <- function(team_games, season, now = Sys.time()) {
 }
 
 #' Kickoff overview for one week: which games have started, which have not.
+#' One row per game_id (not per home team: neutral-site international games have no home row).
 week_kickoffs <- function(team_games, season, week, now = Sys.time()) {
   team_games |>
-    dplyr::filter(.data$season == !!season, .data$week == !!week, .data$home) |>
+    dplyr::filter(.data$season == !!season, .data$week == !!week) |>
     dplyr::distinct(.data$game_id, .data$kickoff_utc) |>
     dplyr::mutate(started = .data$kickoff_utc <= now) |>
     dplyr::arrange(.data$kickoff_utc)
