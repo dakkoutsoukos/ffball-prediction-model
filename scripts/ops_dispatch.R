@@ -42,7 +42,38 @@ commit_valuation_manifests <- function(season, week) {
   if (identical(as.integer(code), 0L)) "committed locally" else sprintf("commit FAILED (exit %s)", code)
 }
 
+#' One-shot self-test of the run mechanics inside the scheduled task's environment, requested by
+#' creating data/ops/self_test.flag before triggering the task. No ESPN request, no run, no commit;
+#' only presence checks are recorded (never a secret or identifier).
+self_test <- function() {
+  out <- file.path(DISPATCH_ROOT, "logs", paste0(utc_stamp(), "_self_test.log"))
+  code <- system2(rscript_path(), c("-e", shQuote("cat('subprocess-ok')")), stdout = out, stderr = out)
+  sub_ok <- identical(as.integer(code), 0L) && any(grepl("subprocess-ok", readLines(out, warn = FALSE)))
+  head <- tryCatch(system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE), error = function(e) character())
+  who <- tryCatch(system2("git", c("config", "user.name"), stdout = TRUE), error = function(e) character())
+  cfg <- read_project_config()
+  cred <- lg_credentials(cfg)
+  checks <- c(rscript_subprocess = sub_ok, git_head = length(head) == 1 && nzchar(head),
+              git_identity = length(who) >= 1 && nzchar(who[1]), espn_enabled = isTRUE(cfg$espn$enabled),
+              league_cookies_present = !is.na(cred$espn_s2) && !is.na(cred$swid),
+              clean_tree = isFALSE(git_state()$dirty))
+  paste(sprintf("%s=%s", names(checks), ifelse(checks, "ok", "FAIL")), collapse = "; ")
+}
+
 main <- function() {
+  flag <- file.path(DISPATCH_ROOT, "self_test.flag")
+  if (!dry && file.exists(flag)) {
+    unlink(flag)
+    res <- self_test()
+    append_manifest(tibble::tibble(
+      logged_at_utc = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+      decided_for_utc = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+      action = "self-test", kind = NA_character_, season = season, week = NA_integer_,
+      slate_id = NA_character_, reason = "requested via data/ops/self_test.flag", result = res
+    ), DISPATCH_LOG)
+    cat(sprintf("%s self-test: %s\n", fmt_utc(now), res))
+    return(if (grepl("FAIL", res)) 1L else 0L)
+  }
   sched <- tryCatch(latest_live_file("schedules", season, now), error = function(e) NA_character_)
   age_h <- if (is.na(sched)) Inf else
     as.numeric(difftime(now, parse_utc_stamp(sub("^retrieved_at=(.*)[.]parquet$", "\\1", basename(sched))), units = "hours"))
