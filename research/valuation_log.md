@@ -553,3 +553,31 @@ through each season's last week.
 - With one σ_L per position, the matched SD is within −4% to +8% of the observed SD at every as-of week from 5 to 11 (`s0_sigma_by_week`). A constant shock fits all the horizons S0 faces.
 - Mean biases are small against ROS totals of around 50–150 points.
 - **Frozen:** `models/simulation/s0_params_v0.yml`. The pipeline re-derives it (`s0_params_check`), fingerprint `2632efe5…`. A synthetic test recovers a known σ_L = 0.30 within 0.05.
+
+### VL3 result 2: simulator built and run on the owner's league (2026-10-13, matchup period 6)
+
+**Engine.** `R/simulation/season_sim.R`.
+- **Draws:** availability, P0 noise and level shocks (s0_params_v0).
+- **Lineups:** chosen on decision values and scored on realised values. This is a new evaluator; V1/V2 are untouched.
+- **Rules:** completed records fixed, ties counted as half wins, seeds by win share then points for, a 4-team bracket with the two-week final summed.
+- **Randomness:** L'Ecuyer-CMRG streams per chunk of 1,000; every configuration of a what-if runs in the same pass (common random numbers).
+- **CLI:** `trade_analyzer.R odds`.
+
+**Checks on the live league.**
+- 10,000 simulations ran in 11 s, against a target of 10 min or less.
+- Σ P(playoffs) = 4.000 and Σ P(title) = 1.000 exactly.
+- Maximum Monte Carlo SE 0.49 pp, against a target of 0.5 pp or less.
+- Odds across the 8 teams: P(playoffs) 0.22–0.78; P(title) 0.05–0.23.
+
+**Sensitivity.** Bands (σ_L × 0.5–1.5, noise × 0.8–1.2) moved the owner's P(playoffs) within about ±1.2 pp and P(title) within ±1.2 pp.
+
+**Ledger.** Every run is ledgered (type `odds`); outcomes are sealed (F5).
+
+**Tests** (synthetic leagues; 18 expectations): lineups choose on decision values but score realised ones; empty slots stream; ties; seeding and bracket; invariants; determinism and the caller's RNG left untouched; common random numbers give exactly zero difference for an identical what-if.
+
+**Limitations, stated on every output.**
+- Inputs are early-week, so the odds are too sharp until R3 adds the horizon spread term.
+- K and D/ST are not simulated: every team starts one of each, so the means largely cancel, but P(win) is too extreme.
+- Rosters are frozen, players are independent, and there is no in-season learning.
+- The current matchup period is simulated in full, so runs should be made before its first kickoff.
+- Odds are produced only when a fresh league snapshot exists: the owner runs `league_refresh.R`. The dispatcher does not refresh the league.

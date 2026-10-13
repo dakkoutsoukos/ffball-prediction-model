@@ -13,6 +13,9 @@
 #   Rscript scripts/trade_analyzer.R lineup [--team "Team"] [--now 2026-10-18T14:00:00Z]
 #        # this week's lineup: expected-points starters (players already locked by kickoff keep their ESPN
 #        # slots), latest kickoffs in FLEX, and a game-time plan for every designated starter (master plan D0)
+#   Rscript scripts/trade_analyzer.R odds [--sims 10000] [--add "Player"] [--drop "Player"]
+#        # SHADOW season, playoff and title odds (master plan S0, VL3): this week's P(win), your leverage,
+#        # sensitivity bands, and a what-if with common random numbers. Unvalidated; see the printed label.
 #   Rscript scripts/trade_analyzer.R ledger-action --decision <id> --action followed|partially|ignored [--note "..."]
 # Recommendations (lineup, analyze, fair, target, sell, waivers) are recorded in the private decision
 # ledger (master plan F5; data/archive/decisions/, hashes in archive/decision_manifest.csv). Their
@@ -26,7 +29,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|ledger-action> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|odds|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -138,6 +141,59 @@ res <- switch(cmd,
     s <- lg_archive_analysis(m)
     print(dplyr::select(s$rankings, "rank", "team", "U", "QB", "RB", "WR", "TE", "bench_points"))
     cli::cli_alert_success("Archived {.file {s$dir}} ({s$meta$elapsed_seconds} s)")
+    NULL
+  },
+  odds = {
+    lgs <- lg_latest_snapshot(season)
+    state <- lg_state_from_snapshot(lgs)
+    if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
+    sims <- as.integer(opt$sims %||% 10000)
+    wi <- NULL
+    if (!is.null(opt$add) || !is.null(opt$drop)) {
+      pick <- function(x) if (is.null(x)) character() else m$sim$players$player_id[lg_find_player(m, x)]
+      wi <- list(team = me, add = pick(opt$add), drop = pick(opt$drop))
+    }
+    od <- sim_league_odds(m, state, sims = sims, what_if = wi)
+    base <- od$results$base
+    lab <- function(t) vapply(t, function(x) lg_team_label(m, x), "")
+    cli::cli_alert_warning(od$label)
+    cli::cli_h2("Season odds ({sims} simulations, {od$elapsed_seconds} s); matchup period {od$current_period}")
+    print(dplyr::transmute(dplyr::arrange(base$teams, dplyr::desc(.data$p_title)), team = lab(.data$team_id),
+                           e_wins = round(.data$e_wins, 2), p_playoffs = round(.data$p_playoffs, 3),
+                           p_seed1 = round(.data$p_seed1, 3), p_title = round(.data$p_title, 3)))
+    cli::cli_text("This week's matchups:")
+    print(dplyr::transmute(base$matchups, home = lab(.data$home), away = lab(.data$away), p_home = round(.data$p_home, 3),
+                           margin_q10 = round(.data$margin_q10, 1), margin_q50 = round(.data$margin_q50, 1),
+                           margin_q90 = round(.data$margin_q90, 1)))
+    if (!is.null(base$leverage)) {
+      lv <- base$leverage
+      cli::cli_text("Your leverage this week: P(playoffs) {round(lv$p_playoffs_if_win, 3)} if you win vs {round(lv$p_playoffs_if_loss, 3)} if you lose ({round(lv$leverage, 3)}).")
+    }
+    cli::cli_text("ESPN's own playoff odds: {if (all(is.na(od$espn_playoff_pct$espn_playoff_pct))) 'not provided by ESPN for this league' else 'see ledger record'}")
+    # VL3 sensitivity bands (2,000 simulations each, same seed)
+    bands <- purrr::map(list(c(0.5, 1), c(1.5, 1), c(1, 0.8), c(1, 1.2)), function(b) {
+      r <- sim_league_odds(m, state, sims = 2000, sigma_scale = b[1], noise_scale = b[2])$results$base$teams
+      dplyr::mutate(dplyr::select(r, "team_id", "p_playoffs", "p_title"), sigma_scale = b[1], noise_scale = b[2])
+    }) |>
+      purrr::list_rbind()
+    if (!is.na(me)) {
+      mine <- dplyr::filter(bands, .data$team_id == me)
+      cli::cli_text("Your sensitivity range (sigma_L x 0.5-1.5, noise x 0.8-1.2): P(playoffs) {round(min(mine$p_playoffs), 3)}-{round(max(mine$p_playoffs), 3)}, P(title) {round(min(mine$p_title), 3)}-{round(max(mine$p_title), 3)}")
+    }
+    delta <- NULL
+    if (!is.null(wi)) {
+      alt <- od$results$what_if$teams
+      delta <- dplyr::transmute(dplyr::inner_join(base$teams, alt, by = "team_id", suffix = c("", "_alt")), .data$team_id,
+                                d_playoffs = .data$p_playoffs_alt - .data$p_playoffs, d_title = .data$p_title_alt - .data$p_title)
+      cli::cli_text("What-if (common random numbers): your change in P(playoffs) {round(delta$d_playoffs[delta$team_id == me], 3)}, P(title) {round(delta$d_title[delta$team_id == me], 3)}")
+    }
+    rec <- list(teams = base$teams, matchups = base$matchups, leverage = base$leverage, bands = bands, what_if = delta,
+                invariants = as.list(base$invariants), label = od$label, espn_playoff_pct = od$espn_playoff_pct)
+    d <- lg_ledger_record("odds", m$inputs, season, m$current_week, rec, if (!is.null(wi)) list(what_if = wi) else NULL,
+                          list(sims = sims, seed = od$seed, elapsed_seconds = od$elapsed_seconds),
+                          options = opt, model_versions = list(simulator = "s0_v0 (VL3)", s0_params = "s0_params_v0",
+                                                               pod = "pod_baseline_v0", sigma_L = as.list(od$sigma_L)))
+    cli::cli_text("Ledgered {.val {d$decision_id}} (shadow odds; evaluation-only archive).")
     NULL
   },
   lineup = {
