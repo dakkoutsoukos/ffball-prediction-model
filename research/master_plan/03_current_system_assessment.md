@@ -184,6 +184,14 @@ Assumptions:
 
 So even if the effects are real, "insufficient" or "CI spans 0" is roughly as likely as success.
 
+> **Correction (2026-10-13, F1/E16).** These figures were optimistic: they used only 2019's week-level variance (the
+> quietest injury season) and a normal approximation. With within-season σ_w pooled over all historical seasons and
+> t quantiles, power at 13–14 informative weeks is about 25–35% (H-D, H-M4) and 37–40% (H-B); 14–21% if prospective
+> noise is 1.5× historical; about 8% for H-A; ≈ 0 for H-M2 (its holdout effect had the wrong sign). The pre-registered
+> percentile bootstrap passes about 10 points more often than these t-based figures, but its one-sided size is about
+> 5% rather than 2.5%. The pooled 2026 + 2027 analysis reaches 55–77% for the injury and return families. See
+> `research/experiment_log.md` E16 and [execution/decisions.md](execution/decisions.md) X-008.
+
 The picture may be worse:
 - W5 is a **structural-zero week** for M3b and M4, whose predictions were identical to the base.
 - Prospective σ_w may exceed the historical value, because pre-inactive snapshots include more zeros.

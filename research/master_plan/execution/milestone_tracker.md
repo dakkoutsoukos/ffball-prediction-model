@@ -16,7 +16,7 @@ Last updated: 2026-10-13.
 |---|---|---|---|---|---|
 | Step 0 | Manual W6 runs (owner) | 0 | — | DEFERRED (superseded) | F0's scheduled task covers the W6 Thu/Sun/Mon slates from 2026-10-15 if the PC is on and logged on; the owner still pushes, and the W6 Tuesday manifest (5d36f3b) was not yet on origin on 2026-10-13 |
 | F0 | Prospective operations hardening | 0 | — | COMPLETED (build) 2026-10-13; ongoing criteria tracked | 6d7965c, 2fc776c, 75448a1. Task `FFball_dispatch` registered; smoke test and in-task self-test pass |
-| F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | NOT STARTED | Must precede any 2026 scoring |
+| F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | COMPLETED 2026-10-13 (pending the owner's push) | E16/E17 committed before any 2026 scoring; power corrected (X-008) |
 | D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | NOT STARTED | |
 | F3 | League state v2 (lite now; full after O8 items) | 1 | — | NOT STARTED | O8: `view=mMatchup` approved (2026-10-13); other O8 items not asked |
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | NOT STARTED | |
@@ -64,12 +64,14 @@ Last updated: 2026-10-13.
 
 Deviation from the prompt (recorded in decisions X-006): new functions instead of edits to `week_coverage()`/`injury_report_status()`; task in the root folder (`FFball_dispatch`) instead of a task folder.
 
-### F1 — Prospective analysis addendum (E16) + E17
-1. `R/evaluation/power.R::mde_table()` (base R) with tests (closed-form check of the MDE formula).
-2. σ_w from historical comparison targets only (M2 dev/holdout, M3 E7, M3b E10, M4 E13/E14); MDE for H-M2, H-A, H-B, H-D, H-M4 at W ∈ {8, 10, 13, 14} and σ_w × {1, 1.5}; MSE alongside MAE.
-3. E16 in `research/experiment_log.md`: MDE table; W5 structural-zero week; secondaries (by horizon; MSE; decision relevance; pooled fixed-sample 2026+2027; blind e-process monitoring); late-push rule; primary tests and insufficiency rules unchanged.
-4. E17: R3's outcome-free plan (revision variance by position, band, lead time, status; martingale check; adoption rule).
-5. **No 2026 outcome loaded.** Committed before any 2026 outcome is loaded by a scoring routine; the owner pushes.
+### F1 — Prospective analysis addendum (E16) + E17 — COMPLETED 2026-10-13
+1. ✅ `R/evaluation/power.R`: `week_level_diffs()`, `week_noise()`, `mde()`, `power_at()` (one-sided toward improvement), `mde_table()`, `f1_reference_table()`, `percentile_bootstrap_sim()`; 35 test expectations (closed-form MDE values 1.15/0.99/0.72 σ_w; power at the MDE ≈ 80%; pairing identical to `pooled_bootstrap()`; within-season σ_w).
+2. ✅ σ_w from historical frames only (targets `f1_noise`, `f1_reference`, `f1_mde`, built with `shortcut = TRUE`: no upstream rebuild). The linearised SE matched the week bootstrap (0.00356 vs 0.00343), and the bootstrap reproduced E14's CI exactly.
+3. ✅ E16: MDE/power table (MAE and MSE; W ∈ {8, 10, 13, 14}; σ_w × {1, 1.5}; pooled 2026 + 2027); W5 structural zero; S1–S8 secondaries; late-push rule; no interim looks; primaries unchanged.
+4. ✅ E17: outcome-free horizon plan with fixed adoption rules (spread term, mean drift, martingale check).
+5. ✅ No 2026 outcome loaded. Committed locally. **The owner's next push publishes it** (required before any scoring; R1 is in January).
+
+Findings: power is lower than the plan said (X-008); the pre-registered bootstrap is anti-conservative at 13 weeks (S8 added). The anytime-valid analysis runs only at R1 (X-009). Push-time evidence added (X-010).
 
 ### D0 — Lineup helpers
 1. New pure `val_flex_slotting()`: among equal-EV assignments the latest-kickoff eligible starter goes in FLEX; expected points never change (test).

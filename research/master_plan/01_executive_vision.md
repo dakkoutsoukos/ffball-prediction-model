@@ -54,7 +54,7 @@ odds), and keeps a tamper-evident record that tests whether those recommendation
 ### 5. Proving improvements is a statistical-power problem
 
 - The unit of evidence is the *week*.
-- FFball's real effects are small (ΔMAE ≈ 0.01). Its 2026 prospective tests have roughly 35–50% power, and Week 5 was lost for the injury models.
+- FFball's real effects are small (ΔMAE ≈ 0.01). Its 2026 prospective tests have roughly 35–50% power, and Week 5 was lost for the injury models. *(Corrected 2026-10-13 by E16: about 25–40%, and 14–21% if prospective noise is higher; the pooled 2026 + 2027 analysis reaches 55–77%. See [03](03_current_system_assessment.md) W5.)*
 - The answers:
   - a pre-registered **pooled 2026 + 2027 analysis**, with the frozen-model runtime pinned so 2027 runs the same models. Anytime-valid monitoring buys optional stopping, not power.
   - a contamination register that spends each historical check season **once, in batches**, so each new question family uses history honestly;

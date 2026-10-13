@@ -90,3 +90,54 @@ The settings, records, seeds, waiver ranks and transaction counters are already 
 **Technical debt logged, not fixed:** `R/data/nfldata_history.R` (L93) also filters on `home`, so as-of lines
 for neutral-site games are missing from the E11 history (2021–2025). It feeds no frozen model. It is to be fixed when
 R5/F4 first uses as-of lines, behind a new target (not by editing the E11 targets).
+
+## X-008 · 2026-10-13 · The 2026 tests have less power than the plan said [plan change]
+
+**Finding (F1, E16).** The plan put power at 45–50% for M3b/M4 vs calibrated ESPN and 35–40% for M4 vs M3b
+(03 W5). That figure came from 2019's week-level variance alone, the least noisy injury season (σ_w 0.0147,
+against 0.0249 in 2022), and a normal approximation. Using within-season σ_w pooled over all historical
+seasons, t quantiles and the cleanest reference effects, power at 13–14 informative weeks is:
+
+| Hypothesis | Power |
+|---|---|
+| H-D | 25–27% |
+| H-M4 (both comparisons) | 32–35% |
+| H-B | 37–40% |
+| H-A | 8–9% |
+| H-M2 | ≈ 1% (holdout effect had the wrong sign) |
+
+With 1.5× noise, the H-B, H-D and H-M4 figures fall to 14–21%. The pooled 2026 + 2027 analysis reaches
+55–77% for H-B, H-D and H-M4.
+
+**Second finding.** The pre-registered percentile week bootstrap is anti-conservative at 13 weeks:
+- simulated one-sided size 4.9% against a nominal 2.5%;
+- power about 10 points above the t-based figures.
+
+**Decisions.**
+1. The primaries are unchanged (pre-registered).
+2. E16 pre-declares the reading rules: a null means "under-powered", and H-M2 is expected to fail.
+3. E16 adds sensitivity S8 (a small-sample t-interval), consistent with 05 §5's declared sensitivities.
+4. 01, 03 W5 and 07 F1 carry a dated correction note instead of a silent edit.
+5. The pooled 2026 + 2027 analysis (S5) becomes the main route to an informative answer. This raises the importance of
+   keeping the frozen runtime pinned through 2027 (I1).
+
+## X-009 · 2026-10-13 · "Blind e-process monitoring" is computed only at season end
+
+The plan (07 F1, I3) asked for blind in-season e-process monitoring. Any in-season computation on 2026
+outcomes would expose them to the developer and make them development data, which 05 §1 forbids.
+
+**Decision.** The anytime-valid analysis (E16 S6) is computed once at R1, with its betting rule fixed in E16.
+In-season monitoring of the frozen lineages is outcome-free (coverage, structural zeros, decision
+relevance). No optional-stopping action exists for frozen lineages anyway.
+
+## X-010 · 2026-10-13 · Push-time evidence for the late-push rule
+
+The late-push sensitivity analysis (E16 §4) needs the time each manifest reached GitHub, and git records no push times.
+
+**Decision.** Three sources, used in order at R1:
+1. GitHub's push record.
+2. A local `pre-push` hook that only logs (`scripts/ops_setup.R --install-push-log`; installed 2026-10-13; it never
+   blocks a push).
+3. The dispatcher's hourly record of `@{u}` (an upper bound).
+
+The pushes before 2026-10-13 have only GitHub's record.

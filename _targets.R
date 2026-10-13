@@ -415,6 +415,17 @@ list(
     })
   ),
 
+  # ---- Master plan F1 (E16): power of the 2026 prospective tests --------------
+  # Week-level noise and minimum detectable effects from HISTORICAL comparison frames
+  # only (2019-2025). No 2026 outcome is read. Report-only: nothing downstream.
+  if (file.exists("models/registry/m3.yml") && file.exists("research/m4_candidate_params.yml")) list(
+    tar_target(f1_noise, f1_noise_table(list(m2_holdout = m2_holdout_aligned, m2_dev = m2_dev_aligned,
+                                             m3_holdout = m3_holdout_aligned, m4 = m4_preds))),
+    tar_target(f1_reference, f1_reference_table(list(m2_holdout = m2_holdout_aligned,
+                                                     m3_holdout = m3_holdout_aligned, m4 = m4_preds))),
+    tar_target(f1_mde, mde_table(f1_noise, reference = f1_reference))
+  ),
+
   # ---- Valuation V1 (separate track: docs/valuation_v1_plan.md) -------------
   # Historical studies only; live valuations are point-in-time runs made by
   # scripts/valuation_run.R. Nothing here feeds any projection lineage. Built

@@ -362,6 +362,37 @@ ops_task_xml <- function(cmd_path, project_root, user, start) {
     "</Task>")
 }
 
+# --- Push-time records for the late-push sensitivity analysis (E16 section 4) ----------------
+PUSH_LOG <- file.path(DISPATCH_ROOT, "push_log.csv")
+UPSTREAM_LOG <- file.path(DISPATCH_ROOT, "upstream_log.csv")
+
+#' Contents of the git pre-push hook: logs every push attempt (UTC time, remote, remote ref,
+#' pushed commit) to data/ops/push_log.csv. It always exits 0, so it never blocks a push.
+push_log_hook <- function() {
+  c("#!/bin/sh",
+    "# FFball (master plan F1, E16): log push attempts for the late-push sensitivity analysis.",
+    "# Installed by scripts/ops_setup.R --install-push-log. Never blocks a push.",
+    "mkdir -p data/ops",
+    "[ -f data/ops/push_log.csv ] || echo 'attempted_at_utc,remote,remote_ref,local_sha' > data/ops/push_log.csv",
+    "while read local_ref local_sha remote_ref remote_sha; do",
+    "  printf '%s,%s,%s,%s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$1\" \"$remote_ref\" \"$local_sha\" >> data/ops/push_log.csv",
+    "done",
+    "exit 0")
+}
+
+#' Record the remote-tracking ref (what origin had at the last push or fetch) when it changes.
+#' The first observation of a commit bounds its push time from above (hourly resolution).
+record_upstream <- function(path = UPSTREAM_LOG, now = Sys.time()) {
+  sha <- tryCatch(suppressWarnings(system2("git", c("rev-parse", "@{u}"), stdout = TRUE, stderr = FALSE)),
+                  error = function(e) character())
+  if (length(sha) != 1 || !grepl("^[0-9a-f]{40}$", sha)) return(invisible(NA_character_))
+  last <- if (file.exists(path)) utils::tail(readr::read_csv(path, col_types = "cc")$upstream_sha, 1) else NA_character_
+  if (!identical(last, sha)) {
+    append_manifest(tibble::tibble(observed_at_utc = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"), upstream_sha = sha), path)
+  }
+  invisible(sha)
+}
+
 #' Write lines as UTF-16LE with a byte-order mark (what schtasks /XML expects).
 write_utf16 <- function(lines, path) {
   txt <- paste0(paste(lines, collapse = "\r\n"), "\r\n")

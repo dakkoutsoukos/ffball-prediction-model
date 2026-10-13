@@ -35,6 +35,12 @@ Last updated: 2026-10-13 (session 1, start of execution).
 - If you change the wrapper logic, regenerate it with `Rscript scripts/ops_setup.R` (no re-registration needed; the task points at the same `.cmd`).
 - Self-test inside the task environment: create `data/ops/self_test.flag`, then `Rscript scripts/ops_setup.R --run-now`; the result is the last `self-test` row of the dispatch log.
 
+## Binding analysis rules added by F1 (research/experiment_log.md E16, E17)
+
+- No 2026 outcome is loaded by any evaluation routine before R1 (end of the 2026 regular season), except the frozen procedure's training rows and ESPN's final *projections* (E17).
+- E17 (R3) may run in season: it uses projections only, and its adoption rules are mechanical.
+- Pipeline targets `f1_noise`, `f1_reference` and `f1_mde` hold the power table. Build new report-only targets with `tar_make(names = ..., shortcut = TRUE)` so upstream frozen targets are never rebuilt by accident.
+
 ## Exact next action
 
-F1: write `R/evaluation/power.R::mde_table()` + tests; compute σ_w from historical comparison targets only (no 2026 outcome); write E16 (addendum) and E17 (R3 outcome-free plan) in `research/experiment_log.md`; commit. Then D0.
+D0 (lineup helpers): new pure `val_flex_slotting()` after the allocator, a game-time plan (fixed prior Q ≈ 0.71 / D ≈ 0.07 in a small YAML; M4's P(active) for WR), CLI `trade_analyzer.R lineup`, V1/V2 bit-identity tests. Read `R/valuation/allocation.R`, `league_model.R` and `scripts/trade_analyzer.R` first.

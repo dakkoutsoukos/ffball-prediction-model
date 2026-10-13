@@ -118,6 +118,7 @@ main <- function() {
       action = dec$action, kind = dec$kind %||% NA_character_, season = season, week = dec$week,
       slate_id = dec$slate_id, reason = dec$reason, result = result
     ), DISPATCH_LOG)
+    try(record_upstream())   # push-time evidence for the late-push sensitivity analysis (E16)
   }
   week <- if (is.na(dec$week)) infer_target_week(tg, season, now) else dec$week
   runs <- dispatch_runs()

@@ -220,6 +220,37 @@ test_that("the wrapper and task definition quote paths with spaces and never pus
   expect_equal(readBin(f, "raw", 2), as.raw(c(0xFF, 0xFE)))
 })
 
+test_that("the push-time hook logs every pushed ref and never blocks a push", {
+  hook <- push_log_hook()
+  expect_equal(hook[1], "#!/bin/sh")
+  expect_equal(utils::tail(hook, 1), "exit 0")
+  expect_false(any(grepl("exit 1|exit \\$", hook)))
+  sh <- Sys.which("sh")
+  skip_if(!nzchar(sh), "no sh on PATH")
+  dir <- withr::local_tempdir()
+  f <- file.path(dir, "pre-push")
+  con <- file(f, "wb"); writeLines(hook, con, sep = "\n"); close(con)
+  input <- file.path(dir, "stdin.txt")
+  writeLines(c("refs/heads/main 1111111111111111111111111111111111111111 refs/heads/main 2222222222222222222222222222222222222222"), input)
+  withr::with_dir(dir, system2(sh, c(f, "origin", "https://example.invalid/repo.git"), stdin = input))
+  log <- readr::read_csv(file.path(dir, "data", "ops", "push_log.csv"), col_types = "cccc")
+  expect_equal(log$remote, "origin")
+  expect_equal(log$local_sha, strrep("1", 40))
+  expect_match(log$attempted_at_utc, "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$")
+})
+
+test_that("the upstream record appends only when origin's commit changes", {
+  up <- tryCatch(suppressWarnings(system2("git", c("rev-parse", "@{u}"), stdout = TRUE, stderr = FALSE)),
+                 error = function(e) character())
+  skip_if(length(up) != 1 || !grepl("^[0-9a-f]{40}$", up), "no upstream branch here")
+  f <- withr::local_tempfile(fileext = ".csv")
+  expect_equal(record_upstream(f), up)
+  record_upstream(f)
+  log <- readr::read_csv(f, col_types = "cc")
+  expect_equal(nrow(log), 1L)
+  expect_equal(log$upstream_sha, up)
+})
+
 test_that("status lines surface alerts, unpushed commits and capture cadence", {
   dec <- list(action = "none", kind = NA_character_, reason = "no run due", season = 2026L, week = 6L,
               slate_id = NA_character_, next_due = et("2026-10-18 10:00"))

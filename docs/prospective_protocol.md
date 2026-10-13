@@ -209,9 +209,11 @@ within 26 h of kickoff. The second branch covers teams with no designations, whi
 report. These checks read no outcome.
 
 **What remains the owner's job:**
-- **Push before kickoff** (`git push`) whenever the status file says PUSH NEEDED. How runs whose manifest
-  reached GitHub only after kickoff are analysed is fixed by the prospective analysis addendum (master
-  plan F1, research/experiment_log.md).
+- **Push before kickoff** (`git push`) whenever the status file says PUSH NEEDED. Runs whose manifest
+  reached GitHub only after kickoff remain in the primary analysis (made before kickoff, hash-verified)
+  and are excluded in a sensitivity analysis (research/experiment_log.md, E16 §4). Push times come from GitHub,
+  a local pre-push log (`data/ops/push_log.csv`; `Rscript scripts/ops_setup.R --install-push-log`; it never
+  blocks a push) and the dispatcher's hourly record of origin's commit (`data/ops/upstream_log.csv`).
 - Keep tracked code committed around slate windows (for example, Thursday about 17:15–18:45 ET and Sunday
   about 10:00–11:30 ET).
 - Keep the PC on and logged on. A missed trigger starts as soon as the PC is available, and the catch-up

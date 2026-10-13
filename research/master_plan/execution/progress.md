@@ -9,9 +9,9 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | F0 (build; season-long criteria tracked) |
-| In progress | F1 |
-| Next (ready) | D0 → F3-lite → F5 → F2-lite → P0 → S0 |
+| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it) |
+| In progress | D0 |
+| Next (ready) | F3-lite → F5 → F2-lite → P0 → S0 |
 | Blocked | — |
 | Deferred | — |
 
@@ -35,4 +35,4 @@
 
 | Date | Session | Work |
 |---|---|---|
-| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). Started F1. |
+| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. Started D0. |

@@ -949,3 +949,194 @@ was pushed about 66 hours before kickoff.
   `standard_pregame`.
 
 **Influence on later choices.** None of E13–E15 used a 2026 outcome.
+
+---
+
+## 2026-10-13 — E16: Prospective analysis addendum for the 2026 record (master plan F1; written before any 2026 outcome was scored)
+
+**Status.** Written during 2026 Week 6, before any 2026 outcome was loaded by an evaluation routine
+(`score_prospective()` has never been run on 2026). The frozen procedure's use of completed 2026 weeks
+as training rows (docs/prospective_protocol.md) is unchanged, and it is not scoring.
+
+**What does not change.** Every primary hypothesis and insufficiency rule stays exactly as written:
+- **H-M2** (E3): `m2_espn_aug` vs `m2_espn_cal`; fewer than 10 weeks is insufficient.
+- **H-A, H-B** (E6), **H-D** (E9): fewer than 8 weeks is insufficient.
+- **H-M4** (E14): vs M3b and vs calibrated ESPN; fewer than 8 weeks is insufficient.
+
+Success always means the paired week-bootstrap 95% CI of ΔMAE lies entirely below 0, with RMSE no
+worse. Official predictions, population and bootstrap are those of the protocol and `score_prospective()`.
+**Nothing below can turn a failed primary into a success.**
+
+### 1. Power: how a null must be read
+
+**Method** (`R/evaluation/power.R`; targets `f1_noise`, `f1_reference`, `f1_mde`; historical frames only):
+- **σ_w**, the week-level noise, is the within-season SD of each week's linearised contribution to the
+  pre-registered statistic Σs/Σn.
+  - Check on 2019 H-D: linearised SE 0.00356 vs week-bootstrap SD 0.00343.
+  - The same bootstrap reproduces E14's interval [−0.0143, −0.0005].
+- **σ_w is pooled** over the available seasons:
+  - H-M2: 2020–2025;
+  - H-A and H-B: 2024–2025;
+  - H-D and H-M4: 2019–2024, the E13/E14 frame.
+- **MDE** = (t₀.₉₇₅,W−1 + t₀.₈₀,W−1)·σ_w/√W.
+- **Power** is for the actual criterion (CI entirely below 0): a one-sided noncentral t toward improvement.
+- **Reference effect** (the plausible true effect) is the cleanest historical check:
+  - 2019 for H-D and H-M4 (fresh, E14);
+  - the 2024–2025 holdout for H-M2, H-A and H-B (E5, E7).
+
+  Development seasons are not used, because they are in-sample for the M4 parameters.
+- **Informative weeks:** W5–W18 = 14. For H-D and H-M4, W5 is a structural zero (§2), so at most 13.
+
+**MAE, the primary family.** Baseline MAE is 4.52 (2019) and 4.14 (2024–2025).
+
+| Hypothesis | Reference Δ (seasons) | σ_w | MDE, W = 13 / 14 | Power at reference, W = 13 / 14 | Power if σ_w × 1.5 | Power with the reference season's own σ_w | Pooled 2026 + 2027 (§3 S5), σ_w × 1 / × 1.5 |
+|---|---|---|---|---|---|---|---|
+| H-M2 aug vs cal | **+0.0098** (2024–25: aug *worse*) | 0.057 | 0.048 / 0.046 | ≈ 0.01 | ≈ 0.01 | ≈ 0.01 | ≈ 0 / ≈ 0 |
+| H-A role rule | −0.0017 (2024–25) | 0.010 | 0.0085 / 0.0081 | 0.08 / 0.09 | 0.06 | 0.08 / 0.09 | 0.15 / 0.09 |
+| H-B return rule | −0.0035 (2024–25) | 0.0071 | 0.0060 / 0.0058 | 0.37 / 0.40 | 0.19 / 0.21 | 0.37 / 0.40 | 0.77 / 0.44 |
+| H-D Questionable | −0.0075 (2019) | 0.019 | **0.016** / 0.0155 | **0.25** / 0.27 | 0.14 / 0.15 | 0.39 / 0.42 (σ_w 0.0147) | 0.56 / 0.29 |
+| H-M4 vs cal | −0.0185 (2019) | 0.041 | **0.0345** / 0.033 | **0.32** / 0.35 | 0.17 / 0.18 | 0.39 / 0.42 (σ_w 0.0363) | 0.69 / 0.37 |
+| H-M4 vs M3b | −0.0111 (2019) | 0.025 | **0.021** / 0.020 | **0.32** / 0.34 | 0.17 / 0.18 | 0.33 / 0.36 (σ_w 0.0240) | 0.68 / 0.36 |
+
+Bold marks the attainable horizon for the injury families (13 informative weeks). Pooled W = 13 + 18
+(injury families) or 14 + 18. MSE family: power ≤ 0.12 for every hypothesis at 13–14 weeks.
+
+**The pre-registered bootstrap is anti-conservative at this sample size.** I simulated normal
+week-level differences, 4,000 seasons of W = 13 with 400 resamples each
+(`percentile_bootstrap_sim(13, c(0, -0.39, -0.45, -0.51))`, seed 7). The percentile week bootstrap
+put its 95% CI entirely below 0 for:
+- **4.9% of seasons with no true effect.** The nominal rate is 2.5%. This is the known few-clusters problem (Cameron et al. 2008).
+- **36% of seasons at H-D's effect-to-noise ratio** (0.39 σ_w), against 25% from the t-based formula above.
+- 41% at 0.45 σ_w, against 32%.
+
+The table's t-based power figures are therefore conservative by about 10 points. The primary keeps its
+pre-registered bootstrap; S8 adds the small-sample check.
+
+**Reading rules (pre-declared).**
+1. If a primary CI spans 0, the result is reported as "not supported; the test was under-powered (power at the reference effect ≈ x%)". It is never reported as evidence that the effect is absent.
+2. If the realised number of informative weeks falls short of 13 or 14, the MDE at the realised W is reported.
+3. **H-M2 is expected to fail.** Its holdout effect had the wrong sign (E5). A pass would be surprising, and would be reported as such.
+4. **H-A cannot be informative in 2026.** Its reference effect is about a fifth of the MDE, so it is reported descriptively.
+
+**Correction to the master plan.**
+- *What the plan said:* about 45–50% power for M3b/M4 vs calibrated ESPN and about 35–40% for M4 vs M3b (03 W5, 01, 11).
+- *Why it was optimistic:* that figure used only 2019's week-level variance, the least noisy injury season (σ_w ranges from 0.0147 in 2019 to 0.0249 in 2022), and a normal approximation.
+- *The corrected figures* (pooled σ_w, t quantiles):
+  - 25–35% for the injury families and 37–40% for H-B;
+  - 14–21% if prospective noise is 1.5× historical, which is plausible because pre-inactive snapshots add zeros;
+  - 55–77% for the injury and return families in the pooled 2026 + 2027 analysis.
+
+### 2. Structural-zero weeks
+
+- **Definition** (outcome-free): a week in which a challenger's official prediction equals its comparator's for every paired player-week (max |difference| < 1e-9).
+- **2026 W5** is a structural-zero week for H-D and for both H-M4 comparisons:
+  - every W5 run preceded every team's final injury report (E15);
+  - this is verified at R1 from the archived predictions alone.
+- **The primary keeps W5 as specified.** It contributes zero differences and counts toward the minimum-week rules, as those rules are written.
+- Secondary S1 repeats each primary without structural-zero weeks and states the number of informative weeks.
+
+### 3. Pre-registered secondary analyses
+
+These are reported at R1. None can change a primary verdict.
+
+- **S1. Without structural-zero weeks** (§2).
+- **S2. MSE.** ΔMSE with the same pairing and week bootstrap, next to every ΔMAE. MSE is consistent for the mean, which is what sums of projections need (Gneiting 2011).
+- **S3. By horizon.** Each comparison within two strata of official predictions:
+  - *post-report:* both teams' final reports are in the run's injury capture, or the capture was made at most 26 h before kickoff (F0's definition, `post_report_coverage()`);
+  - *early-week:* all other official predictions.
+
+  The stratum is fixed before kickoff, so it is a pregame split. Descriptive.
+- **S4. Decision relevance** (outcome-free). For each challenger vs its comparator, by week:
+  - (a) the share of the comparator's top 36 that leaves the challenger's top 36;
+  - (b) the share of within-top-36 pairs whose order flips;
+  - (c) the share of player-weeks whose predictions differ by at least 0.5 points.
+
+  Reported as weekly means with ranges. Computable at any time from predictions alone.
+- **S5. Pooled fixed-sample 2026 + 2027** (the cross-season confirmatory secondary).
+  - *Design:* the same hypotheses, models, population and `pooled_bootstrap()` (weeks resampled within season), on every 2026 and 2027 prospective week.
+  - *Validity condition:* the frozen lineages must run unchanged through the 2027 regular season. The frozen-lineage runtime (R 4.5.1, renv snapshot 2026-10-01, `renv.lock` unchanged) stays pinned, and fingerprints stay identical.
+  - *Insufficiency and timing:* fewer than 16 informative weeks in total is insufficient. Evaluated once, after the 2027 regular season.
+  - *Expected power:* see §1.
+- **S6. Anytime-valid sensitivity.** Computed once at R1. No interim computation (§5).
+  - Each week w gives X_w = d̄_w / c_w, where c_w is the week's mean |ŷ_challenger − ŷ_comparator| over paired player-weeks. This is a predictable bound, since |Δ absolute error| ≤ |Δ prediction|.
+  - Weeks with c_w = 0 (structural zeros) are skipped.
+  - **E-process** for H₀: E[X_w | past] ≥ 0 (no improvement), written in base R (Choe & Ramdas 2024):
+    - wealth K_w = Π_{v ≤ w} (1 − λ_v X_v), with K_0 = 1;
+    - betting fraction λ_v = min(½, max(0, −μ̂/(σ̂² + μ̂²))), where μ̂ and σ̂² are the running mean and variance of earlier X;
+    - priors μ̂ = 0 and σ̂² = ¼ before the first informative week (so λ = 0).
+
+    Under H₀, K is a non-negative supermartingale, since X ∈ [−1, 1] and λ ∈ [0, ½]. Reported: K at season end and the first week with K ≥ 20 (α = 0.05), if any.
+  - The season-end e-value may be multiplied by 2027's (Grünwald et al. 2024). It gives validity under monitoring, not extra power.
+- **S7. Late-push sensitivity** (§4).
+- **S8. Small-sample interval.** A t-interval on the linearised week contributions, with W − 1 degrees of freedom (`week_noise()`), reported next to every primary.
+  - A primary that passes with the bootstrap but whose t-interval spans 0 is reported as "passed the pre-registered test; not robust to the small-sample correction".
+  - The verdict stays the pre-registered one.
+
+### 4. Late-push rule
+
+- **Primary (unchanged):** the latest archived run with `predicted_at` before kickoff and a snapshot captured before kickoff, hash-verified against the manifest (`official_predictions()`).
+- **Sensitivity S7:** additionally requires that a commit containing the run's manifest row reached origin before the game's kickoff.
+- **Push times** are established at R1, in this order of preference:
+  1. GitHub's record of pushes to the repository;
+  2. the local pre-push log `data/ops/push_log.csv` (from 2026-10-13);
+  3. the dispatcher's hourly record of the remote-tracking ref (`data/ops/upstream_log.csv`), which is an upper bound.
+
+  Runs with no established push time are counted and excluded from S7 only.
+- If S7 and the primary disagree, both are reported, and the primary stands.
+
+### 5. No interim looks
+
+- **No 2026 outcome is loaded by any evaluation routine before R1** (the end of the 2026 regular season). This covers `score_prospective()`, the F2 scoring tools, the F5 ledger join and the S0 archives. Two things are exempt:
+  - the frozen procedure's training rows;
+  - ESPN's after-the-fact final **projections**, which are forecasts, not outcomes (used by E17).
+- **In-season monitoring of the frozen lineages is outcome-free:** run coverage, structural zeros, and S4.
+- **"Blind e-process monitoring" in the master plan is implemented as S6 at R1.** An in-season look would turn 2026 outcomes into development data for later work, which the plan forbids.
+
+**Influence on later choices.** No 2026 outcome was used. No frozen artefact changed.
+
+---
+
+## 2026-10-13 — E17: Forecast-horizon study, R3 (outcome-free pre-registration)
+
+**Question.**
+- How much extra uncertainty do earlier ESPN projections carry, compared with ESPN's final, late-horizon projection?
+- How does that uncertainty vary by position, projection band, lead time and injury status?
+- Are ESPN's revisions approximately a martingale?
+
+**Why it is outcome-free.** It uses ESPN projections only:
+- FFball's dated captures:
+  - all positions: the valuation captures (`archive/valuation_espn_capture_manifest.csv`, every week through 18);
+  - WR: the weekly snapshots.
+- ESPN's after-the-fact final week-of projection for the same player-week. This is the same source as the historical ESPN data, and it is late-horizon (post-inactive).
+
+No actual points are used, so the analysis may run in season without unsealing 2026 outcomes.
+
+**Data.**
+- **Unit:** (player, season, target week, capture). Captures from 2026 W5; from W6, F0's schedule adds two or more per week.
+- **Values:** the early value v is the capture's projection for the target week; the final value f is ESPN's final projection, fetched once the week is complete.
+- **Lead time:** current week, by hours from capture to the player's kickoff (< 24, 24–72, 72–120, > 120). Future weeks, by weeks ahead (1, 2, 3–4, 5–8, 9+).
+- **Bands** of v, the same as P0: 0–3, 3–6, 6–9, 9–12, 12–15, 15–20, 20+.
+- **Status at capture** (ESPN `injury_status`): ACTIVE; QUESTIONABLE; other (DOUBTFUL, OUT, DAY_TO_DAY, IR).
+- **Active rows:** v > 0 and f > 0. Rows with v > 0 and f = 0 are availability transitions (most zero finals are inactives). They are reported separately, by status and lead bin, and belong to P(active | h), not to the spread term.
+
+**Estimands** (active rows; 95% CIs by a player-cluster bootstrap, 2,000 resamples, seed 1):
+1. **Revision drift** b = E[f − v], and **revision variance** V = Var(f − v), by position × lead bin, and by position × lead bin × band where the cell has at least 200 rows.
+2. **Martingale check.** For player-weeks with at least two captures before the final, the correlation between successive revisions (v₂ − v₁) and (f − v₂), and the slope of (f − v₂) on (v₂ − v₁). A martingale implies both are 0.
+3. **Transition shares:** P(f = 0 | v > 0) by status and lead bin. Descriptive; this feeds P1's early-horizon design.
+
+**Adoption rules** (fixed now; applied mechanically at every refresh; outcome-free):
+- **Spread term.** Applies to the early-horizon PODs of P0/P2, and to S0's inputs, which are early-week. In each position × current-week lead bin, F(y | active, base_h) is widened by an independent N(0, V̂) component if the CI of V̂ excludes 0. Otherwise no term is added. The band-level V̂ is used where its cell qualifies, and the pooled V̂ otherwise.
+- **Mean drift.** If the CI of b̂ excludes 0 in a cell, the early-horizon base is shifted by b̂ before calibration. That is, E[f | v] = v + b̂, and the late-horizon calibration is then applied. The shift uses projections only. Otherwise no shift is made.
+- **Martingale failure.** If the CI of the successive-revision correlation excludes 0, the result is recorded as a martingale failure. It informs X26 (the revision-dynamics model). No further correction is fitted on 2026 data.
+
+**Timing.**
+- First analysis once at least 4 weeks have both a capture more than 72 h before the week's first kickoff and final projections.
+- Refreshed weekly. Each refresh is archived with its inputs' hashes.
+- Final analysis at the end of the 2026 season. The frozen M-lineages are never touched.
+
+**Interpretation.**
+- V̂ ≈ 0: early-week tools need no extra spread, and the horizon matters only through availability.
+- V̂ > 0 and growing with lead time: early-week PODs and S0 odds widen accordingly.
+- Martingale failure: early projections are predictably revised, and X26 must model it.
+
+**Influence on later choices.** No 2026 outcome is used.
