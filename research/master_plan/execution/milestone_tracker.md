@@ -20,7 +20,7 @@ Last updated: 2026-10-13.
 | D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | COMPLETED 2026-10-13 | ea4a669; ledger rows to be hooked in F5; prior used for WR too (X-011) |
 | F3 | League state v2 (lite now; full after O8 items) | 1 | — | F3-lite COMPLETED 2026-10-13; F3-full NOT STARTED (O8 items) | c9fc3dc; live checks all pass; ESPN playoff odds absent (X-004) |
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | COMPLETED 2026-10-13 | 781889c; S0 must add its own hook |
-| F2 | Evaluation framework (lite now; full after R1) | 1 | — | NOT STARTED | |
+| F2 | Evaluation framework (lite now; full after R1) | 1 | — | F2-lite COMPLETED 2026-10-13; F2-full NOT STARTED (after R1) | 06b5d7a |
 | P0 | Baseline outcome distributions (E18) | 1 | F2-lite | NOT STARTED | |
 | S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | NOT STARTED | Condition met: trade deadline 2026-12-02 (~7 weeks after 2026-10-13) |
 | R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
@@ -94,11 +94,11 @@ Findings: power is lower than the plan said (X-008); the pre-registered bootstra
 4. ✅ Tests (29 expectations): write-once, tamper detection, distinct ids, actions, cutoff, both seals, lineup regret. First real decision ledgered and verified.
 5. ⏳ *Ongoing:* ≥ 95% of recommendations ledgered. Every current recommendation path ledgers; S0's `odds` must add its hook.
 
-### F2-lite — Scoring, register, PIT registry
-1. `R/evaluation/scoring_v2.R`: CRPS from quantiles, randomised PIT, coverage, interval score, Brier + binned reliability; closed-form tests.
-2. `research/contamination_register.yml` + `assert_family_seasons()` (05 §9 allocations, VE1c touches, 2026 sealed).
-3. Draft `config/pit_registry.yml` (historical ESPN = late horizon).
-4. Regression test reproducing `m2_holdout_comparisons`; M1–M4 fingerprints identical; no `renv.lock` change.
+### F2-lite — Scoring, register, PIT registry — COMPLETED 2026-10-13
+1. ✅ `R/evaluation/scoring_v2.R`: CRPS from quantile sets (dense-grid match to the analytic normal CRPS; within 3% on the POD τ grid; equals absolute error for point forecasts), quantile CDFs with jumps at ties, randomised PIT (uniform with an atom at 0), POD CDFs, coverage, interval score, Brier, binned reliability (Wilson CIs), CORP decomposition.
+2. ✅ `research/contamination_register.yml` + `assert_family_seasons()`: 05 §9 allocations, VE1c touches, 2026 sealed until the season is over, spent checks refused, unknown families refused.
+3. ✅ Draft `config/pit_registry.yml` (historical ESPN = late horizon).
+4. ✅ Regression test reproduces `m2_holdout_comparisons` exactly. Stored M1–M4 fingerprint checks read "identical", and no frozen code, model artefact or `renv.lock` changed this session (git diff since e0cfe70 is empty). 50 test expectations.
 
 ### P0 — Baseline outcome distributions (E18)
 1. E18 committed before any computation.

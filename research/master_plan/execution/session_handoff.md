@@ -49,6 +49,10 @@ Last updated: 2026-10-13 (session 1, start of execution).
 
 Every recommendation command of `trade_analyzer.R` writes a private record (`data/archive/decisions/`) and a hash row (`archive/decision_manifest.csv`; commit it). Two seals guard outcomes: `ledger_join_allowed()` (season over + 7 days) and `ledger_reports_unsealed()` (VL8–VL11 exist). New recommendation tools (S0 `odds`) must call `lg_ledger_record()`.
 
+## Evaluation tools (F2-lite)
+
+`R/evaluation/scoring_v2.R` (CRPS from quantiles, PIT, coverage, Brier/CORP); `assert_family_seasons(family, seasons, role)` must be called before any analysis touches outcomes (register: `research/contamination_register.yml`; record batch checks under `spent_checks`).
+
 ## Exact next action
 
-F2-lite (base R, no new packages, no `renv.lock` change): `R/evaluation/scoring_v2.R` (CRPS from quantile sets, randomised PIT, coverage, interval score, Brier + binned reliability, closed-form tests); `research/contamination_register.yml` + `R/utils/contamination.R::assert_family_seasons()` (05 §9 allocations, VE1c touches, 2026 sealed); draft `config/pit_registry.yml` (06 §5); regression test reproducing `m2_holdout_comparisons`.
+P0 (E18): FIRST write and commit E18 in `research/experiment_log.md` (population, base, bands, τ grid, horizon construction, development evaluation design, coverage gate, production fit 2020–2023), with nothing computed on outcomes. Then `R/probabilistic/pod_baseline.R` (`pd_`), `models/probabilistic/pod_baseline_v0.yml` (re-derived by the pipeline) + fingerprint, `validate_pod_table()`, prospective archive and manifest. Register check: `assert_family_seasons("distribution_stack", 2020:2023, "development")`; never touch 2024–2025.
