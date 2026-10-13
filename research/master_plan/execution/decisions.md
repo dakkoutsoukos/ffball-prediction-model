@@ -173,3 +173,23 @@ the first row of `archive/distribution_manifest.csv` (2026 W6) records the raw w
 - The W6 manifest row is **not edited**: prospective manifests are append-only. Its table hash refers to the same content in CRLF form, and the line-ending-independent content fingerprint is `905e3ca0…` (target `pd_table_check`).
 - Later rows carry `43b78dd2…`.
 - Future frozen files are written with LF (`writeLines(..., sep = "\n")` on a binary connection).
+
+## X-014 · 2026-10-13 · E17's readiness rule amended before any R3 computation (E17a)
+
+E17 required "a capture more than 72 h before the week's first kickoff". Tuesday captures are 59–65 h before a
+Thursday opener, so the rule could never fire. It was amended (E17a) before any R3 quantity was computed:
+readiness is now per position × lead-bin cell, with data from at least 4 distinct target weeks, and lead time
+is measured to each player's own kickoff. No result was seen first, so this is a correction, not a garden of forking paths.
+
+## X-015 · 2026-10-13 · Untracked code and official runs [recommendation to the owner]
+
+Every script `source()`s all of `R/`. `git_state()` (used by `weekly_run.R` and `valuation_run.R`) ignores
+untracked files. So an untracked R file can run inside an "official" run that claims to map to a commit,
+and a broken one crashes it.
+
+**Done (F0, my code).** The scheduled dispatcher refuses runs while untracked files exist under `R/` or `scripts/`
+(`untracked_code()`; in the self-test).
+
+**Not done.** `git_state()` itself is untouched, because it is the protocol's official-run check. *Recommendation:* the
+owner could tighten it the same way. That would change the official run script's behaviour, so it is the owner's
+call, not an execution default.

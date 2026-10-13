@@ -61,9 +61,14 @@ Every recommendation command of `trade_analyzer.R` writes a private record (`dat
 
 `Rscript scripts/league_refresh.R` then `Rscript scripts/trade_analyzer.R odds [--add X --drop Y]`. Frozen parameters: `models/simulation/s0_params_v0.yml` (σ_L). Engine: `sim_league_odds(m, state, ...)`. Shadow and unvalidated; every run is ledgered.
 
+## Horizon study (R3)
+
+`Rscript scripts/horizon_study.R`. The dispatcher also runs it after each early-week run. Outcome-free (ESPN source 1 only). Results go to `data/archive/horizon_study/`; commit `archive/horizon_manifest.csv`. The adoption table fires per position × lead bin at 4 target weeks (E17a).
+
 ## Exact next action
 
-**Phase 0 and Phase 1 are complete.** Next:
-1. **R3 tooling (E17; outcome-free; may run in season):** `R/probabilistic/horizon_study.R` (revision drift and variance by position × lead bin × band × status; martingale check; adoption table per E17's mechanical rules), tests on synthetic captures, then run it on the captures that exist. The adoption rules fire only once ≥ 4 weeks have early (> 72 h) captures and final projections (about early November). When they fire, P0/S0 early-week PODs widen.
-2. **F4 (position-general historical frame; unlocks Phase 2):** may start before January. It uses no new packages and makes no outcome-based selection. It is infrastructure; any later analysis on it goes through `assert_family_seasons()`.
-3. **Season end (January 2027):** R1 (score the 2026 record per E3/E6/E9/E14 + E16 S1–S8), then I1, F2-full, F3-full (ask O8 items).
+**Phase 0 and Phase 1 are complete; R3 is accruing.**
+1. **Weekly, in season:** check `data/ops/status.txt` and `dispatch_log.csv` after each slate. Make sure scheduled runs happened (≥ 95% coverage) and nothing was skipped as dirty or untracked. Remind the owner to push.
+2. **When R3's adoption first fires** (about early November; `adopted_cells > 0` in `archive/horizon_manifest.csv`): wire the spread variance and drift into S0's current-week draws. Do it as a new function behind a flag, recorded in the valuation log (VL3 addendum), never by editing frozen files.
+3. **F4** (position-general historical frame; unlocks Phase 2): may start before January. Base R plus lockfile packages; no outcome-based selection; analyses on it go through `assert_family_seasons()`. Fix the `nfldata_history.R` neutral-site issue behind a new target (X-007).
+4. **Season end (January 2027):** R1 (score per E3/E6/E9/E14 + E16 S1–S8, including the late-push sensitivity from `data/ops/push_log.csv` and GitHub), then I1, F2-full, F3-full (ask the O8 items).

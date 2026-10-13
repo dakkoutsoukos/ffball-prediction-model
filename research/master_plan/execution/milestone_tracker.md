@@ -42,7 +42,7 @@ Last updated: 2026-10-13.
 | D4 | Draft assistant (VL10; by Aug 2027) | 4 | S2, S3, O2/O8 captures | NOT STARTED | `keeperCount = 0`: keeper part gated off |
 | D5 | Weekly intelligence briefing | 4 | D1–D3, F5, I3 | NOT STARTED | |
 | VL11 | Decision-family batch check (2025 replays) | 4 | F6, D1–D3 pre-registrations | NOT STARTED | |
-| R3 | Forecast-horizon study (E17; outcome-free) | 5 | F0 | NOT STARTED | Data accrues from F0 captures |
+| R3 | Forecast-horizon study (E17 + E17a; outcome-free) | 5 | F0 | IN PROGRESS (tooling built c32408f; data accruing) | Refreshed weekly by the dispatcher; adoption per cell at 4 target weeks (about early November); then wire the spread/drift into S0's current-week draws |
 | R4 | Multi-source capture ◇ | 5 | O3 | NOT STARTED | Owner decision O3 (default: not captured) |
 | R5 | As-of market context | 5 | F4 | NOT STARTED | Inside P2/P3 |
 | R6 | ESPN-independent fallback ◇ | 5 | F4 | NOT STARTED | |
