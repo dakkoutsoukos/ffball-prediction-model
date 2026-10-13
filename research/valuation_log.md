@@ -479,3 +479,60 @@ Report-only fixes:
 - The first week 6 attempt on 2026-10-13 stopped with "No valuation ESPN capture for 2026 week 6". Run `20261013T070931Z` was then made without `--capture` and used capture `20261013T070639Z` as intended.
 
 **Fix.** The as-of time is now taken again right after the capture. Stamps are truncated to the second, so a capture always sorts at or before it. `scripts/weekly_run.R` is not affected: it does not pass the earlier time to `run_prospective()`.
+
+## 2026-10-13 — VL3: S0 shadow league simulator (master plan S0; pre-registration, written before σ_L or any simulation was computed)
+
+**Purpose.** Approximate playoff, title and weekly win odds for the owner's league in 2026, before the trade deadline
+(2026-12-02) and the playoffs. **Shadow and unvalidated.** S0 also seeds the 2027 thin slice (S2).
+
+**Inputs** (all point in time):
+- the latest league snapshot: rosters, plus the F3-lite schedule, records and rules;
+- the latest valuation run in the league's format: E, A and lvl per player-week through week 17;
+- the frozen P0 table (`pod_baseline_v0`);
+- the designation prior for designated players in the current week.
+
+**Model.**
+1. **Level shock.** Each simulation draws, per rostered player, L ~ lognormal(−σ_L²/2, σ_L²), so E[L] = 1, held constant over the season. σ_L is set by simulation matching (below).
+2. **Availability.** Each player-week is active ~ Bernoulli(A_t), with A_t from the valuation run. In the current week (where the run has A = 1), A is the designation prior for designated players and 1 otherwise.
+3. **Points if active.** L × (lvl_t + r_t), floored at the position floor. r_t comes from P0's residual distribution for (position, band of lvl_t), by inverse CDF interpolated on the τ grid, with tails held at the end quantiles.
+4. **Lineups use decision values.** A manager knows availability at lock, but not L or r. Each team each week starts the legal lineup that is optimal on active × lvl, from its current roster: laminar slot greedy, with V2's `empty_slots` streaming (an empty slot is filled at the week's free-agent level, at expected points). The team score is the **realised** points of those starters plus streamed points. No in-season learning in v0.
+5. **Rosters** are frozen at the snapshot: no trades or waivers are simulated.
+6. **League rules** (F3-lite):
+   - completed results stay fixed (ESPN records);
+   - equal scores are ties and count as half wins;
+   - seeds go by win share, then points for (TOTAL_POINTS_SCORED);
+   - 4-team bracket: semifinals in period 15 (week 15), seed 1 v 4 and 2 v 3; final in period 16 (weeks 16 and 17 combined);
+   - a playoff tie goes to the higher seed.
+7. **Correlation:** players and teams are otherwise independent in v0.
+8. **Simulation size and streams:** 10,000 simulations in chunks of 1,000, with L'Ecuyer-CMRG streams per chunk. Every what-if uses the same seeds (common random numbers).
+
+**σ_L by simulation matching** (development seasons 2019–2023 only):
+- **Rows:** `val_frame$future` rows of 2019–2023 with as-of weeks w ∈ {5, …, 11}. The forecasts E, A and lvl come from the frozen ROS parameters (`models/valuation/ros_params_v1.yml`). The ROS total is the sum over the remaining weeks t > w through the season's last week.
+- **Observed:** the residual R = Σ_t points − Σ_t E, per (player, season, w).
+- **Simulated:** the same rows with S0's components (availability from A_t, P0 noise around lvl_t, the level shock), 200 draws per row with common random numbers.
+- **Matching:** per position, σ_L solves SD(simulated R) = SD(observed R) by bisection on [0, 1.5]. If SD(simulated R) at σ_L = 0 already reaches the observed SD, σ_L = 0.
+- **Reported:** σ_L by position, the mean bias of simulated vs forecast totals, and the matched and observed SD by w (descriptive).
+
+**Sensitivity bands** (reported with every output): σ_L × {0.5, 1, 1.5}; noise (P0 residuals) × {0.8, 1.2}.
+
+**Outputs.**
+- Per team: E[wins], P(playoffs), P(each seed), P(title).
+- This week's P(win) and margin quantiles per matchup.
+- The owner's leverage this week: P(playoffs | win) − P(playoffs | loss).
+- What-ifs: ΔP(playoffs) and ΔP(title) for a roster change, with common random numbers.
+- ESPN's `playoffPct` alongside, if ESPN ever returns it (it currently does not; decisions X-004).
+
+**Label on every output:** "shadow / unvalidated: inputs are early-week, so odds are too sharp until R3; rosters frozen; players independent".
+
+**Checks.**
+- Per simulation: Σ_teams P(playoffs) = 4 and Σ P(title) = 1, exactly.
+- Monte Carlo SE ≤ 0.5 pp for every probability at 10,000 simulations.
+- Deterministic for a fixed seed.
+- Runtime ≤ 10 min.
+
+**Evaluation.**
+- The odds archive is evaluation-only, and never used to recalibrate σ_L or anything else in 2026.
+- Real-league calibration is descriptive: about 56 matchups and 4 playoff places per season.
+- Every odds query is ledgered (type `odds`).
+
+**Influence on later choices.** No 2024–2026 outcome is used: σ_L comes from 2019–2023 development rows, and P0 from 2020–2023.
