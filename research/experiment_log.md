@@ -1140,3 +1140,68 @@ No actual points are used, so the analysis may run in season without unsealing 2
 - Martingale failure: early projections are predictably revised, and X26 must model it.
 
 **Influence on later choices.** No 2026 outcome is used.
+
+---
+
+## 2026-10-13 — E18: Baseline outcome distributions P0 (distribution stack; pre-registration, written before any computation)
+
+**Question.** What is the distribution of a player's weekly points if he plays, given a calibrated ESPN base?
+P0 is an assumption-light baseline. It feeds S0 (shadow odds), and P2 must beat it.
+
+**Register.** Family `distribution_stack` (research/contamination_register.yml):
+- 2019 is warm-up;
+- **2020–2023 is development**;
+- 2024 is the one batch check, which P0 does not use;
+- 2025 is excluded;
+- 2027 is confirmatory.
+
+**Nothing is computed or viewed on 2024–2025 for this family.**
+
+**Data.** `val_frame$current` (ESPN final week-of projections joined to GSIS ids, regular season):
+- **Population:** QB/RB/WR/TE player-weeks with ESPN projection > 0, seasons 2019–2023.
+- **Active:** at least one offensive snap (nflverse snap counts, `snaps`). A player-week with no snap record but a stat line also counts as active (id-mapping gaps).
+  - Only active rows enter F(y | active).
+  - The share of inactive rows among projected rows is reported by position (descriptive). It is the late-horizon P(active), and ESPN zeroes most inactives.
+- **Outcome y:** league (ESPN PPR) points from nflverse stats; 0 for an active player with no stat line.
+
+**Base (location).** A new rolling-origin, per-position linear calibration:
+- base = a + b·ESPN, fit by least squares (MSE) on that position's active rows strictly before the target week;
+- expanding window from 2019 week 1, refit every week;
+- while a position has fewer than 200 training rows (early 2019), base = ESPN.
+
+**Residual quantile table.**
+- **Residuals:** r = y − base on active rows.
+- **Bands of base:** [0,3), [3,6), [6,9), [9,12), [12,15), [15,20), [20,∞).
+- **Levels:** τ ∈ {0.01, 0.05, 0.10, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.70, 0.75, 0.80, 0.90, 0.95, 0.99}. The 0.25/0.75 pair makes the 50% interval exact.
+- **Quantiles:** empirical, R type 7, per position × band.
+- **Small cells:** a cell with fewer than 200 rows merges with its neighbouring lower band, repeated until n ≥ 200.
+- **Predictive quantiles:** q_τ = max(base + r_τ, floor_pos), where floor_pos is the minimum active-row points of that position in the table's training rows.
+
+**Horizon construction** (prospective use; 05 §2.1): POD_h = p_h·F(y | active, base_h) + (1 − p_h)·δ₀.
+- **Location:** the base for prospective PODs is the valuation run's projection, the same mean V1, V2 and S0 use (for WRs, the frozen M4 prediction). The table is indexed by the band of that base. Development fits used P0's own calibration, so this mismatch is a stated limitation for P2 to test.
+- **Availability:** p_h is the designation prior (`config/availability_prior.yml`) for designated players and 1 otherwise, until P1.
+- **Spread:** the horizon spread term comes from R3 (E17) once its adoption rule fires. Until then none is added, and S0 states that its odds are too sharp.
+
+**Development evaluation** (descriptive; out-of-sample within development):
+- **Rolling by season:** each season s ∈ {2020, …, 2023} is scored with a table built from active rows of seasons 2019 … s − 1, using the rolling base.
+- **Reported by position:**
+  - mean CRPS from quantiles (`crps_quantiles()`);
+  - the randomised PIT histogram (10 bins) and a uniformity statistic;
+  - central 50/80/90% coverage with week-clustered bootstrap 95% CIs (weeks resampled within season, 2,000 resamples, seed 1);
+  - the interval score.
+- **Coverage gate (05 §6):** for each position × level (12 cells), the clustered CI must overlap [nominal − 3 pp, nominal + 3 pp], with Holm across the 12 cells.
+- **Reference only:** a normal distribution around the same base, with SD = the training residual SD by position × band. Not a selection criterion.
+
+**Production table and freeze.**
+- **Fit:** the production table uses active rows of **2020–2023 only**. 2019 is used only as calibration warm-up.
+- **Frozen file:** `models/probabilistic/pod_baseline_v0.yml`. It holds the τ grid, bands after merging, the quantile table, floors, cell counts, and the final 2023 per-position calibration coefficients (documentation only).
+- **Re-derivation:** the pipeline re-derives the table and fails on any difference, plus a fingerprint hash.
+- **P0 is frozen as the baseline whatever the gate says.** A gate failure is reported. S0 then states that its noise component failed the gate, and P2 must fix it.
+
+**Prospective archive.** From the freeze, the PODs used by any downstream run are archived write-once, with a hash manifest (`archive/distribution_manifest.csv`).
+
+**Interpretation.**
+- Passing the gate: a usable calibrated baseline.
+- Failing cells: where spread depends on more than base level and position (status, TD share, game script). These are the covariates P2 (X4) tests.
+
+**Influence on later choices.** No 2024–2026 outcome is used. The development results cannot change the bands, τ grid or method fixed here.
