@@ -256,6 +256,14 @@ dispatch_lock <- function(path = DISPATCH_LOCK, now = Sys.time(), stale_h = DISP
 
 dispatch_unlock <- function(path = DISPATCH_LOCK) if (file.exists(path)) unlink(path)
 
+#' Untracked files under the code directories. Every script sources all of R/, so untracked code
+#' would run inside a "clean" official run (and a broken one would crash it): scheduled runs refuse.
+untracked_code <- function(dirs = c("R", "scripts")) {
+  st <- tryCatch(system2("git", c("status", "--porcelain", "--untracked-files=all", "--", dirs), stdout = TRUE),
+                 error = function(e) character())
+  sub("^\\?\\? ", "", st[startsWith(st, "??")])
+}
+
 #' Console section for scripts/status.R: dispatcher decision (dry), post-report coverage of the
 #' upcoming games, all-position capture cadence, and the scheduled task's last status file.
 print_ops_status <- function(season, now = Sys.time()) {

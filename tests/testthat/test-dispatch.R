@@ -251,6 +251,18 @@ test_that("the upstream record appends only when origin's commit changes", {
   expect_equal(log$upstream_sha, up)
 })
 
+test_that("untracked code under R/ or scripts/ is detected (scheduled runs refuse it)", {
+  sh <- Sys.which("git")
+  skip_if(!nzchar(sh), "no git")
+  repo <- withr::local_tempdir()
+  withr::local_dir(repo)
+  system2("git", c("init", "-q"))
+  dir.create("R")
+  writeLines("x <- 1", "R/new.R")
+  writeLines("notes", "notes.txt")
+  expect_equal(untracked_code(), "R/new.R")   # files outside the code directories do not count
+})
+
 test_that("status lines surface alerts, unpushed commits and capture cadence", {
   dec <- list(action = "none", kind = NA_character_, reason = "no run due", season = 2026L, week = 6L,
               slate_id = NA_character_, next_due = et("2026-10-18 10:00"))

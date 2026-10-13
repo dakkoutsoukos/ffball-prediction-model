@@ -35,7 +35,7 @@ rscript_path <- function() {
 #' Commit the valuation manifests a capture run changed (only those paths; never pushes).
 commit_valuation_manifests <- function(season, week) {
   st <- system2("git", c("status", "--porcelain", "--", "archive"), stdout = TRUE)
-  changed <- grep("^archive/(valuation_[a-z_]+|distribution_manifest)[.]csv$", trimws(substring(st, 4)), value = TRUE)
+  changed <- grep("^archive/(valuation_[a-z_]+|distribution_manifest|horizon_manifest)[.]csv$", trimws(substring(st, 4)), value = TRUE)
   if (!length(changed)) return("unchanged")
   system2("git", c("add", "--", changed))
   msg <- sprintf("Valuation capture %d W%d (scheduled run; all positions)", season, week)
@@ -57,7 +57,7 @@ self_test <- function() {
   checks <- c(rscript_subprocess = sub_ok, git_head = length(head) == 1 && nzchar(head),
               git_identity = length(who) >= 1 && nzchar(who[1]), espn_enabled = isTRUE(cfg$espn$enabled),
               league_cookies_present = !is.na(cred$espn_s2) && !is.na(cred$swid),
-              clean_tree = isFALSE(git_state()$dirty))
+              clean_tree = isFALSE(git_state()$dirty), no_untracked_code = !length(untracked_code()))
   paste(sprintf("%s=%s", names(checks), ifelse(checks, "ok", "FAIL")), collapse = "; ")
 }
 
@@ -91,8 +91,12 @@ main <- function() {
   status <- 0L
   if (dec$action == "run" && !dry) {
     g <- git_state()
+    untracked <- untracked_code()
     if (!isFALSE(g$dirty)) {
       result <- "SKIPPED: tracked code has uncommitted changes (never stashed); commit to re-enable runs"
+      status <- 2L
+    } else if (length(untracked)) {
+      result <- sprintf("SKIPPED: untracked code would be sourced by the run (%s); commit or move it", paste(untracked, collapse = ", "))
       status <- 2L
     } else {
       stamp <- utc_stamp(now)
@@ -108,6 +112,11 @@ main <- function() {
           # P0 outcome distributions of this run (E18; local computation, no ESPN request)
           plog <- file.path(DISPATCH_ROOT, "logs", paste0(stamp, "_pod_archive.log"))
           system2(rscript_path(), c("scripts/pod_archive.R", season, dec$week), stdout = plog, stderr = plog)
+          if (identical(dec$kind, "early-week")) {
+            # R3 horizon study, refreshed weekly (E17; projections only, no ESPN request)
+            hlog <- file.path(DISPATCH_ROOT, "logs", paste0(stamp, "_horizon_study.log"))
+            system2(rscript_path(), c("scripts/horizon_study.R", season), stdout = hlog, stderr = hlog)
+          }
         }
         committed <- commit_valuation_manifests(season, dec$week)
         result <- sprintf("weekly_run ok (manifests committed locally); valuation capture %s; valuation manifests %s",
