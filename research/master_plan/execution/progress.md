@@ -9,9 +9,9 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite, F5, F2-lite, P0 |
-| In progress | S0 |
-| Next (ready) | Phase 1 then complete; R3 analysis once ≥ 4 weeks of captures (E17); season-end milestones from Jan 2027 |
+| Completed | **Phase 0 and Phase 1 complete:** F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite, F5, F2-lite, P0, S0 |
+| In progress | R3 tooling (E17; outcome-free, so it may run in season) |
+| Next (ready) | R3 first analysis once ≥ 4 weeks of captures (about early November); F4 (unlocks Phase 2); season-end R1 → I1 → F2-full, F3-full (O8) from Jan 2027 |
 | Blocked | — |
 | Deferred | — |
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | Implemented | Code exists and its tests pass | (existing M1–M4, V1, V2); F0 dispatcher and scheduled task (operational, no statistical claim); F1 power tools; D0 lineup helpers (advisory: kickoff slotting is exact; game-time plans use an unvalidated published prior) |
 | Statistically validated | Passed a pre-registered evaluation | (existing: M3b/M4 historical checks; prospective tests pending R1); P0 distributions: development coverage gate passed (descriptive, development only; the 2024 batch check comes with P2) |
-| Experimental | Built, not yet validated | D0 game-time plans (published prior, unvalidated) |
+| Experimental | Built, not yet validated | D0 game-time plans (published prior, unvalidated); S0 shadow odds (calibrated components, unvalidated as a whole; too sharp early in the week) |
 | Planned | Not built | Everything in the tracker not listed above |
 
 ## Baseline at the start of execution (2026-10-13)
@@ -35,4 +35,4 @@
 
 | Date | Session | Work |
 |---|---|---|
-| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. **D0 completed** (kickoff slotting, game-time plans, `lineup` CLI; on the real league it found a bye-week starter in the current ESPN lineup). **F3-lite completed** (schedule via `mMatchup`; all live invariants pass). **F5 completed** (ledger, two seals). **F2-lite completed** (scoring, register, PIT registry; fingerprints identical). **P0 completed** (E18; gate passed; frozen; W6 archive). Started S0. |
+| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. **D0 completed** (kickoff slotting, game-time plans, `lineup` CLI; on the real league it found a bye-week starter in the current ESPN lineup). **F3-lite completed** (schedule via `mMatchup`; all live invariants pass). **F5 completed** (ledger, two seals). **F2-lite completed** (scoring, register, PIT registry; fingerprints identical). **P0 completed** (E18; gate passed; frozen; W6 archive). **S0 completed** (VL3; σ_L matched; odds CLI; invariants hold on the live league). Phase 0 and Phase 1 done. |

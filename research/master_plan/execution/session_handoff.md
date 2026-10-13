@@ -57,10 +57,13 @@ Every recommendation command of `trade_analyzer.R` writes a private record (`dat
 
 `read_pod_table()` → frozen `pod_baseline_v0` table. `pd_quantiles(position, base, table)` gives F(y | active, base) quantiles on `POD_TAU`; `pd_pods()` gives PODs with p_active. The dispatcher archives current-week PODs after each capture (`scripts/pod_archive.R`; commit `archive/distribution_manifest.csv`). Never edit the YAML; a change is `pod_baseline_v1` with a new pre-registration. Write frozen files with LF endings (X-013).
 
+## League odds (S0)
+
+`Rscript scripts/league_refresh.R` then `Rscript scripts/trade_analyzer.R odds [--add X --drop Y]`. Frozen parameters: `models/simulation/s0_params_v0.yml` (σ_L). Engine: `sim_league_odds(m, state, ...)`. Shadow and unvalidated; every run is ledgered.
+
 ## Exact next action
 
-S0 (shadow league simulator; deadline 2026-12-02):
-1. FIRST write and commit **VL3** in `research/valuation_log.md` (simulation matching of σ_L on 2019–2023 only, log L ~ N(−σ²/2, σ²), sensitivity bands σ_L × {0.5, 1, 1.5} and noise × {0.8, 1.2}, evaluation-only archive, "shadow / unvalidated" label; league rules from F3-lite).
-2. Run the σ_L matching study (dev seasons only, `val_frame$future` with the frozen ROS forecasts); record the result in VL3.
-3. `R/simulation/season_sim.R` (`sim_`): availability draws, P0 noise, level shocks, 10,000 sims, L'Ecuyer-CMRG, common random numbers; a new decision-vs-realised lineup evaluator (V1/V2 untouched); 14-period regular season with ties, seeding by TOTAL_POINTS_SCORED, 4-team bracket (semifinal week 15, two-week final weeks 16–17).
-4. Outputs: E[wins], P(playoffs), P(title), rank distribution, this week's P(win)/margin, leverage, what-ifs; CLI `trade_analyzer.R odds`; ledger hook (type "odds"); tests (Σ P(playoffs) = 4, Σ P(title) = 1, determinism, MC SE ≤ 0.5 pp).
+**Phase 0 and Phase 1 are complete.** Next:
+1. **R3 tooling (E17; outcome-free; may run in season):** `R/probabilistic/horizon_study.R` (revision drift and variance by position × lead bin × band × status; martingale check; adoption table per E17's mechanical rules), tests on synthetic captures, then run it on the captures that exist. The adoption rules fire only once ≥ 4 weeks have early (> 72 h) captures and final projections (about early November). When they fire, P0/S0 early-week PODs widen.
+2. **F4 (position-general historical frame; unlocks Phase 2):** may start before January. It uses no new packages and makes no outcome-based selection. It is infrastructure; any later analysis on it goes through `assert_family_seasons()`.
+3. **Season end (January 2027):** R1 (score the 2026 record per E3/E6/E9/E14 + E16 S1–S8), then I1, F2-full, F3-full (ask O8 items).

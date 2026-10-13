@@ -22,7 +22,7 @@ Last updated: 2026-10-13.
 | F5 | Decision ledger (records only; outcomes sealed) | 1 | — | COMPLETED 2026-10-13 | 781889c; S0 must add its own hook |
 | F2 | Evaluation framework (lite now; full after R1) | 1 | — | F2-lite COMPLETED 2026-10-13; F2-full NOT STARTED (after R1) | 06b5d7a |
 | P0 | Baseline outcome distributions (E18) | 1 | F2-lite | COMPLETED 2026-10-13 | E18 e2db81e (pre-registration); coverage gate passed in all 12 cells; frozen; archive started |
-| S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | NOT STARTED | Condition met: trade deadline 2026-12-02 (~7 weeks after 2026-10-13) |
+| S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | COMPLETED 2026-10-13 | f4f1e06 (VL3), 136d766 (σ_L), 0012a18 (engine + CLI); runs need a fresh league snapshot |
 | R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
 | I1 | Platform runtime (renv profile) and modularisation | Season end | R1 | NOT STARTED | |
 | F4 | Position-general historical frame | 2 | F2 | NOT STARTED | |
@@ -109,11 +109,13 @@ Findings: power is lower than the plan said (X-008); the pre-registered bootstra
 
 Tests: 37 expectations (frame/activity, register refusal, rolling base without leakage, cell merging, floors, YAML round trip, archive write-once with a hash-only manifest).
 
-### S0 — Shadow league simulator (VL3)
-1. VL3 committed first (σ_L by simulation matching on 2019–2023; log L ~ N(−σ²/2, σ²); sensitivity bands; archive evaluation-only).
-2. `R/simulation/season_sim.R`: availability draws, P0 noise, level shocks, 10,000 sims, L'Ecuyer-CMRG, common random numbers; new decision/realised lineup evaluator (V1/V2 bit-identity); league rules from F3.
-3. Invariants (Σ P(playoffs) = slots, Σ P(title) = 1); Monte Carlo SE ≤ 0.5 pp; runtime ≤ 10 min; determinism.
-4. Labelled "shadow / unvalidated"; CLI `trade_analyzer.R odds`; ledger rows; archived before each week's first kickoff.
+### S0 — Shadow league simulator (VL3) — COMPLETED 2026-10-13
+1. ✅ VL3 committed first (f4f1e06). σ_L by simulation matching on 2019–2023 (QB 0.368, RB 0.373, WR 0.345, TE 0.388). Without the shock the simulated ROS spread is only 54–64% of the observed. Frozen `models/simulation/s0_params_v0.yml`, re-derived by the pipeline.
+2. ✅ `R/simulation/season_sim.R`: availability draws, P0 noise, level shocks, L'Ecuyer-CMRG streams per chunk, common random numbers (one pass per what-if); a new decision-vs-realised lineup evaluator (V1/V2 untouched); F3-lite rules (ties, TOTAL_POINTS_SCORED, 4-team bracket, two-week final).
+3. ✅ Live league: Σ P(playoffs) = 4, Σ P(title) = 1, max MC SE 0.49 pp, 10,000 simulations in 11 s; determinism tested.
+4. ✅ Label printed on every output; CLI `trade_analyzer.R odds` with sensitivity bands and what-ifs; ledger rows (type `odds`). ⏳ Weekly archiving depends on the owner refreshing the league snapshot; the dispatcher does not make league requests.
+
+Limitations (VL3 result 2): early-week sharpness until R3; K/DST not simulated; frozen rosters; independence; the current period is simulated in full.
 
 ### Later milestones
 Criteria as written in [07](../07_master_roadmap.md) §5–9. Copied here when a milestone becomes active.
