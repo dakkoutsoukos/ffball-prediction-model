@@ -19,7 +19,7 @@ Last updated: 2026-10-13.
 | F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | COMPLETED 2026-10-13 (pending the owner's push) | E16/E17 committed before any 2026 scoring; power corrected (X-008) |
 | D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | COMPLETED 2026-10-13 | ea4a669; ledger rows to be hooked in F5; prior used for WR too (X-011) |
 | F3 | League state v2 (lite now; full after O8 items) | 1 | — | F3-lite COMPLETED 2026-10-13; F3-full NOT STARTED (O8 items) | c9fc3dc; live checks all pass; ESPN playoff odds absent (X-004) |
-| F5 | Decision ledger (records only; outcomes sealed) | 1 | — | NOT STARTED | |
+| F5 | Decision ledger (records only; outcomes sealed) | 1 | — | COMPLETED 2026-10-13 | 781889c; S0 must add its own hook |
 | F2 | Evaluation framework (lite now; full after R1) | 1 | — | NOT STARTED | |
 | P0 | Baseline outcome distributions (E18) | 1 | F2-lite | NOT STARTED | |
 | S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | NOT STARTED | Condition met: trade deadline 2026-12-02 (~7 weeks after 2026-10-13) |
@@ -87,11 +87,12 @@ Findings: power is lower than the plan said (X-008); the pre-registered bootstra
 4. ✅ First live response (2026-10-13): keys only in the earlier inspection; `league_refresh.R` prints a name-free summary. **All five invariants pass on the live league**: one game per team per period; all 8 teams in all 14 periods; records, points for and points against recomputed from the schedule equal ESPN's; seeds follow TOTAL_POINTS_SCORED. Deadline 2026-12-02 (49.8 days away).
 5. Findings: 56 regular-season matchups; playoff matchups not yet created by ESPN (S0 must build the bracket from seeds: 4 teams, semifinal 1 week, final 2 weeks); `currentSimulationResults` absent (X-004).
 
-### F5 — Decision ledger
-1. `decision_record` schema (id, type, alias, season, week, `as_of_utc`, input hashes, recommendation, alternatives with metrics, model versions, owner-action flag).
-2. Private rows in `data/archive/decisions/`; hash-only `archive/decision_manifest.csv`; hooks in `trade_analyzer.R` and D0.
-3. Outcome of record = stats after the Thursday stat-correction pull; joins computed, **sealed** by a guard until the 2027 decision pre-registrations are committed.
-4. Tests: schema, write-once, join, seal guard. *Ongoing:* ≥ 95% of recommendations ledgered.
+### F5 — Decision ledger — COMPLETED 2026-10-13
+1. ✅ `decision_record_v1` schema: id, type, alias, season, week, `as_of_utc`, input hashes, recommendation, alternatives, metrics, model versions (git commit, prior source, query file). The owner's action is a separate private append-only record (`ledger-action`).
+2. ✅ Private write-once JSON in `data/archive/decisions/`; hash-only `archive/decision_manifest.csv`; hooks for every recommendation command of `trade_analyzer.R` (lineup, analyze, fair, target, sell, waivers).
+3. ✅ Outcome of record: league-scored nflverse stats from the first live retrieval on or after the Thursday 12:00 ET following the week. The join (`lg_ledger_join_lineup()`, realised, alternative and hindsight points plus regret) is implemented and **sealed twice**: no join before the season ends plus 7 days (E16 §5), and no report before VL8–VL11 exist.
+4. ✅ Tests (29 expectations): write-once, tamper detection, distinct ids, actions, cutoff, both seals, lineup regret. First real decision ledgered and verified.
+5. ⏳ *Ongoing:* ≥ 95% of recommendations ledgered. Every current recommendation path ledgers; S0's `odds` must add its hook.
 
 ### F2-lite — Scoring, register, PIT registry
 1. `R/evaluation/scoring_v2.R`: CRPS from quantiles, randomised PIT, coverage, interval score, Brier + binned reliability; closed-form tests.

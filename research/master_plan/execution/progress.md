@@ -9,9 +9,9 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite |
-| In progress | F5 |
-| Next (ready) | F2-lite → P0 → S0 |
+| Completed | F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite, F5 |
+| In progress | F2-lite |
+| Next (ready) | P0 → S0 |
 | Blocked | — |
 | Deferred | — |
 
@@ -35,4 +35,4 @@
 
 | Date | Session | Work |
 |---|---|---|
-| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. **D0 completed** (kickoff slotting, game-time plans, `lineup` CLI; on the real league it found a bye-week starter in the current ESPN lineup). **F3-lite completed** (schedule via `mMatchup`; all live invariants pass). Started F5. |
+| 2026-10-13 | 1 | Read the full plan; inspected the repo; owner decisions O1, O8 (`mMatchup`), captures; execution tracker created. **F0 completed** (dispatcher, scheduled task registered and self-tested; three bugs fixed, X-007). **F1 completed**: E16 (power corrected downward, X-008; bootstrap anti-conservative, S8) and E17. **D0 completed** (kickoff slotting, game-time plans, `lineup` CLI; on the real league it found a bye-week starter in the current ESPN lineup). **F3-lite completed** (schedule via `mMatchup`; all live invariants pass). **F5 completed** (ledger, two seals). Started F2-lite. |

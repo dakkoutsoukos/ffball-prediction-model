@@ -45,6 +45,10 @@ Last updated: 2026-10-13 (session 1, start of execution).
 
 `lg_state_from_snapshot(lg_latest_snapshot(2026))` → rules, schedule (team ids), standings, status. Live checks pass (2026-10-13). Playoff matchups are not in the schedule until ESPN creates them: build the bracket from seeds (4 teams; semifinal = period 15, one week; final = period 16, weeks 16–17).
 
+## Decision ledger (F5)
+
+Every recommendation command of `trade_analyzer.R` writes a private record (`data/archive/decisions/`) and a hash row (`archive/decision_manifest.csv`; commit it). Two seals guard outcomes: `ledger_join_allowed()` (season over + 7 days) and `ledger_reports_unsealed()` (VL8–VL11 exist). New recommendation tools (S0 `odds`) must call `lg_ledger_record()`.
+
 ## Exact next action
 
-F5 (decision ledger, records only): `R/valuation/ledger.R` (`lg_ledger_*`): `decision_record` schema; private rows in `data/archive/decisions/`; hash-only `archive/decision_manifest.csv`; outcome-of-record definition; outcome join implemented but SEALED behind a guard until the 2027 decision pre-registrations (VL8–VL11) are committed; hooks in `trade_analyzer.R` (every query, including `lineup`). Tests: schema, write-once, join on synthetic data, seal guard.
+F2-lite (base R, no new packages, no `renv.lock` change): `R/evaluation/scoring_v2.R` (CRPS from quantile sets, randomised PIT, coverage, interval score, Brier + binned reliability, closed-form tests); `research/contamination_register.yml` + `R/utils/contamination.R::assert_family_seasons()` (05 §9 allocations, VE1c touches, 2026 sealed); draft `config/pit_registry.yml` (06 §5); regression test reproducing `m2_holdout_comparisons`.
