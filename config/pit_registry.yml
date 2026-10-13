@@ -1,0 +1,56 @@
+# Point-in-time availability registry (master plan F2-lite draft; 06 section 5).
+# For each source: when its values become available, and how they may be used. Feature builders and
+# leakage audits (05 section 5, L2) assert every input satisfies available_at <= decision_time.
+# Draft: enforced from I1 (platform modularisation); until then it documents the rules.
+version: 1
+updated: 2026-10-13
+sources:
+  injuries_final_report:
+    timestamp: date_modified
+    valid_from: 2017
+    invalid_seasons: [2025]            # no timestamps
+    tz_fix: {2017-2020: "US/Pacific"}  # wall-clock stamps corrected (E9)
+  depth_charts:
+    timestamp: dt
+    valid_from: 2025
+  participation:
+    availability: after_postseason
+    use: prior_seasons_only
+  ftn_charting:
+    availability: "game_end + 48h"
+  nextgen_stats:
+    availability: nightly
+    caveat: "thresholded rows; week 0 overwritten"
+  snap_counts_pfr:
+    availability: "refreshed at 0/6/12/18 UTC"
+    lag_min: next_day
+  schedule_lines:
+    timestamp: none
+    use: closing_label_only
+    asof_source: nfldata_git_history
+  nfldata_git:
+    timestamp: commit_time
+    valid_from: 2021
+    caveat: "neutral-site games missing from the E11 as-of history (decisions X-007)"
+  espn_weekly_history:
+    semantics: final_pregame_post_inactive   # ESPN zeroes most inactives (E13)
+    use: late_horizon_only
+  espn_snapshots:
+    timestamp: captured_at
+    horizons: [early, post_report]          # by capture time vs final reports (F0 post_report_coverage)
+  espn_valuation_captures:
+    timestamp: captured_at_utc
+    includes: [current_week, posted_future_weeks, injury_status, pct_owned, pct_started]
+  league_snapshots:
+    timestamp: captured_at
+    includes: [settings, rosters, standings, schedule]   # schedule from 2026-10-13 (view=mMatchup)
+  weather_schedule_cols:
+    semantics: observed_at_game
+    use: label_only
+  ffopportunity_xfp:
+    model_train: "2006-2020"
+    in_sample_through: 2020
+    pin: v1.0.0
+  nflfastr_models:
+    model_train: "2006-2019"
+    in_sample_through: 2019

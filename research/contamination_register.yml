@@ -1,0 +1,69 @@
+# Contamination register (master plan F2-lite; allocations from 05 section 9).
+# Which seasons each question family may use, and for what. Enforced by
+# R/utils/contamination.R::assert_family_seasons(); a new family is added here BEFORE it touches data.
+#
+# Roles:
+#   development  - fit and select freely (rolling origin)
+#   training     - extra training rows only (no selection, no evaluation)
+#   warmup       - feature/calibration warm-up only
+#   check        - ONE pre-registered batch check, once; recorded under spent_checks when run
+#   confirmatory - prospective record only
+#   descriptive  - descriptive statistics only (no model selection)
+#   outcome_free - forecasts/projections only; no outcome may be loaded
+#   contaminated - already used for this family's claims: no new claims
+# sealed_seasons: no outcome of these seasons may be loaded for any family before its unseal date.
+
+version: 1
+updated: 2026-10-13
+sealed_seasons:
+  2026: "Prospective season: outcomes are never development data (05 section 1); evaluation only at R1 (E16 section 5)"
+
+families:
+  weekly_wr_points:
+    description: "Weekly WR points, the frozen M1-M4 lineages"
+    contaminated: [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+    confirmatory: [2026, 2027]
+    notes: "2019 consumed by the M4 check (E14). The pooled 2026+2027 secondary is E16 S5."
+  injury_stack:
+    description: "P1 availability v2 (all positions) and R2 RB/TE/QB designation and practice rules"
+    development: [2020, 2021, 2022, 2023]
+    training: [2017, 2018]
+    check: [2019]
+    confirmatory: [2027]
+    excluded: [2024, 2025]
+    touches:
+      - "VE1c examined RB/TE future availability after Questionable (mild)"
+    notes: "QB/RB/TE ESPN history starts 2019: the 2019 check uses an in-season calibration warm-up (weeks 1-4 excluded). WR results are reported separately (contaminated). 2024 is reserved for the distribution stack; 2025 has no injury timestamps."
+  distribution_stack:
+    description: "P0 baseline distributions, P2 calibrated distributions, P3 dependence (if gated in), P4 season dynamics"
+    development: [2020, 2021, 2022, 2023]
+    warmup: [2019]
+    check: [2024]
+    confirmatory: [2027]
+    excluded: [2025]
+    touches:
+      - "VE1c weekly and rest-of-season residual SD diagnostics touched 2019-2025 (scale roughly known; mild)"
+    notes: "P0's production table is fit on 2020-2023 only; nothing is computed or viewed on 2024-2025 for this family before the batch check."
+  decision_family:
+    description: "F6 decision-laboratory experiments (lineup and contested add/drop policies; X8, X9, X10b, X16, X23)"
+    development: [2020, 2021, 2022, 2023]
+    check: [2025]
+    confirmatory: [2027]
+    excluded: [2024]
+    notes: "Replays; forecasts inside the lab are rolling-origin. Policies needing injury timestamps are excluded on 2025. 2024 is excluded because the distribution-stack check results will have been seen."
+  usage_features:
+    description: "R7 usage reliability and first-read share"
+    development: [2023, 2024]
+    descriptive: [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+    check: [2025]
+    confirmatory: [2027]
+  horizon_study:
+    description: "R3 forecast-horizon study (E17): ESPN projection revisions only"
+    outcome_free: [2026, 2027]
+  shadow_outputs:
+    description: "S0 shadow odds and the F5 decision ledger"
+    confirmatory: [2026, 2027]
+    notes: "2026 outcomes sealed: no outcome-joined analysis until the 2027 decision pre-registrations (VL8-VL11)."
+
+# One line per batch check actually run (date, family, season, log entry). Empty until the first batch.
+spent_checks: []
