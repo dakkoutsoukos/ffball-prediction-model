@@ -1255,3 +1255,19 @@ component and as the bar P2 must beat. Its known gaps:
 - availability from a published prior, until P1;
 - TE upper-tail shape;
 - the prospective base is the valuation projection rather than P0's own calibration.
+
+---
+
+## 2026-10-13 — E17a: Amendment to E17's readiness condition (written before any R3 computation)
+
+**Defect.** E17 says the first analysis waits until at least 4 weeks have "a capture more than 72 h before the
+week's first kickoff". The earliest scheduled capture is the early-week run on Tuesday. A week opens on Thursday
+night, 59–65 h later. As written, the condition cannot be met in normal weeks, so the adoption rules could
+never fire.
+
+**Amendment.** Lead time is measured to each player's own kickoff, as E17 already defines it. Two changes:
+1. **Readiness is per cell.** A position × lead-bin cell is analysed, and its adoption rules applied, once it holds active rows from **at least 4 distinct target weeks**. The early bins (72–120 h, > 120 h) fill from Tuesday–Wednesday captures of Sunday and Monday games.
+2. **Current week and future weeks.** The current week is the target week equal to the capture's own week (from its archive path); future weeks are 1, 2, 3–4, 5–8 and 9+ weeks ahead.
+
+Everything else in E17 is unchanged: estimands, active-row definition, bootstrap, adoption rules, timing.
+No R3 quantity had been computed when this was written.
