@@ -1,0 +1,118 @@
+# Milestone tracker
+
+*Every milestone in [07](../07_master_roadmap.md), with dependencies, acceptance criteria and status.
+A milestone is COMPLETED only when its acceptance criteria pass. Code being written is not enough.*
+
+**Statuses:** NOT STARTED · IN PROGRESS · BLOCKED · VALIDATING · COMPLETED · FAILED EXPERIMENT · DEFERRED.
+Some criteria can only be met over time (e.g. "≥ 95% of remaining 2026 games covered"). For those, the
+milestone is marked COMPLETED (build) once everything checkable now passes, and the time-dependent criterion
+is tracked in the "Ongoing criteria" table at the end.
+
+Last updated: 2026-10-13.
+
+## Summary
+
+| id | Milestone | Phase | Depends on | Status | Commit(s) / notes |
+|---|---|---|---|---|---|
+| Step 0 | Manual W6 runs (owner) | 0 | — | NOT STARTED (owner action) | Superseded from W6 Thu by F0's scheduled runs if they register in time; the owner still pushes |
+| F0 | Prospective operations hardening | 0 | — | IN PROGRESS | O1 approved: register scheduled tasks; captures approved |
+| F1 | Prospective analysis addendum (E16) + R3 outcome-free plan (E17) | 0 | — | NOT STARTED | Must precede any 2026 scoring |
+| D0 | Lineup helpers (FLEX slotting, game-time plan) | 1 | — (F5 optional) | NOT STARTED | |
+| F3 | League state v2 (lite now; full after O8 items) | 1 | — | NOT STARTED | O8: `view=mMatchup` approved (2026-10-13); other O8 items not asked |
+| F5 | Decision ledger (records only; outcomes sealed) | 1 | — | NOT STARTED | |
+| F2 | Evaluation framework (lite now; full after R1) | 1 | — | NOT STARTED | |
+| P0 | Baseline outcome distributions (E18) | 1 | F2-lite | NOT STARTED | |
+| S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | NOT STARTED | Condition met: trade deadline 2026-12-02 (~7 weeks after 2026-10-13) |
+| R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
+| I1 | Platform runtime (renv profile) and modularisation | Season end | R1 | NOT STARTED | |
+| F4 | Position-general historical frame | 2 | F2 | NOT STARTED | |
+| F6 | Decision laboratory v1 | 2 | F2, F4 | NOT STARTED | |
+| P1 | Availability v2 (with R2, E19, batch check 2019) | 2 | F2, F4 | NOT STARTED | |
+| R2 | RB/TE/QB availability rules (with P1, E19) | 2/5 | F4 | NOT STARTED | |
+| P2 | Calibrated distributions v1 (E20, batch check 2024) | 2 | P1, F4, F2 | NOT STARTED | |
+| P3 | Dependence model (E21; gated) | 2 | P2 | NOT STARTED | |
+| P4 | Season dynamics (VL4) | 2 | P2, F4 | NOT STARTED | |
+| P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | NOT STARTED | |
+| S1 | Matchup win probability v1 (VL5) | 3 | P5, F3, F6 | NOT STARTED | |
+| S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | NOT STARTED | |
+| S3 | Valuation v3 (VL7) | 3 | P4, P5, S2, F6 | NOT STARTED | |
+| D1 | Lineup engine v1 (VL8; triage-gated) | 4 | S1, P5, F5, F6 | NOT STARTED | |
+| D2 | Trade engine v3 | 4 | S2, S3, F3, F5 | NOT STARTED | |
+| D3 | Waiver / free-agent assistant (VL9) | 4 | S2, S3, F3, F6 | NOT STARTED | League has no FAAB (`isUsingAcquisitionBudget = FALSE`): the FAAB part is gated off; waiver priority applies |
+| D4 | Draft assistant (VL10; by Aug 2027) | 4 | S2, S3, O2/O8 captures | NOT STARTED | `keeperCount = 0`: keeper part gated off |
+| D5 | Weekly intelligence briefing | 4 | D1–D3, F5, I3 | NOT STARTED | |
+| VL11 | Decision-family batch check (2025 replays) | 4 | F6, D1–D3 pre-registrations | NOT STARTED | |
+| R3 | Forecast-horizon study (E17; outcome-free) | 5 | F0 | NOT STARTED | Data accrues from F0 captures |
+| R4 | Multi-source capture ◇ | 5 | O3 | NOT STARTED | Owner decision O3 (default: not captured) |
+| R5 | As-of market context | 5 | F4 | NOT STARTED | Inside P2/P3 |
+| R6 | ESPN-independent fallback ◇ | 5 | F4 | NOT STARTED | |
+| R7 | Usage reliability, first-read share ◇ | 5 | F4 | NOT STARTED | |
+| I2 | Local dashboard ◇ | 6 | D5 | NOT STARTED | |
+| I3 | Monitoring and alerting | 6 | with D5 | NOT STARTED | |
+
+## Acceptance criteria (from 07; checkable items first)
+
+### F0 — Prospective operations hardening
+1. A dispatcher keyed to kickoff times (Thursday, Saturday, international, Sunday, Monday, holiday slates) decides when a run is due: an early-week run plus a post-report run in [kickoff − 3 h, kickoff − 1.5 h) per slate, with catch-up until kickoff − 30 min.
+2. Each run: `weekly_run.R --commit` (local) → `valuation_run.R --capture` (all positions) → local commit of the valuation manifests → `status.R` → status file. Scripts never push. A dirty tree is skipped and logged, never stashed.
+3. `week_coverage()`/`injury_report_status()` extended (new functions, existing behaviour unchanged): per upcoming game, whether a run exists after that team's final report and before kickoff; slates within 3 h of kickoff without one are flagged in `status.R` and the status file.
+4. Git-ignored `.cmd` wrapper(s) with quoted absolute paths, generated by a committed script.
+5. Tests with synthetic schedules (Saturday, international, holiday) and manifests; full suite passes; M1–M4 fingerprints untouched.
+6. Task Scheduler registration (O1 approved) verified by a manual trigger that writes the log.
+7. "Automation" section appended to `docs/prospective_protocol.md`; rules unchanged.
+8. *Ongoing:* ≥ 95% of remaining 2026 games have an archived post-report, pre-kickoff run; 0 scripted pushes; 0 runs on a dirty tree; all-position captures at ≥ 2 times per week for ≥ 8 weeks.
+
+### F1 — Prospective analysis addendum (E16) + E17
+1. `R/evaluation/power.R::mde_table()` (base R) with tests (closed-form check of the MDE formula).
+2. σ_w from historical comparison targets only (M2 dev/holdout, M3 E7, M3b E10, M4 E13/E14); MDE for H-M2, H-A, H-B, H-D, H-M4 at W ∈ {8, 10, 13, 14} and σ_w × {1, 1.5}; MSE alongside MAE.
+3. E16 in `research/experiment_log.md`: MDE table; W5 structural-zero week; secondaries (by horizon; MSE; decision relevance; pooled fixed-sample 2026+2027; blind e-process monitoring); late-push rule; primary tests and insufficiency rules unchanged.
+4. E17: R3's outcome-free plan (revision variance by position, band, lead time, status; martingale check; adoption rule).
+5. **No 2026 outcome loaded.** Committed before any 2026 outcome is loaded by a scoring routine; the owner pushes.
+
+### D0 — Lineup helpers
+1. New pure `val_flex_slotting()`: among equal-EV assignments the latest-kickoff eligible starter goes in FLEX; expected points never change (test).
+2. Game-time plan per Questionable starter: P(active) (M4 for WR, fixed prior Q ≈ 0.71 / D ≈ 0.07 otherwise, in a YAML), best pivot kicking off after the starter's inactive announcement (≈ 90 min before his kickoff), and whether one exists.
+3. V1/V2 bit-identity tests; CLI `trade_analyzer.R lineup`; toy weeks with known answers; ESPN lock-at-kickoff rule.
+
+### F3 — League state v2 (lite)
+1. `view=mMatchup` added to the existing single request (approved). No additional requests.
+2. Parsed: schedule (matchup periods, home/away, bye, scores, winner, playoff tier); records, seeds, ranks; rules (schedule settings, tie rules, top-half bonus flag, trade deadline, keepers); acquisition settings, waiver rank, budget spent.
+3. Hand-written JSON fixtures; invariants (one game per team per period; recomputed standings equal ESPN's seeds/records); privacy grep test; write-once alias snapshots; hash-only manifests.
+4. Keys only printed on the first live response; `deadlineDate` reported relative to today.
+
+### F5 — Decision ledger
+1. `decision_record` schema (id, type, alias, season, week, `as_of_utc`, input hashes, recommendation, alternatives with metrics, model versions, owner-action flag).
+2. Private rows in `data/archive/decisions/`; hash-only `archive/decision_manifest.csv`; hooks in `trade_analyzer.R` and D0.
+3. Outcome of record = stats after the Thursday stat-correction pull; joins computed, **sealed** by a guard until the 2027 decision pre-registrations are committed.
+4. Tests: schema, write-once, join, seal guard. *Ongoing:* ≥ 95% of recommendations ledgered.
+
+### F2-lite — Scoring, register, PIT registry
+1. `R/evaluation/scoring_v2.R`: CRPS from quantiles, randomised PIT, coverage, interval score, Brier + binned reliability; closed-form tests.
+2. `research/contamination_register.yml` + `assert_family_seasons()` (05 §9 allocations, VE1c touches, 2026 sealed).
+3. Draft `config/pit_registry.yml` (historical ESPN = late horizon).
+4. Regression test reproducing `m2_holdout_comparisons`; M1–M4 fingerprints identical; no `renv.lock` change.
+
+### P0 — Baseline outcome distributions (E18)
+1. E18 committed before any computation.
+2. POD table for QB/RB/WR/TE: new rolling-origin per-position linear calibration (MSE); empirical quantiles of (actual − base) on active rows by position × fixed bands; τ grid; interpolation and floor; POD_h = P(active | h)·F + (1 − P)·δ₀.
+3. Production table fit on 2020–2023 only; nothing computed or viewed on 2024–2025.
+4. `models/probabilistic/pod_baseline_v0.yml` re-derived by the pipeline + fingerprint; `validate_pod_table()`; prospective archive + manifest.
+5. Development coverage meets the 05 §6 gate (descriptive).
+
+### S0 — Shadow league simulator (VL3)
+1. VL3 committed first (σ_L by simulation matching on 2019–2023; log L ~ N(−σ²/2, σ²); sensitivity bands; archive evaluation-only).
+2. `R/simulation/season_sim.R`: availability draws, P0 noise, level shocks, 10,000 sims, L'Ecuyer-CMRG, common random numbers; new decision/realised lineup evaluator (V1/V2 bit-identity); league rules from F3.
+3. Invariants (Σ P(playoffs) = slots, Σ P(title) = 1); Monte Carlo SE ≤ 0.5 pp; runtime ≤ 10 min; determinism.
+4. Labelled "shadow / unvalidated"; CLI `trade_analyzer.R odds`; ledger rows; archived before each week's first kickoff.
+
+### Later milestones
+Criteria as written in [07](../07_master_roadmap.md) §5–9. Copied here when a milestone becomes active.
+
+## Ongoing criteria (time-dependent)
+
+| Milestone | Criterion | Measured by | Status |
+|---|---|---|---|
+| F0 | ≥ 95% of remaining 2026 games with an archived post-report, pre-kickoff run | `ops_coverage_report()` at season end | Tracking from W6 |
+| F0 | 0 scripted pushes; 0 runs on a dirty tree | dispatch log | Tracking |
+| F0 | All-position captures ≥ 2 times per week for ≥ 8 weeks | `archive/valuation_espn_capture_manifest.csv` | Tracking |
+| F5 | ≥ 95% of recommendations ledgered | ledger manifest vs CLI invocations | Not started |
