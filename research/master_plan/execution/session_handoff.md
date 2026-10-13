@@ -53,6 +53,14 @@ Every recommendation command of `trade_analyzer.R` writes a private record (`dat
 
 `R/evaluation/scoring_v2.R` (CRPS from quantiles, PIT, coverage, Brier/CORP); `assert_family_seasons(family, seasons, role)` must be called before any analysis touches outcomes (register: `research/contamination_register.yml`; record batch checks under `spent_checks`).
 
+## Outcome distributions (P0, frozen)
+
+`read_pod_table()` → frozen `pod_baseline_v0` table. `pd_quantiles(position, base, table)` gives F(y | active, base) quantiles on `POD_TAU`; `pd_pods()` gives PODs with p_active. The dispatcher archives current-week PODs after each capture (`scripts/pod_archive.R`; commit `archive/distribution_manifest.csv`). Never edit the YAML; a change is `pod_baseline_v1` with a new pre-registration. Write frozen files with LF endings (X-013).
+
 ## Exact next action
 
-P0 (E18): FIRST write and commit E18 in `research/experiment_log.md` (population, base, bands, τ grid, horizon construction, development evaluation design, coverage gate, production fit 2020–2023), with nothing computed on outcomes. Then `R/probabilistic/pod_baseline.R` (`pd_`), `models/probabilistic/pod_baseline_v0.yml` (re-derived by the pipeline) + fingerprint, `validate_pod_table()`, prospective archive and manifest. Register check: `assert_family_seasons("distribution_stack", 2020:2023, "development")`; never touch 2024–2025.
+S0 (shadow league simulator; deadline 2026-12-02):
+1. FIRST write and commit **VL3** in `research/valuation_log.md` (simulation matching of σ_L on 2019–2023 only, log L ~ N(−σ²/2, σ²), sensitivity bands σ_L × {0.5, 1, 1.5} and noise × {0.8, 1.2}, evaluation-only archive, "shadow / unvalidated" label; league rules from F3-lite).
+2. Run the σ_L matching study (dev seasons only, `val_frame$future` with the frozen ROS forecasts); record the result in VL3.
+3. `R/simulation/season_sim.R` (`sim_`): availability draws, P0 noise, level shocks, 10,000 sims, L'Ecuyer-CMRG, common random numbers; a new decision-vs-realised lineup evaluator (V1/V2 untouched); 14-period regular season with ties, seeding by TOTAL_POINTS_SCORED, 4-team bracket (semifinal week 15, two-week final weeks 16–17).
+4. Outputs: E[wins], P(playoffs), P(title), rank distribution, this week's P(win)/margin, leverage, what-ifs; CLI `trade_analyzer.R odds`; ledger hook (type "odds"); tests (Σ P(playoffs) = 4, Σ P(title) = 1, determinism, MC SE ≤ 0.5 pp).

@@ -160,3 +160,16 @@ The starting set is the expected-points optimum on the same projections V2 uses.
 enters only the game-time plan, never the optimiser. D0 can therefore never lower expected points
 relative to the existing logic, which is the plan's requirement. Whether starters should be re-chosen with
 availability-adjusted values is a D1 question for 2027.
+
+## X-013 · 2026-10-13 · Line endings of frozen files; P0 table hashes
+
+R's `writeLines()` on Windows wrote the frozen `models/probabilistic/pod_baseline_v0.yml` with CRLF endings. Git
+stores LF (`.gitattributes eol=lf`). The pipeline check compares parsed content, so it was unaffected. But
+the first row of `archive/distribution_manifest.csv` (2026 W6) records the raw working-copy hash
+`720b77d7…` of the CRLF file.
+
+**Decision.**
+- The working copy was normalised to LF. Content and git status are unchanged; the file now hashes exactly as the repository blob, `43b78dd2…`.
+- The W6 manifest row is **not edited**: prospective manifests are append-only. Its table hash refers to the same content in CRLF form, and the line-ending-independent content fingerprint is `905e3ca0…` (target `pd_table_check`).
+- Later rows carry `43b78dd2…`.
+- Future frozen files are written with LF (`writeLines(..., sep = "\n")` on a binary connection).
