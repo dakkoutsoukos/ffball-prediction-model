@@ -741,3 +741,10 @@ position × w, for the P4 model against VE1-normal.
 
 **Frozen artefact if E22 passes:** `models/probabilistic/season_dyn_v1.yml`, containing σ_L by position × band, the
 attrition table, μ_h, and the learning coefficients, all fitted on 2019–2023, plus a fingerprint.
+
+### VL4a (2026-10-13, before any P4 computation)
+
+VL4 lists 2019–2023 as the σ_L matching rows. F4 starts in 2019, so no earlier season exists to fit 2019's rolling
+components on, and 2019's ROS cannot be forecast out of sample. **σ_L is therefore matched on 2020–2023 rows**,
+each season's components fit on the seasons before it (2019 only for 2020). The band tertiles are taken on the same
+rows. Nothing else changes.
