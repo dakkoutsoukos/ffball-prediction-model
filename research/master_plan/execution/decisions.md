@@ -275,3 +275,64 @@ After development, the stack had no winner:
 Running E22 would spend 2024, the family's only historical check season, to re-confirm failures. 2024 stays unspent, so
 a future P2 v2 or P4 v2 that wins in development can be checked cleanly. The decision uses no 2024 data and loosens no
 criterion. `spent_checks` is unchanged, and the frozen P0 table stays in production.
+
+## X-021 · 2026-10-14 · Trade candidates that fail V2's own invariants are excluded and counted
+
+During X11, one V2 search candidate failed `lg_check_invariants()` ("traded players left their team"). In that
+candidate, the partner's forced drop released a player who was then re-added by the other side's open-spot fill.
+
+- V2 is not changed (V1/V2 untouched; an invariant failure is logged, not fixed).
+- `d2_trade_valid()` re-applies V2's own validation, application and invariant checks to every candidate. Failing
+  candidates are left out of `rescore`, the D5 briefing and X11, and their count is reported.
+
+## X-022 · 2026-10-14 · New tools stay manual and make no new ESPN requests
+
+- The D5 briefing, `faboard`, `signals`, `values3` and the D4 draft assistant read the latest league snapshot and
+  capture. They make no ESPN request.
+- Refreshing the league before a briefing stays a manual owner step (`scripts/league_refresh.R`). Scheduling it would
+  add league requests to the dispatcher, which needs the owner's approval (O8 scope).
+- The D4 assistant reads an owner-written pick log (`data/archive/draft/`, git-ignored) instead of polling ESPN's
+  draft (draft history is an O8 item).
+
+## X-023 · 2026-10-14 · Re-scoring functions gained optional sensitivity scales
+
+`sim_trade_deltas()`, `sim_trade_rescore()`, `sim_roster_deltas()` and `sim_fa_rescore()` take `sigma_scale` and
+`noise_scale`, default 1, passed to `sim_scores()`. Defaults leave every result unchanged (tests). They let D5 apply
+VL3's pre-declared sensitivity settings to its robustness flags (VL13). `sim_trade_deltas()` also returns both teams'
+before and after levels, for VL12's title decomposition.
+
+## X-024 · 2026-10-14 · I2 is a static local HTML page
+
+The plan names Quarto or Shiny. Neither the Quarto CLI, pandoc nor shiny is installed, and adding them would be a new
+dependency (an owner decision). The D5 report is therefore also written as a self-contained HTML page converted in
+base R from the briefing's Markdown. It has no external resources, so nothing private leaves the machine.
+
+## X-025 · 2026-10-14 · VL11's 2025 inputs exclude 2024 outcomes
+
+The register excludes 2024 from the decision family. The 2025 check replay therefore uses:
+- a waiver calibration fit on 2019–2023 (development used every earlier season);
+- P0's rolling base refit without 2024 rows (F4's 2025 base includes them as training rows).
+
+The 2025 draft values use 2024 ESPN *projections* (no outcomes), as LAB1b specifies for every season. The primary
+inference stays the family's week-clustered bootstrap with Holm. R-002 found it anti-conservative at about 13 weeks, so
+the HLN-type week-level t is reported as the plan's pre-declared sensitivity. Changing the primary would be a
+methodology change for the owner.
+
+## X-026 · 2026-10-14 · Optional R6 and R7 are deferred; R5 is closed inside P2
+
+- **R5** (as-of market context) had its only host in P2: C2 carried closing spread and total in the scale, and was
+  degenerate. P3 was not built. R5 is closed as inconclusive inside P2, as its criterion ("reported within P2/P3")
+  allows.
+- **R6** (ESPN-independent fallback, ◇, L) is deferred: ESPN access works, and the build would need its own family and
+  check seasons. Revisit if ESPN access breaks, or in the 2027 off-season.
+- **R7** (usage reliability and first-read share, ◇) is deferred: first-read share needs a new charting dataset and a
+  2025 check (`usage_features`). It is the lowest-scored item (08) and is scheduled for the 2027 off-season.
+
+## X-027 · 2026-10-14 · Small implementation choices fixed while building VL7–VL13
+
+- **X10b:** the calibrated per-game level is clamped at 0 (a negative expected score is impossible). The clamp only
+  affects players whose level is already near zero.
+- **X10a:** a timing run printed one intermediate number before the study ran: the QB count after the lag-3 variant's
+  first draft iteration (27). No parameter was changed after it.
+- **D4:** the display's week-0 re-score of the top 3 is behind `--odds` (about a minute more), so that the default
+  per-pick time stays within VL10's 60-second target. The mock-draft evaluation uses the league's real schedule.
