@@ -631,7 +631,16 @@ list(
     tar_target(s2_study_shock, s2_week_k_study(lab_replays, player_week_all, team_games, s2_comps, read_pod_table(pd_table_file),
                                                sigma = read_s0_params()$sigma_L,
                                                register = read_contamination_register(contamination_register_file))),
-    tar_target(s2_summary, list(main = s2_week_k_summary(s2_study), shock = s2_week_k_summary(s2_study_shock)))
+    tar_target(s2_summary, list(main = s2_week_k_summary(s2_study), shock = s2_week_k_summary(s2_study_shock))),
+    # D1 (VL8): late-window value on the development replays
+    tar_target(lw_rows, {
+      assert_family_seasons("decision_family", LAB_DEV_SEASONS, "development",
+                            read_contamination_register(contamination_register_file))
+      at <- lab_active_table(pd_based)
+      tab <- read_pod_table(pd_table_file)
+      purrr::map(lab_replays, function(r) lw_season(r, player_week_all, team_games, tab, at)) |> purrr::list_rbind()
+    }),
+    tar_target(lw_result, lw_summary(lw_rows))
   ),
   # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
   # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded
