@@ -1216,3 +1216,58 @@ much the ΔP column matters in the `rescore` display. The prospective ledger sta
 **D2 completion:** the top-K re-score in ≤ 10 min (met by the thin slice: 0.56 min), X11 reported, and every
 recommendation explained from model numbers. The X12 partner-lens check needs the league's 2026+ accepted trades (O8)
 and is blocked until then.
+
+## 2026-10-14 — VL13: D5 weekly briefing and I3 monitoring (pre-declaration, written before the briefing or any monitor was run)
+
+### D5: one private report before each slate
+
+**Contents.** Each part comes from an existing module, with the same settings as its command:
+- the lineup and game-time plan (D0 with P1's provider);
+- S0 odds: this week's P(win), season odds, leverage, and VL3's sensitivity band;
+- the D3 board: top 8 adds, drop advice, streaming view;
+- D2 trades: for each other team, V2's top 3 candidates, all re-scored; the 5 best by the owner's ΔP(title), with
+  explanations and the partner-lens frontier;
+- S3 values and roster risk;
+- I3's model-health panel.
+
+**Decision robustness flags.** The alternatives are fixed by earlier entries, plus a second seed:
+- VL3's sensitivity settings: σ_L × 0.5, σ_L × 1.5, noise × 0.8, noise × 1.2;
+- VL3b's fallback: the published availability prior;
+- seed 20261014.
+
+A recommendation is **fragile** if:
+- **lineup:** the recommended starters change under the published prior;
+- **waiver board:** the best add by ΔP(playoffs) changes under any of the five alternatives (VL3's four settings and the
+  second seed);
+- **trades:** the best trade by ΔP(title) changes under any of the same five.
+
+Odds show VL3's band (minimum–maximum over the four settings), with no flag.
+
+**Records and output.**
+- Every recommendation is ledgered (`lineup`, `waivers`, `trade_rescore`), with its fragility flag in the metrics.
+- The report is private Markdown under `data/archive/briefings/` (git-ignored). The console prints only counts, flags
+  and the path, with no names.
+- **No new ESPN requests.** The briefing uses the latest league snapshot and capture; refreshing the league stays a
+  manual step. A snapshot older than 24 h is used and flagged by the health panel.
+
+**Success** (07): produced for ≥ 90% of 2027 weeks before first kickoff. This is tracked as an ongoing criterion.
+
+### I3: monitoring (thresholds fixed now)
+
+| Check | WARN | ALERT |
+|---|---|---|
+| Newest all-position capture (in season) | > 30 h | > 72 h |
+| League snapshot age | > 24 h (outputs need `--allow-stale`) | > 7 days |
+| Newest valuation run | > 30 h | — |
+| Dispatcher: last log entry (hourly task) | — | > 3 h (task not running or PC off) |
+| Run coverage: a game within 3 h of kickoff without a post-report run (F0) | — | any |
+| ESPN refusal: a dispatch-log entry in the last 7 days mentioning HTTP 401 (cookie rotation) | — | any |
+| Monte Carlo SE of the newest ledgered S0 odds: max SE of P(playoffs), √(0.25 / sims) | > 0.5 pp | > 1 pp |
+
+**Calibration drift (blind e-process).**
+- Two-sided betting e-process on the 80%-interval coverage indicator of archived PODs against realised points, plus
+  E16's e-process for absolute-error differences with the exact predictable bound |Δ abs-error| ≤ |Δ prediction|.
+- Alarm at an e-value ≥ 20 (α = 0.05, Ville's inequality).
+- The monitor refuses any season the contamination register seals, so it does **not** run on 2026 before R1 (E16,
+  X-009). Whether it runs blind during the 2027 season is decided in the 2027 prospective protocol. Until then it is
+  built and tested on synthetic data only.
