@@ -67,4 +67,8 @@ families:
     notes: "2026 outcomes sealed: no outcome-joined analysis until the 2027 decision pre-registrations (VL8-VL11)."
 
 # One line per batch check actually run (date, family, season, log entry). Empty until the first batch.
-spent_checks: []
+spent_checks:
+  - date: "2026-10-13"
+    family: injury_stack
+    season: 2019
+    entry: "E19c (P1 X5 and R2 X14, Holm; X5 failed the slope rule, X14 null)"

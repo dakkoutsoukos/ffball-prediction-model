@@ -1497,3 +1497,41 @@ It is checked against a fresh derivation by the target `m6_params_check`.
 2019 would be uninformative about R2. This is stated now so a null cannot be read as evidence of no effect.
 
 **Next:** `e19_check` runs once, then E19c, and `spent_checks` is updated.
+
+---
+
+## 2026-10-13 — E19c: injury stack, one-time 2019 batch check (P1 X5, R2 X14); decision
+
+Run once (`e19_check`, 4.2 min), after E19b and the parameter file were committed (0ad9e9b). The parameter file
+matched a fresh development derivation (`m6_params_check`). 2019 is now spent for the injury stack.
+
+**H5, P1** (report population, RB/TE/QB pooled; n = 906; observed active 0.600).
+- Brier: R0 0.0830, G1 0.0699. **Skill 0.158**, CI [0.079, 0.228].
+- One-sided p = 0.0005; **Holm-adjusted p = 0.001: H5 is rejected.**
+- Log loss: R0 0.271, G1 0.232.
+- **Slope rule fails.** G1's slope is **1.246**, CI [1.042, 1.548]: the CI excludes 1 and the point estimate is above 1.2. G1 was *under*-confident in 2019 after being slightly over-confident in development (0.86).
+- **X5 success = FALSE** (E19 requires both).
+
+**H14, R2** (B1; 2019 weeks 5–17; n = 2,953).
+- ΔMSE = **+0.029**, CI [−0.066, +0.140]; one-sided p = 0.685; Holm-adjusted 0.685. **Not rejected.**
+- **X14 success = FALSE.** As stated in E19b, H14 was underpowered (MDE 0.128): the null is uninformative, not evidence of no effect.
+
+**Secondary** (no decision use).
+- **P1 by position (G1 skill):** RB 0.171, TE 0.001, QB 0.308. WR 0.106 (contaminated).
+- **Unlisted base rates 2019:** QB 0.85, RB 0.94, WR 0.93, TE 0.95.
+- **R2, 2019 ΔMSE by position:**
+
+  | | QB | RB | TE |
+  |---|---|---|---|
+  | B1 | +0.22 | −0.05 | −0.03 |
+  | K1 | +0.34 | −0.06 | −0.05 |
+  | K2 | +1.23 | −0.11 | −0.10 |
+
+  For RB and TE the signs agree with development. QB, the smallest group, goes the other way.
+
+**Decisions (E19's interpretation rules, applied as written).**
+1. **P1 provider = R0**, the designation × practice × position rate table, fit on 2017–2018 and 2020–2023. G1's better Brier does not override the failed slope rule. R0 replaces the published fixed prior (Q 0.71, D 0.07) as the post-report `p_active` provider. It is frozen as `models/probabilistic/p1_availability_v2.yml` with a fingerprint and a pipeline re-derivation check. The live tools (D0, S0) switch to it behind a new function, with the prior kept as the documented fallback.
+2. **R2: no m6 lineage is frozen.** ESPN's late-horizon RB/TE/QB projections are not shown to under-price designations in 2019. The RB/TE development signal (small, consistent in sign) is a candidate for the 2027 prospective record only if re-registered.
+3. **A future G1:** a recalibrated G1, e.g. logistic recalibration of its linear predictor fit on development, would be a new family member. It could not use 2019 again; its evidence would be prospective (2027).
+
+`research/contamination_register.yml`: `spent_checks` gains injury_stack 2019 (E19c).
