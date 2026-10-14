@@ -216,3 +216,57 @@ d4_week0_odds <- function(rosters, pool, weekly, table, sigma, playoff_teams = 4
   rk <- apply(-key, 2, rank, ties.method = "first")
   tibble::tibble(team = seq_len(n), e_wins = rowMeans(wins), p_playoffs = rowMeans(rk <= playoff_teams))
 }
+
+#' Live draft state from the owner's pick log (VL10): `picks` has one row per pick made, in order, with
+#' `seat` (1..teams) and `row` (pool row; NA for a K or D/ST pick). Every team's last `n_nonskill` picks,
+#' less those already used on K/D-ST, are reserved for K and D/ST; the rest of the snake order is the
+#' skill-pick order for rollouts. Returns rosters, taken rows and the order with the next pick's index.
+d4_live_state <- function(picks, teams, skill_rounds, n_nonskill = 2L) {
+  full <- d4_snake(teams, skill_rounds + n_nonskill)
+  made <- nrow(picks)
+  if (made > 0 && !identical(as.integer(picks$seat), as.integer(full[seq_len(made)]))) {
+    cli::cli_abort("The pick log does not follow the snake order.")
+  }
+  rosters <- lapply(seq_len(teams), function(t) as.integer(stats::na.omit(picks$row[picks$seat == t])))
+  used <- vapply(seq_len(teams), function(t) sum(picks$seat == t & is.na(picks$row)), 0L)
+  rest <- if (made < length(full)) seq(made + 1L, length(full)) else integer()
+  keep <- rep(TRUE, length(rest))
+  for (t in seq_len(teams)) {
+    mine <- which(full[rest] == t)
+    r <- max(0L, n_nonskill - used[t])
+    if (r > 0 && length(mine)) keep[utils::tail(mine, r)] <- FALSE
+  }
+  order <- c(full[seq_len(made)], full[rest][keep])
+  list(rosters = rosters, taken = as.integer(stats::na.omit(picks$row)), order = order, next_index = made + 1L,
+       next_is_skill = length(rest) > 0 && keep[1], on_clock = if (length(rest)) full[rest[1]] else NA_integer_)
+}
+
+#' The league's regular-season schedule as seat pairs per week (seats = team ids in sorted order).
+d4_schedule <- function(state, weeks) {
+  ids <- sort(state$standings$team_id)
+  lapply(weeks, function(w) {
+    x <- state$schedule[state$schedule$matchup_period == w, ]
+    cbind(match(x$home_team, ids), match(x$away_team, ids))
+  })
+}
+
+#' VL10 display: candidates re-scored by the owner's week-0 E[wins] and P(playoffs) over `rollouts`
+#' completed leagues each (common uniforms), S0 draws on the league's schedule.
+d4_rescore_odds <- function(rosters, taken, p, order, owner, pool, cands, weekly, table, sigma, schedule,
+                            playoff_teams = 4L, recent = character(), rollouts = 20L, sims = 1000L, seed = 2L) {
+  U <- withr::with_seed(seed, matrix(stats::runif(rollouts * length(order)), rollouts, length(order)))
+  rule <- function(a, rp, q) d4_owner_rule(a, pool, rp)
+  purrr::map(cands, function(c) {
+    r0 <- rosters
+    r0[[owner]] <- c(r0[[owner]], c)
+    o <- purrr::map(seq_len(rollouts), function(j) {
+      g <- d4_play(r0, c(taken, c), p + 1L, order, owner, pool, U[j, ], rule, c(pool$pos[c], recent)[1:2])
+      d4_week0_odds(g$rosters, pool, weekly, table, sigma, playoff_teams, sims, seed = 20261013L + j, schedule = schedule)[owner, ]
+    }) |> purrr::list_rbind()
+    tibble::tibble(row = c, e_wins = mean(o$e_wins), p_playoffs = mean(o$p_playoffs))
+  }) |> purrr::list_rbind()
+}
+
+#' VL10 use rule, set from the recorded mock-draft result: the assistant's pick is shown first only if
+#' the mock drafts' P(playoffs) difference had a CI excluding 0 in its favour.
+D4_ASSISTANT_PRIMARY <- FALSE

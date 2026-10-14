@@ -95,3 +95,21 @@ test_that("week-0 odds follow a supplied schedule", {
   expect_equal(o$e_wins[3] + o$e_wins[4], 3)
   expect_error(d4_week0_odds(d$rosters, pool, pool$weekly, tab, sig, sims = 10L, schedule = same[1:2]), "one matrix per")
 })
+
+test_that("live state: the snake order, K/D-ST reservations and skill rosters follow the pick log", {
+  picks <- tibble::tibble(seat = c(1L, 2L, 3L, 4L, 4L), row = c(10L, 20L, NA, 30L, 31L))
+  s <- d4_live_state(picks, teams = 4, skill_rounds = 2, n_nonskill = 2)
+  expect_equal(s$rosters[[4]], c(30L, 31L))
+  expect_equal(s$rosters[[3]], integer())
+  expect_equal(s$taken, c(10L, 20L, 30L, 31L))
+  expect_equal(s$on_clock, 3L)
+  # team 3 already used one K/D-ST pick, so only its last remaining pick is reserved; others keep their last two
+  full <- d4_snake(4, 4)
+  expect_equal(s$order, c(full[1:5], 3L, 2L, 1L, 3L))         # each team ends with exactly 2 skill picks
+  expect_true(s$next_is_skill)
+  expect_error(d4_live_state(tibble::tibble(seat = 2L, row = 1L), 4, 2), "snake order")
+  # the last picks of the draft are K/D-ST for everyone
+  done <- tibble::tibble(seat = full[1:8], row = 1:8)
+  s2 <- d4_live_state(done, 4, 2)
+  expect_false(s2$next_is_skill)
+})
