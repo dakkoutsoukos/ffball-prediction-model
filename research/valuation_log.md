@@ -1496,3 +1496,18 @@ X10b's metric is wins added, the metric VL7's rule selected (development differe
 - Bootstrap seed 11, 2,000 replicates; P0 table and LAB1a P(active) as in development.
 - After the single run, 2025 is added to `spent_checks` for `decision_family`. Any rebuild is then refused by the
   register.
+
+### VL3c (2026-10-14): S0's current-week draws take R3's adopted horizon spread (E17's mechanical rule; written before any R3 cell was ready)
+
+E17's spread rule names S0's inputs, which are early-week. The newest horizon study (2026-10-13) has 1 target week in
+every cell, against E17a's 4, so no cell is adopted yet. The hook is built now and stays inert until the rule fires.
+
+- **Source.** The newest archived horizon study for the season (`hz_adoption()`).
+- **Spread.** For a player whose kickoff this week falls, at the run's time, in an adopted position × lead-bin cell
+  (`spread_var` > 0), the current week's if-active draw gets an independent N(0, V̂) term. The result is floored at the
+  position's lowest P0 floor. Players without a kickoff this week, or in an unadopted cell, get nothing.
+- **Drift.** Not applied in S0. E17's drift shifts the early-horizon base *before* the late-horizon calibration, and S0
+  receives an already-calibrated level that it cannot recalibrate. Adopted drifts are reported, not used.
+- **Bit-identity.** The term is drawn from a separate random substream, so S0's results are unchanged when no cell is
+  adopted (tested).
+- **Scope.** `odds`, `rescore`, `faboard`, `values3` and the D5 briefing. Ledger records name the horizon source.
