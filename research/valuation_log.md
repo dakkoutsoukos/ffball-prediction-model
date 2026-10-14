@@ -1164,3 +1164,55 @@ VL11 re-tests on 2025.
   - the share of expected rest-of-season lineup points from the top two players.
 
 **S3 completion:** X10a reported, the X10b selection made, the live display built, and V1/V2 bit-identical.
+
+## 2026-10-14 — VL12: D2 trade engine v3 — X11 ΔU vs ΔP divergence (outcome-free) and the remaining capabilities (pre-registration, written before any computation)
+
+D2's thin slice (two-team ΔP re-scoring, the partner-lens frontier, the `rescore` command, ledgered) was built under S2.
+This entry fixes D2's evaluation and the capabilities still missing. Trades stay out of the lab (X11's "why no lab
+test"). The owner's league is analysed in aggregate only; no team or player names are reported.
+
+### X11: how often do ΔU and ΔP rank candidate trades differently?
+
+**League state.** The owner's league at the current snapshot (2026, matchup period 6). The same analysis is re-run,
+descriptively, on later 2026 snapshots. No outcomes are used.
+
+**Lists.**
+- For every ordered team pair (A proposes to B): V2's search (`lg_trade_search`, the league's configured settings)
+  gives the candidates.
+- The top 10 in V2's order are re-scored for both teams with common random numbers on the S0 engine
+  (`sim_trade_rescore`, 2,000 simulations, seed 20261013).
+- A list needs ≥ 3 candidates.
+
+**Measures** (per list, from A's side):
+- Kendall τ between ΔU_A and ΔP(playoffs)_A, and between ΔU_A and ΔP(title)_A;
+- **top-1 disagreement**: the best trade by ΔU_A is not the best by ΔP_A;
+- top-3 set disagreement.
+
+**Monte Carlo noise floor.** The re-scoring is repeated with a second seed (20261014). The seed-to-seed top-1
+disagreement of ΔP is reported next to the ΔU-vs-ΔP disagreement. A ΔU-vs-ΔP rate at or below that floor reads as "no
+divergence beyond simulation noise".
+
+**By team state:** A's current S0 P(playoffs) (10,000 simulations): contender ≥ 0.75, bubble 0.25–0.75, out < 0.25.
+
+**Report:** means and shares overall and by state. Descriptive: no test and no selection; the result informs how
+much the ΔP column matters in the `rescore` display. The prospective ledger stays sealed until VL11.
+
+### Remaining capabilities (built; not tests)
+
+- **ΔP(title) decomposition.** P(title) = P(playoffs) · P(title | playoffs). The exact two-factor split of Δ(xy) is
+  Δx · ȳ + x̄ · Δy (bars = mean of before and after). It gives:
+  - a **qualification** part (ΔP(playoffs) · mean P(title | playoffs));
+  - a **playoff-strength** part (mean P(playoffs) · ΔP(title | playoffs)), which covers seeding and playoff-week points.
+- **Nash product** (fairness summary only, not an acceptance model): max(0, ΔP(playoffs)_A) · max(0, ΔP(playoffs)_B).
+- **Buy-low / sell-high signals.** Players whose model rest-of-season points (calibrated) differ from the raw ESPN
+  posted rest-of-season points (the partner lens) by more than 10%, among relevant players (raw ≥ 8 points per game
+  played):
+  - buy-low: on other rosters and model > raw;
+  - sell-high: on the owner's roster and model < raw.
+- **Explanations from model numbers** for each re-scored trade: ΔP(playoffs) and ΔP(title) with the decomposition, the
+  partner's generic view, ΔU for both sides and the Nash product.
+- **League trade-fairness monitor:** needs the league's transactions (owner decision O8, pending); not built.
+
+**D2 completion:** the top-K re-score in ≤ 10 min (met by the thin slice: 0.56 min), X11 reported, and every
+recommendation explained from model numbers. The X12 partner-lens check needs the league's 2026+ accepted trades (O8)
+and is blocked until then.
