@@ -1323,3 +1323,40 @@ Odds show VL3's band (minimum–maximum over the four settings), with no flag.
 
 **D4 completion:** the assistant runs within the time target on the owner's format, the mock-draft evaluation is
 reported, and the keeper and FAAB parts are recorded as gated off.
+
+### VL9 result: X16 QB streaming and the D3 tool (computed after VL9 was committed in 8b20073; estimation only)
+
+**Determinism.** Adding arm E re-ran the replays (64 min with every dependent target). Every stored result of arms A–D
+is bit-identical: the X8/X9 triage, LAB1's development results (apart from the new arm-E rows), S1, S2's week-k study,
+the late-window study and P3's gate.
+
+**X16** (focal team; 80 development leagues; 1,120 regular-season team-weeks; arm E − arm C):
+
+| Quantity (per team-week) | Estimate | 95% CI (week-clustered, season-blocked) |
+|---|---|---|
+| Realised lineup points | −0.13 | [−0.56, +0.31] |
+| Realised points of the starting QB | +0.24 | [−0.15, +0.66] |
+| Team-weeks whose lineup differs | 24.7% | — |
+
+**Claims per league-season:**
+- all claims: arm C 4.0–4.8, arm E 5.4–5.8;
+- QB claims: arm C 0.95–1.10, arm E 1.75–2.50.
+
+**Reading.**
+- Streaming roughly doubles the QB claims and nudges the starting QB's points up, without significance.
+- The total is about zero. The streaming claim uses one of the two claims per stage and a drop, at the expense of
+  the calibrated claims at other positions.
+- The CI includes 0, so by VL9's rule **streaming stays informational**: `D3_STREAMING_RECOMMENDED` stays FALSE.
+- **Limitations:**
+  - streaming is level-based only, because historical replays have no posted future-week projections (VE0);
+  - QB only, because K and D/ST are not in the lab;
+  - opponents use raw policies.
+
+**The D3 tool** (`faboard`; built under VL9, before this result): V2's ΔU screen, the top 8 re-scored by ΔP(playoffs)
+and ΔP(title) with common random numbers, drop advice, and the streaming view. On the real league (aggregates only):
+- 24 screened adds; 8 re-scored in 0.8 min;
+- the sum of P(playoffs) is 4 and of P(title) is 1 for every change;
+- ΔP re-orders the ΔU screen (Spearman 0.62).
+
+**Status.** D3's criteria are met: streaming is recommended only if the replay CI excludes 0 (it does not), and the
+FAAB part is gated off (the league uses no budget). VL11 re-tests X16 on 2025.
