@@ -448,3 +448,18 @@ test_that("S3 roster risk: a bye without a backup is a hole that week only; desi
   f <- function(id, status, position) rep(0.5, length(id))
   expect_equal(v3_designated(m, m$state[["1"]]$rows, prior = d3_prior, p_active_fun = f)$p_active, 0.5)
 })
+
+test_that("D2 buy-low / sell-high signals compare model and raw ESPN rest-of-season points", {
+  m <- toy_lg(base_players)
+  w <- tibble::tibble(player_id = names(base_players), week = 1L, proj = unname(base_players), has_game = TRUE)
+  w$proj_raw <- w$proj
+  w$proj_raw[w$player_id == "2_WR_b3"] <- 12            # model 16 vs raw 12: buy low (other roster)
+  w$proj_raw[w$player_id == "1_QB_a1"] <- 25            # model 20 vs raw 25: sell high (my roster)
+  w$proj_raw[w$player_id == "2_QB_b1"] <- 25            # another team's player below raw: no signal
+  w$proj_raw[w$player_id == "1_WR_a5"] <- 4             # raw 4 points per game: not relevant
+  m$input_data <- list(weekly = w)
+  s <- d2_buy_sell(m, 1)
+  expect_equal(s$player, c("2_WR_b3", "1_QB_a1"))
+  expect_equal(s$signal, c("buy_low", "sell_high"))
+  expect_equal(s$ratio, c(16 / 12 - 1, 20 / 25 - 1))
+})

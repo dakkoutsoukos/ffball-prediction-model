@@ -31,10 +31,20 @@ sim_trade_deltas <- function(uni, base_config, trades, state, spec, stream, tabl
     }
     sa <- side(as.integer(tr$team_a))
     sb <- side(as.integer(tr$team_b))
+    lv <- function(team, s) {
+      x <- s[match(team, s$team_id), ]
+      c(po = x$p_playoffs, ti = x$p_title)
+    }
+    a0 <- lv(as.integer(tr$team_a), b)
+    a1 <- lv(as.integer(tr$team_a), a)
+    b0 <- lv(as.integer(tr$team_b), b)
+    b1 <- lv(as.integer(tr$team_b), a)
     tibble::tibble(trade = k, team_a = tr$team_a, team_b = tr$team_b,
                    d_wins_a = sa[["d_wins"]], d_playoffs_a = sa[["d_playoffs"]], d_title_a = sa[["d_title"]],
                    d_wins_b = sb[["d_wins"]], d_playoffs_b = sb[["d_playoffs"]], d_title_b = sb[["d_title"]],
-                   sum_p_playoffs = sum(a$p_playoffs), sum_p_title = sum(a$p_title))
+                   sum_p_playoffs = sum(a$p_playoffs), sum_p_title = sum(a$p_title),
+                   p_playoffs_a0 = a0[["po"]], p_playoffs_a1 = a1[["po"]], p_title_a0 = a0[["ti"]], p_title_a1 = a1[["ti"]],
+                   p_playoffs_b0 = b0[["po"]], p_playoffs_b1 = b1[["po"]], p_title_b0 = b0[["ti"]], p_title_b1 = b1[["ti"]])
   }) |> purrr::list_rbind()
 }
 

@@ -20,6 +20,8 @@
 #        # SHADOW thin slice (master plan S2/D2): the top K trades with that team by the utility screen,
 #        # re-scored by both teams' P(playoffs) and P(title) with common random numbers, plus the
 #        # partner's generic-value view and the frontier. Unvalidated; see the printed label.
+#   Rscript scripts/trade_analyzer.R signals
+#        # buy-low / sell-high signals (master plan D2, VL12): model vs raw ESPN posted rest-of-season points
 #   Rscript scripts/trade_analyzer.R values3 [--team "Team"] [--sims 5000]
 #        # SHADOW player values (master plan S3, VL7): wins added and P(playoffs)/P(title) values by removal
 #        # with common random numbers, EVOR, V1/V2 VOR and trade value, and a roster risk report.
@@ -40,7 +42,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|faboard|values|values3|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|faboard|signals|values|values3|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -240,8 +242,26 @@ res <- switch(cmd,
                              their_dU = round(.data$v2_delta_b, 1)))
       fr <- trade_frontier(out)
       cli::cli_text("Frontier (your simulated title gain vs the partner's generic-value view): trades {paste(fr$trade, collapse = ', ')}.")
-      list(rescore = dplyr::select(out, -"label"), frontier_trades = fr$trade, sims = sims)
+      # D2 v3 (VL12): explanations from model numbers, with the title decomposition and the Nash product
+      expl <- trade_explain(out)
+      for (i in seq_along(expl)) cli::cli_text("Trade {i}: {expl[i]}")
+      dec <- trade_title_decomposition(out, "a")
+      list(rescore = dplyr::bind_cols(dplyr::select(out, -"label"), dec, nash = trade_nash(out)), explanations = expl,
+           frontier_trades = fr$trade, sims = sims)
     }
+  },
+  signals = {
+    # D2 v3 (VL12): buy-low / sell-high signals, model vs raw ESPN posted rest-of-season points
+    if (is.na(me)) stop("Set --me (your team).")
+    s <- d2_buy_sell(m, me)
+    cli::cli_text("Players whose model rest-of-season points differ from ESPN's raw posted points by more than {round(100 * D2_SIGNAL_THRESHOLD)}% (raw >= {D2_SIGNAL_MIN_PPG} points per game). Other managers see the raw numbers.")
+    if (nrow(s)) {
+      print(dplyr::transmute(s, .data$signal, .data$player, .data$position, team = vapply(.data$team_id, function(x) lg_team_label(m, x), ""),
+                             model = round(.data$model, 1), raw = round(.data$raw, 1), diff_pct = round(100 * .data$ratio)))
+    } else {
+      cli::cli_text("No signals.")
+    }
+    list(signals = s)
   },
   values3 = {
     # S3 (VL7): your roster's wins added and P(playoffs)/P(title) values (common-random-number removal on
