@@ -113,3 +113,25 @@ test_that("common random numbers: an identical what-if changes nothing; a real u
   pu <- sim_summarise(sim_resolve(sc$upgrade, ss_state(), 3L))$teams
   expect_gt(pu$p_title[pu$team_id == 2], pb$p_title[pb$team_id == 2])
 })
+
+test_that("D2-thin: an identity trade changes nothing and a QB swap moves both teams' odds in opposite directions", {
+  uni <- ss_universe()
+  cfg <- ss_config()
+  spec <- val_lineup_spec(ss_league())
+  stream <- lapply(as.character(uni$weeks), function(w) list(QB = 5, RB = 4, WR = 4)) |> rlang::set_names(as.character(uni$weeks))
+  sig <- c(QB = 0.3, RB = 0.3, WR = 0.3, TE = 0.3)
+  trades <- list(list(team_a = 1L, rows_a = cfg[["1"]], team_b = 2L, rows_b = cfg[["2"]]),        # identity
+                 list(team_a = 1L, rows_a = c(5L, 2L, 3L, 4L), team_b = 2L, rows_b = c(1L, 6L, 7L, 8L)))   # QBs swap
+  d <- sim_trade_deltas(uni, cfg, trades, ss_state(), spec, stream, ss_table(), sig, sims = 1500L, chunk = 500L, seed = 3L)
+  expect_equal(c(d$d_wins_a[1], d$d_playoffs_a[1], d$d_title_a[1], d$d_title_b[1]), c(0, 0, 0, 0))
+  expect_lt(d$d_title_a[2], 0)                                    # team 1 gives the best QB
+  expect_gt(d$d_title_b[2], 0)
+  expect_equal(d$sum_p_playoffs, c(4, 4))
+  expect_equal(d$sum_p_title, c(1, 1))
+})
+
+test_that("the partner-lens frontier keeps only non-dominated trades", {
+  d <- tibble::tibble(trade = 1:5, d_title_a = c(0.05, 0.03, 0.05, 0.01, -0.01), partner_lens_b = c(2, 5, 1, 4, 9))
+  f <- trade_frontier(d)
+  expect_equal(f$trade, c(1, 2, 5))
+})
