@@ -1271,3 +1271,95 @@ never fire.
 
 Everything else in E17 is unchanged: estimands, active-row definition, bootstrap, adoption rules, timing.
 No R3 quantity had been computed when this was written.
+
+---
+
+## 2026-10-13 — E19: Injury stack, P1 availability v2 (X5) and R2 RB/TE/QB designation rules (X14); one batch check on 2019 (pre-registration, written before any computation)
+
+**Family.** `injury_stack` in the contamination register:
+- development 2020–2023;
+- training 2017–2018 (extra training rows, no selection);
+- **one check on 2019** (P1 and R2 together, Holm across both primaries);
+- confirmatory 2027;
+- 2024 and 2025 excluded.
+
+WR results are reported separately (contaminated by M3/M4). Every routine calls `assert_family_seasons()`, and
+the 2019 check is recorded under `spent_checks` when it runs.
+
+### P1 (X5): P(active) at the post-report horizon
+
+- **Unit:** player-week at QB/RB/WR/TE, regular season, with a team game.
+- **Outcome:** active, meaning ≥ 1 offensive snap; where no snap record exists, a stat line counts (as in F4 and P0).
+- **Population (primary): the report population.** Every player on his team's final, pregame-valid injury report that week (`pregame_injury_detail()`; designation Out, Doubtful, Questionable, or listed without one). No ESPN input, so there is no post-inactive selection.
+- **Secondary population:** unlisted players with ≥ 1 offensive snap in the team's previous game of the season (week 1 excluded). This gives the base rate and is reported separately.
+- **Features** (pregame-valid, from `add_availability_features()` and the schedule):
+  - designation, final practice status, position;
+  - returning: no offensive snap in the team's previous game;
+  - consecutive weeks listed (capped at 4);
+  - previous designation;
+  - kickoff day (Thursday / Sunday / Monday / other, Eastern time);
+  - team-season.
+- **Baseline R0:** a rate table by designation × practice × position. A cell with fewer than 30 training rows falls back to designation × practice (all positions), then to designation.
+- **Candidate G1:** logistic GLMM in mgcv:
+  `active ~ designation * practice + position + returning + streak + prev_designation + kickoff_day + s(team_season, bs = "re")`.
+  - The `re` smooth gives the shrunk team-reporting effect; lme4 and glmmTMB are not in the lockfile (decision X-018).
+  - An unseen team-season predicts with its random effect at 0.
+  - G1 is the only candidate.
+- **Development evaluation** (descriptive, rolling origin by season): for s in 2020–2023, fit on 2017–2018 plus the development seasons before s, then score s. Report Brier, log loss, calibration slope and CORP reliability, by position.
+- **Check model.** G1 and R0 are fit on 2017–2018 plus 2020–2023, frozen, and scored once on 2019.
+- **Primary H5.** On the 2019 report population, RB/TE/QB pooled: Brier skill of G1 over R0, 1 − Brier(G1)/Brier(R0).
+  - Inference: week-clustered bootstrap, 2,000 replicates over 2019's weeks.
+  - One-sided p-value: (1 + #{replicates ≤ 0}) / (1 + 2,000).
+- **Slope rule (also required).** The 2019 calibration slope of G1 must have a bootstrap 95% CI that includes 1 and a point estimate in [0.8, 1.2]. The slope comes from logistic regression of the outcome on logit(p).
+- **Secondary** (reported, never used to select):
+  - log-loss skill; reliability by position;
+  - WR (contaminated);
+  - the unlisted population;
+  - **COVID sensitivity:** development refit and evaluation without 2020–2021 rows.
+- **Interpretation.**
+  - **Pass:** G1 becomes the `p_active` provider for PODs, S0 and D0, replacing the published fixed prior.
+  - **Fail:** R0, the rate table, is the honest model and becomes the provider.
+
+**Early horizon** (outcome-free construction, not a test target):
+P(active | early) = Σ_d P(final designation = d | midweek status) × P(active | d).
+- The transition matrix comes from FFball's dated 2026 injury captures: designations only, no game outcomes.
+- P(active | d) comes from the frozen post-report model.
+- It is built once enough weeks of captures exist.
+
+### R2 (X14): designation and practice adjustments to calibrated ESPN, RB/TE/QB (template M4)
+
+- **Rows:** F4 `player_week_all`, RB/TE/QB, with an ESPN projection > 0. This is the late-horizon evaluation population; historical ESPN values are post-inactive. The base is F4's rolling-origin calibrated ESPN.
+- **Injury groups:** M4's `injury_group()`. Adjustable: Q_DNP, Q_LP, Q_FP, Q_other, D, listed_DNP_LP. Every other row keeps the base.
+- **Candidates.** Position-specific parameters for RB, TE and QB, derived from development rows (2020–2023) only, rounded to 2 decimals:
+  - **B0:** base (baseline).
+  - **B1:** one multiplier per position on Questionable and Doubtful rows: half of (Σ points / Σ base − 1).
+  - **K1:** M4 K1. Halved group ratios; groups with fewer than 100 development rows pool into Q_pool.
+  - **K2:** M4 K2. A logistic P(active | practice, Doubtful, returning, streak), times the group's ratio of points to base when active.
+    - "Active" here is the F4 definition (≥ 1 offensive snap). M4 used game-day status or a stat line.
+    - As in M4, the ratio is not halved.
+- **Development:** pooled RB/TE/QB ΔMSE against B0 over 2020–2023, with week-clustered, season-blocked bootstrap 95% CIs. In sample for the parameters; halving guards against the winner's curse, as in M4.
+- **Selection** (fixed now):
+  1. A candidate qualifies if its development pooled ΔMSE CI lies below 0.
+  2. Among qualifiers, take the lowest development MSE, unless a simpler qualifier (B1 < K1 < K2) is within the tie band of 0.5% of B0's MSE; then the simpler one wins.
+  3. If none qualifies, R2 has no 2019 primary; the result is "ESPN already prices the effect"; Holm runs over H5 alone.
+- **Primary H14.** The selected candidate's pooled RB/TE/QB ΔMSE against B0 on 2019, weeks 5–17. Weeks 1–4 are excluded as calibration warm-up, because QB/RB/TE ESPN history starts in 2019.
+  - Inference: week-clustered bootstrap, 2,000 replicates.
+  - One-sided p-value for ΔMSE < 0.
+- **Reported (not primary):** every candidate's 2019 ΔMSE and ΔMAE, by position.
+- **MDE.** Computed on development data **before** the check, in the parameter addendum E19b: the 2019 MDE on MSE for the selected candidate, from σ_w of the week-level pooled ΔMSE.
+
+### Batch
+
+- **Holm** at familywise α = 0.05 across the primaries present (H5, H14). The smaller p-value is tested at 0.025, then the other at 0.05.
+- **Success.**
+  - X5: H5 rejected under Holm **and** the slope rule holds.
+  - X14: development qualification **and** H14 rejected under Holm.
+- **Order.**
+  1. This entry is committed.
+  2. Development results, R2 parameters and the MDE go in E19b, committed **before** the 2019 check.
+  3. The check runs once; its target is gated on E19b existing.
+  4. Results go in E19c, with `spent_checks` updated.
+- **Frozen artefacts.**
+  - A passing R2 candidate becomes a new lineage, `m6_*` (registry, fingerprints, prospective from freeze).
+  - The P1 provider is frozen with a content fingerprint.
+  - Nothing from M1–M4 changes.

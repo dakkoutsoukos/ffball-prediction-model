@@ -241,3 +241,11 @@ safety on a try. Slot overrides apply (16 = D/ST, 17 = K), and each unit scores 
 
 All pass (R-005). These checks show the inputs agree across sources. They do **not** show agreement with
 ESPN's own K/DST scoring, which cannot be checked (B-001).
+
+## X-018 · 2026-10-13 · GLMM via mgcv (no lme4/glmmTMB before R1)
+
+05 §4.2 specifies a logistic GLMM with lme4 or glmmTMB. Neither is in `renv.lock`, and the lockfile may not change
+before R1. mgcv 1.9.3 is a recommended package and is available. A random-intercept logistic GLMM is fitted
+equivalently as `gam(..., family = binomial, method = "REML")` with `s(team_season, bs = "re")`: a Gaussian
+random effect, REML-estimated variance, and predictions at 0 for unseen levels. This is recorded in E19 before
+any fit. It is a substitution, not a change of model.
