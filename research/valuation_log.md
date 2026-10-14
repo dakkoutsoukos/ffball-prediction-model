@@ -1447,3 +1447,52 @@ difference from VOR excludes 0.
 **S3 status.** COMPLETED (development): hypothesis reported (not supported), display metric selected by the rule, live
 display built, V1/V2 tests unchanged (full suite 355 blocks, 1,515 expectations, 0 failures). VL11 re-tests X10b
 (wins added vs VOR) on 2025.
+
+## 2026-10-14 — VL11: decision-family batch check on the 2025 replays (pre-registration, written before any 2025 replay or outcome was computed)
+
+**Family and season.** `decision_family`, check season 2025, run **once**. Afterwards 2025 goes under `spent_checks`
+and is contaminated for decisions. From then on, 2027 prospective results are the only confirmatory evidence for
+decisions (07 VL11).
+
+**Replay.**
+- LAB1's design on 2025: 20 leagues (sizes cycling 8/10/12), arms A–E, seeds season × 1000 + league, the policies and
+  parameters used in development.
+- Inputs without 2024 outcomes (X-025): the waiver calibration is fit on 2019–2023, and P0's rolling base is refit
+  without 2024 rows. 2024 ESPN projections set the draft values (LAB1b).
+- "Policies that need injury timestamps are excluded on 2025": no lab policy uses them, since availability comes from
+  P0's active shares. Nothing is excluded.
+
+**Primaries** (one-sided, one per experiment):
+
+| id | Hypothesis (H1) | Paired estimate | Unit |
+|---|---|---|---|
+| X8 | Calibrated lineups score more than raw ESPN lineups | shadow calibrated − raw realised points | arm-A team-week, all teams |
+| X9 | The late-window module wins more often than EV lineups | late-window − EV win rate (VL8's procedure) | arm-A team-week, both sides |
+| X10b | Wins added predicts the realised add gain better than VOR | stage Spearman of wins added − VOR (VL7) | focal waiver stage |
+| X16 | QB streaming adds lineup points | arm E − C focal realised points (VL9) | focal team-week |
+| X23 | S1-sim is non-inferior to the normal approximation | ΔBrier (sim − normal) < 0.005 (VL5) | matchup |
+
+X10b's metric is wins added, the metric VL7's rule selected (development difference from VOR +0.165 [+0.106, +0.226]; VL7 result), using VL7's definitions and stage rules unchanged.
+
+**Inference.**
+- For each primary: a week-clustered bootstrap (one season, weeks resampled, 2,000 replicates).
+- p = (1 + replicates on the null side) / (1 + 2,000), E19c's form. The null side is ≤ 0, or ≥ 0.005 for X23.
+- Holm across the five at α = 0.05.
+- Sensitivity (reported, never decisive): an HLN-type week-level t (h = 1, df = W − 1). R-002 found the bootstrap
+  anti-conservative at about 13 weeks, so results near the threshold are read with that caveat.
+
+**Also reported:** each estimate with its 95% CI; X23's calibration slope; X9's swap share; X10b's stage count.
+
+**Use.** There is no re-tuning after the check.
+- **X9 supported:** the late-window module may become a live recommendation in 2027 (it needs live box scores, O8).
+  Otherwise it stays informational.
+- **X10b supported:** wins added remains the primary display in `values3`. Otherwise the display reverts to VOR for 2027.
+- **X16 supported:** `D3_STREAMING_RECOMMENDED` may be set for 2027. Otherwise streaming stays informational.
+- **X23 supported:** S1-sim stays. Otherwise the normal approximation ships (VL5's rule).
+- **X8:** informs the lineup default only. D0 already uses calibrated weekly projections.
+
+**Run.**
+- Pipeline targets `vl11_frame_2025`, `vl11_replay_2025` and `vl11_result`, gated on this entry being in the log.
+- Bootstrap seed 11, 2,000 replicates; P0 table and LAB1a P(active) as in development.
+- After the single run, 2025 is added to `spent_checks` for `decision_family`. Any rebuild is then refused by the
+  register.
