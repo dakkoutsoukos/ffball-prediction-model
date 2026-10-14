@@ -684,7 +684,15 @@ list(
         }) |> purrr::list_rbind()
       }),
       tar_target(p3_gate_result, p3_gate(p3_gate_rows))
-    )
+    ),
+    # P4 (VL4, VL4a): development ROS rows (rolling components), X2/X26 studies, sigma_L matching
+    tar_target(p4_dev_input, {
+      fa <- p2_frame(player_week_all, c(P2_WARMUP, P2_DEV), active_only = FALSE)
+      p4_dev_rows(player_week_all, team_games, fa, p2_dev$selected,
+                  register = read_contamination_register(contamination_register_file))
+    }),
+    tar_target(p4_dev, p4_dev_evaluate(p4_dev_input)),
+    tar_target(p4_studies_dev, p4_studies(player_week_all, register = read_contamination_register(contamination_register_file)))
   ),
   # League points: the league's K/DST scoring items are read from the private league snapshot at
   # build time (only where it exists locally; nothing league-specific is committed).
