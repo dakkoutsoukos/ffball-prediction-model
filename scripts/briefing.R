@@ -29,20 +29,22 @@ state <- lg_state_from_snapshot(lg_latest_snapshot(season))
 if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
 avail <- p1_live_availability(season, m$current_week, now)
 tg <- clean_team_games(latest_live_file("schedules", season, now), "REG")
+hz <- r3_horizon_sd_fun(r3_latest_adoption(season), tg, season, m$current_week, now)   # VL3c; NULL until adopted
 t0 <- Sys.time()
 b <- list(team = me, team_label = lg_team_label(m, me), label = function(x) lg_team_label(m, x), week = m$current_week,
           now = now, snapshot_utc = m$inputs$league_captured_at_utc, snapshot_age_h = m$inputs$league_age_hours,
           git = git_state()$commit)
 b$lineup <- d5_lineup(m, me, tg, now, avail)
-b$odds <- d5_odds(m, state, avail)
-b$waivers <- d5_waivers(m, state, me, avail, sims)
-b$trades <- d5_trades(m, state, me, avail, sims)
-b$values <- list(values = v3_live_values(m, state, me, sims = sims, p_active_fun = avail))
+b$odds <- d5_odds(m, state, avail, hz = hz)
+b$waivers <- d5_waivers(m, state, me, avail, sims, hz = hz)
+b$trades <- d5_trades(m, state, me, avail, sims, hz = hz)
+b$values <- list(values = v3_live_values(m, state, me, sims = sims, p_active_fun = avail, horizon_sd_fun = hz))
 b$values$risk <- v3_roster_risk(m, me, b$values$values, p_active_fun = avail)
 b$health <- i3_health(season, now)
 
 # Ledger (F5): every recommendation with its robustness flag; outcomes stay sealed
-mv <- list(briefing = "D5 (VL13)", simulator = "s0_v0 (VL3, VL3b)", pod = "pod_baseline_v0")
+mv <- list(briefing = "D5 (VL13)", simulator = "s0_v0 (VL3, VL3b, VL3c)", pod = "pod_baseline_v0",
+           horizon = attr(hz, "source") %||% "none (no adopted R3 cell)")
 ids <- character()
 p <- lg_ledger_lineup_payload(b$lineup$adv)
 ids <- c(ids, lg_ledger_record("lineup", m$inputs, season, m$current_week, p$recommendation, p$alternatives,

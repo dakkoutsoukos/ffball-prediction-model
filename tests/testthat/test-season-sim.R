@@ -248,3 +248,39 @@ test_that("D2 v3: the title decomposition is exact, the Nash product needs two g
   expect_equal(rev$tau, -1)
   expect_true(rev$top1_differs)
 })
+
+test_that("VL3c: no adopted cell leaves S0 bit-identical; an adopted cell widens only the current week", {
+  uni <- ss_universe()
+  cfg <- ss_config()
+  base <- ss_run(sims = 1000, uni = uni)
+  zero <- uni
+  zero$extra_sd <- rep(0, length(uni$player_id))
+  zero$extra_week <- 1L
+  expect_identical(ss_run(sims = 1000, uni = zero), base)                  # an all-zero term changes nothing
+  wide <- uni
+  wide$extra_sd <- rep(6, length(uni$player_id))
+  wide$extra_week <- 1L
+  w <- ss_run(sims = 1000, uni = wide)
+  v <- function(x, j) stats::var(as.vector(x$base[, j, ]))
+  expect_gt(v(w, 1), v(base, 1))
+  expect_identical(w$base[, 2:4, ], base$base[, 2:4, ])                    # later weeks are untouched
+})
+
+test_that("VL3c: the horizon hook maps leads to adopted cells and is inert without adoption", {
+  ad <- tibble::tibble(position = c("WR", "WR", "RB"), lead_bin = c("72-120h", "<24h", "72-120h"),
+                       spread_var = c(4, 0, 9), drift = 0)
+  tg <- tibble::tibble(season = 2026L, week = 7L, team = c("AAA", "BBB"),
+                       kickoff_utc = as.POSIXct(c("2026-10-25 17:00:00", "2026-10-21 12:00:00"), tz = "UTC"))
+  now <- as.POSIXct("2026-10-21 00:00:00", tz = "UTC")
+  f <- r3_horizon_sd_fun(ad, tg, 2026L, 7L, now)
+  expect_equal(f(c("a", "b", "c", "d"), c("WR", "WR", "RB", "TE"), c("AAA", "BBB", "AAA", "AAA")), c(2, 0, 3, 0))
+  expect_null(r3_horizon_sd_fun(dplyr::mutate(ad, spread_var = 0), tg, 2026L, 7L, now))
+  expect_null(r3_horizon_sd_fun(NULL, tg, 2026L, 7L, now))
+  w <- tibble::tibble(player_id = c("a", "b"), week = 7L, has_game = TRUE, p_active = 1, lvl = 10,
+                      availability_status = "NORMAL", team = c("AAA", "BBB"))
+  prior <- list(p_active = c(QUESTIONABLE = 0.71), default = 1, source = "prior")
+  u <- sim_universe(w, c("a", "b"), c("WR", "WR"), 7:8, 7L, prior, horizon_sd_fun = f)
+  expect_equal(u$extra_sd, c(2, 0))
+  expect_equal(u$extra_week, 1L)
+  expect_null(sim_universe(w, c("a", "b"), c("WR", "WR"), 7:8, 7L, prior)$extra_sd)
+})

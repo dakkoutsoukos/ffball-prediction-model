@@ -70,6 +70,9 @@ cli::cli_text("League snapshot {m$inputs$league_captured_at_utc} ({round(m$input
 me <- if (!is.null(opt$me)) lg_find_team(m, opt$me) else lg_my_team(m$teams)
 # Post-report P(active) for D0 and S0: P1's frozen provider (E19c) unless --fixed-prior (the published prior)
 avail <- if (isTRUE(opt[["fixed-prior"]])) NULL else p1_live_availability(season, m$current_week, Sys.time())
+# VL3c: R3's adopted horizon spread for S0's current-week draws (NULL, i.e. inert, until a cell is adopted)
+hz <- tryCatch(r3_horizon_sd_fun(r3_latest_adoption(season), clean_team_games(latest_live_file("schedules", season, Sys.time()), "REG"),
+                                 season, m$current_week, Sys.time()), error = function(e) NULL)
 mtv_for <- function(rows) {
   cached <- lg_cached_mtv(m)
   if (!is.null(cached) && all(rows %in% cached$row)) return(cached)
@@ -168,7 +171,7 @@ res <- switch(cmd,
       pick <- function(x) if (is.null(x)) character() else m$sim$players$player_id[lg_find_player(m, x)]
       wi <- list(team = me, add = pick(opt$add), drop = pick(opt$drop))
     }
-    od <- sim_league_odds(m, state, sims = sims, what_if = wi, p_active_fun = avail)
+    od <- sim_league_odds(m, state, sims = sims, what_if = wi, p_active_fun = avail, horizon_sd_fun = hz)
     base <- od$results$base
     lab <- function(t) vapply(t, function(x) lg_team_label(m, x), "")
     cli::cli_alert_warning(od$label)
@@ -187,7 +190,7 @@ res <- switch(cmd,
     cli::cli_text("ESPN's own playoff odds: {if (all(is.na(od$espn_playoff_pct$espn_playoff_pct))) 'not provided by ESPN for this league' else 'see ledger record'}")
     # VL3 sensitivity bands (2,000 simulations each, same seed)
     bands <- purrr::map(list(c(0.5, 1), c(1.5, 1), c(1, 0.8), c(1, 1.2)), function(b) {
-      r <- sim_league_odds(m, state, sims = 2000, sigma_scale = b[1], noise_scale = b[2], p_active_fun = avail)$results$base$teams
+      r <- sim_league_odds(m, state, sims = 2000, sigma_scale = b[1], noise_scale = b[2], p_active_fun = avail, horizon_sd_fun = hz)$results$base$teams
       dplyr::mutate(dplyr::select(r, "team_id", "p_playoffs", "p_title"), sigma_scale = b[1], noise_scale = b[2])
     }) |>
       purrr::list_rbind()
@@ -208,7 +211,8 @@ res <- switch(cmd,
                           list(sims = sims, seed = od$seed, elapsed_seconds = od$elapsed_seconds),
                           options = opt, model_versions = list(simulator = "s0_v0 (VL3, VL3b)", s0_params = "s0_params_v0",
                                                                pod = "pod_baseline_v0", sigma_L = as.list(od$sigma_L),
-                                                               availability = od$availability_source))
+                                                               availability = od$availability_source,
+                                                               horizon = attr(hz, "source") %||% "none (no adopted R3 cell)"))
     cli::cli_text("Ledgered {.val {d$decision_id}} (shadow odds; evaluation-only archive).")
     NULL
   },
@@ -237,7 +241,7 @@ res <- switch(cmd,
       trades <- trades[ok]
       state <- lg_state_from_snapshot(lg_latest_snapshot(season))
       if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
-      d <- sim_trade_rescore(m, state, trades, sims = sims, p_active_fun = avail)
+      d <- sim_trade_rescore(m, state, trades, sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
       out <- dplyr::bind_cols(top[c("a_gives", "b_gives")], d)
       cli::cli_alert_warning(S0_LABEL)
       print(dplyr::transmute(out, you_give = .data$a_gives, you_get = .data$b_gives,
@@ -276,7 +280,7 @@ res <- switch(cmd,
     sims <- as.integer(opt$sims %||% 5000)
     state <- lg_state_from_snapshot(lg_latest_snapshot(season))
     if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
-    vals <- v3_live_values(m, state, team, sims = sims, p_active_fun = avail)
+    vals <- v3_live_values(m, state, team, sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
     risk <- v3_roster_risk(m, team, vals, p_active_fun = avail)
     cli::cli_alert_warning(S0_LABEL)
     cli::cli_h3("{lg_team_label(m, team)}: player values (removal with common random numbers; the vacated slot is streamed)")
@@ -299,7 +303,7 @@ res <- switch(cmd,
     state <- lg_state_from_snapshot(lg_latest_snapshot(season))
     if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
     sc <- d3_fa_screen(m, me, cand_per_pos = as.integer(opt[["per-pos"]] %||% 6))
-    board <- sim_fa_rescore(m, state, me, sc, k = k, sims = sims, p_active_fun = avail)
+    board <- sim_fa_rescore(m, state, me, sc, k = k, sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
     drops <- d3_drop_advice(m, me)
     sv <- d3_stream_view(m, me, p_active_fun = avail)
     cli::cli_alert_warning(S0_LABEL)

@@ -17,7 +17,7 @@ S0_LABEL <- paste("SHADOW / UNVALIDATED (VL3): inputs are early-week, so odds ar
 #' `weekly` is a valuation run's weekly table; `player_ids` the players to simulate. In the current
 #' week (A = 1 in the run), designated players get the designation prior.
 sim_universe <- function(weekly, player_ids, positions, weeks, current_week, prior = read_availability_prior(),
-                         p_active_fun = NULL) {
+                         p_active_fun = NULL, horizon_sd_fun = NULL) {
   n <- length(player_ids)
   W <- length(weeks)
   A <- matrix(0, n, W)
@@ -28,14 +28,26 @@ sim_universe <- function(weekly, player_ids, positions, weeks, current_week, pri
   A[cbind(i, j)] <- ifelse(w$has_game, w$p_active, 0)
   lvl[cbind(i, j)] <- ifelse(w$has_game, w$lvl, 0)
   cw <- match(current_week, weeks)
+  extra <- NULL
   if (!is.na(cw)) {
     cur <- w[w$week == current_week, ]
     # VL3b: P1's frozen provider (E19c) when supplied; otherwise the fixed published prior
     p <- if (is.null(p_active_fun)) val_designation_prior(cur$availability_status, prior) else
       p_active_fun(cur$player_id, cur$availability_status, positions[match(cur$player_id, player_ids)])
     A[cbind(match(cur$player_id, player_ids), cw)] <- ifelse(cur$has_game, pmin(A[cbind(match(cur$player_id, player_ids), cw)], p), 0)
+    # VL3c: R3's adopted horizon spread (extra SD of the current week's if-active draw), when supplied
+    if (!is.null(horizon_sd_fun)) {
+      extra <- numeric(n)
+      extra[match(cur$player_id, player_ids)] <- horizon_sd_fun(cur$player_id, positions[match(cur$player_id, player_ids)], cur$team)
+      if (!any(extra > 0)) extra <- NULL
+    }
   }
-  list(player_id = player_ids, position = positions, weeks = weeks, A = A, lvl = lvl)
+  out <- list(player_id = player_ids, position = positions, weeks = weeks, A = A, lvl = lvl)
+  if (!is.null(extra)) {
+    out$extra_sd <- extra
+    out$extra_week <- cw
+  }
+  out
 }
 
 #' Realised lineup points of one team for one week across simulation columns: top-K by decision
@@ -121,8 +133,11 @@ sim_scores <- function(uni, configs, spec, stream, table, sigma, sims = 10000, c
   set.seed(seed)
   stream_seed <- get(".Random.seed", envir = globalenv())
   starts <- seq(1, sims, by = chunk)
+  # VL3c: positions' lowest P0 floor, for the horizon spread term
+  floors <- tapply(table$floor, table$position, min)
   for (ci in seq_along(starts)) {
     assign(".Random.seed", stream_seed, envir = globalenv())
+    chunk_seed <- stream_seed
     cols <- starts[ci]:min(sims, starts[ci] + chunk - 1)
     S <- length(cols)
     Z <- matrix(stats::rnorm(n * S), n, S)
@@ -132,6 +147,16 @@ sim_scores <- function(uni, configs, spec, stream, table, sigma, sims = 10000, c
       un <- matrix(stats::runif(n * S), n, S)
       draw <- matrix(sim_qdraw(qs[[j]][rep(seq_len(n), S), , drop = FALSE], as.vector(un)), n, S)
       draw <- uni$lvl[, j] + noise_scale * (draw - uni$lvl[, j])
+      if (!is.null(uni$extra_sd) && identical(j, uni$extra_week)) {
+        # an independent substream, so the main draws (and results without the term) are unchanged
+        main <- get(".Random.seed", envir = globalenv())
+        assign(".Random.seed", parallel::nextRNGSubStream(chunk_seed), envir = globalenv())
+        e <- matrix(stats::rnorm(n * S), n, S) * uni$extra_sd
+        assign(".Random.seed", main, envir = globalenv())
+        fl <- unname(floors[uni$position])
+        fl[is.na(fl)] <- -Inf
+        draw <- pmax(draw + e, fl)
+      }
       dec <- act * uni$lvl[, j]
       real <- act * L * draw
       st <- stream[[as.character(uni$weeks[j])]] %||% list()
@@ -242,7 +267,8 @@ sim_summarise <- function(res, owner = NA_integer_) {
 #' drop) of universe player ids gives a second configuration simulated with common random numbers.
 sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0_params(),
                             prior = read_availability_prior(), sims = 10000, chunk = 1000, seed = 20261013,
-                            what_if = NULL, sigma_scale = 1, noise_scale = 1, p_active_fun = NULL) {
+                            what_if = NULL, sigma_scale = 1, noise_scale = 1, p_active_fun = NULL,
+                            horizon_sd_fun = NULL) {
   t0 <- Sys.time()
   weekly <- m$input_data$weekly
   league <- m$league
@@ -254,7 +280,7 @@ sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0
   extra <- if (!is.null(what_if)) what_if$add else character()
   ids <- unique(c(pid[unlist(team_rows)], extra))
   pos <- m$sim$players$position[match(ids, pid)]
-  uni <- sim_universe(weekly, ids, pos, weeks, m$current_week, prior, p_active_fun)
+  uni <- sim_universe(weekly, ids, pos, weeks, m$current_week, prior, p_active_fun, horizon_sd_fun)
   cfg <- function(add = character(), drop = character(), team = NA) {
     lapply(names(team_rows), function(t) {
       r <- match(pid[team_rows[[t]]], ids)

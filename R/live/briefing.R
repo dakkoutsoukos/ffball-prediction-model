@@ -24,23 +24,23 @@ d5_lineup <- function(m, team, team_games, now, avail) {
 }
 
 #' S0 odds (10,000 simulations) and VL3's band (2,000 simulations per setting).
-d5_odds <- function(m, state, avail, sims = 10000L) {
-  od <- sim_league_odds(m, state, sims = sims, p_active_fun = avail)
+d5_odds <- function(m, state, avail, sims = 10000L, hz = NULL) {
+  od <- sim_league_odds(m, state, sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
   bands <- purrr::map(D5_ALTERNATIVES[1:4], function(a) {
     r <- sim_league_odds(m, state, sims = 2000, sigma_scale = a$sigma_scale, noise_scale = a$noise_scale,
-                         p_active_fun = avail)$results$base$teams
+                         p_active_fun = avail, horizon_sd_fun = hz)$results$base$teams
     dplyr::select(r, "team_id", "p_playoffs", "p_title")
   }) |> purrr::list_rbind(names_to = "setting")
   list(od = od, bands = bands)
 }
 
 #' D3 board with drop advice and the streaming view; fragile if the best add by P(playoffs) changes.
-d5_waivers <- function(m, state, team, avail, sims = 3000L, k = 8L) {
+d5_waivers <- function(m, state, team, avail, sims = 3000L, k = 8L, hz = NULL) {
   sc <- d3_fa_screen(m, team)
-  board <- sim_fa_rescore(m, state, team, sc, k = k, sims = sims, p_active_fun = avail)
+  board <- sim_fa_rescore(m, state, team, sc, k = k, sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
   best <- if (nrow(board)) board$add_row[which.max(board$d_playoffs)] else NA_integer_
   alt_best <- if (nrow(board)) vapply(D5_ALTERNATIVES, function(a) {
-    b <- sim_fa_rescore(m, state, team, sc, k = k, sims = sims, seed = a$seed, p_active_fun = avail,
+    b <- sim_fa_rescore(m, state, team, sc, k = k, sims = sims, seed = a$seed, p_active_fun = avail, horizon_sd_fun = hz,
                         sigma_scale = a$sigma_scale, noise_scale = a$noise_scale)
     b$add_row[which.max(b$d_playoffs)]
   }, 0L) else integer()
@@ -50,7 +50,7 @@ d5_waivers <- function(m, state, team, avail, sims = 3000L, k = 8L) {
 
 #' D2: V2's top `per_partner` candidates with every other team, re-scored together; the `top` best by
 #' the owner's P(title) with explanations and the frontier; fragile if the best changes.
-d5_trades <- function(m, state, team, avail, sims = 3000L, per_partner = 3L, top = 5L) {
+d5_trades <- function(m, state, team, avail, sims = 3000L, per_partner = 3L, top = 5L, hz = NULL) {
   s <- m$la$search
   cands <- purrr::map(setdiff(as.integer(names(m$state)), team), function(tb) {
     r <- lg_trade_search(m, team, tb, NULL, top_n = s$top_n, tv_band = s$tv_band, max_eval = s$max_eval,
@@ -64,12 +64,12 @@ d5_trades <- function(m, state, team, avail, sims = 3000L, per_partner = 3L, top
   ok <- vapply(trades(cands), function(t) d2_trade_valid(m, t), TRUE)    # V2 invariant failures are excluded
   cands <- cands[ok, ]
   if (!nrow(cands)) return(list(top = NULL, fragile = FALSE, n = 0L, invalid = sum(!ok)))
-  d <- sim_trade_rescore(m, state, trades(cands), sims = sims, p_active_fun = avail)
+  d <- sim_trade_rescore(m, state, trades(cands), sims = sims, p_active_fun = avail, horizon_sd_fun = hz)
   all <- dplyr::bind_cols(cands[c("a_gives", "b_gives", "partner", "a_rows", "b_rows")], d)
   best_k <- utils::head(order(-all$d_title_a), top)
   tp <- all[best_k, ]
   alt_best <- vapply(D5_ALTERNATIVES, function(a) {
-    x <- sim_trade_rescore(m, state, trades(tp), sims = sims, seed = a$seed, p_active_fun = avail,
+    x <- sim_trade_rescore(m, state, trades(tp), sims = sims, seed = a$seed, p_active_fun = avail, horizon_sd_fun = hz,
                            sigma_scale = a$sigma_scale, noise_scale = a$noise_scale)
     which.max(x$d_title_a)
   }, 0L)
