@@ -972,3 +972,27 @@ Sunday final). The Sunday-late slot shares the Sunday-early decision, because ea
 - **Otherwise:** it ships only as an informational display.
 
 VL11 re-tests on 2025 replays.
+
+### VL6 result: S2 v1 (computed after VL6 was committed in a52b165; estimation only)
+
+**Rules engine.** `s2_resolve()` reproduces S0's resolver exactly on the owner's format (tests). Hand-computed fixtures
+pass for 6-team byes, divisions and head-to-head tiebreaks. Σ P(playoffs) = 4 in every simulated league and k.
+
+**Week-k P(playoffs) calibration.** F6 arm-A development replays, 2020–2023; 80 leagues; 792 team cases per k. The CIs
+are league-clustered and season-blocked; the base-rate Brier is 0.241.
+
+| k | Brier (main: no level shock) | Slope (main) | Brier (S0 σ_L) | Slope (S0 σ_L) |
+|---|---|---|---|---|
+| 4 | 0.192 [0.177, 0.207] | 0.68 [0.56, 0.82] | 0.190 [0.178, 0.201] | 1.01 [0.85, 1.22] |
+| 7 | 0.153 [0.138, 0.170] | 0.79 [0.67, 0.93] | 0.153 [0.140, 0.167] | 1.07 [0.92, 1.26] |
+| 10 | 0.124 [0.110, 0.138] | 0.74 [0.64, 0.87] | 0.120 [0.108, 0.132] | 0.94 [0.82, 1.09] |
+
+**Reading.**
+- Without a level shock, playoff odds are **over-confident** at every k. The top bins over-forecast, e.g. at k = 4: 0.93 forecast vs 0.79 observed.
+- With S0's frozen σ_L the slopes are ≈ 1 and Brier improves slightly.
+- This is descriptive support for S0's design (VL3), which is what the owner's live odds use. It holds although P4's ROS-total distribution failed on shape (VL4 result): season odds depend on correlated week-to-week deviations, which the level shock supplies.
+- Season-level calibration stays descriptive (05 §6).
+- Limitation: the forecast freezes rosters at week k, while replay rosters keep evolving through waivers.
+
+**Status.** S2 v1's success criteria are met: rules reproduced, invariants hold, calibration reported with CIs. The
+prospective `playoffPct` comparison is not possible while ESPN omits it (X-004).
