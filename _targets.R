@@ -587,6 +587,32 @@ list(
       chk
     })
   ),
+  # ---- Master plan F6: decision laboratory v1 (pre-registration LAB1) -------
+  # Development replays 2020-2023 (2019 = forecast warm-up). Outcome-free triage (X8, X9) first;
+  # the development results build only after the triage is recorded in the valuation log.
+  if (build_valuation && file.exists(POD_TABLE_FILE)) list(
+    tar_target(lab_seasons, LAB_DEV_SEASONS),
+    tar_target(lab_replays,
+               lab_replay_season(player_week_all, team_games, lab_seasons, leagues = 20L,
+                                 register = read_contamination_register(contamination_register_file)),
+               pattern = map(lab_seasons), iteration = "list"),
+    tar_target(lab_triage_x8, lab_x8_triage(lab_replays)),
+    tar_target(lab_triage_x9_rows,
+               lab_x9_triage(player_week_all, team_games, lab_replays, read_pod_table(pd_table_file),
+                             active_table = lab_active_table(pd_based)),
+               pattern = map(lab_replays), iteration = "list"),
+    tar_target(lab_triage_x9, lab_x9_summary(dplyr::bind_rows(lab_triage_x9_rows))),
+    tar_target(lab_triage_gate, {
+      if (!any(grepl("^### LAB1 result 1", readLines("research/valuation_log.md", warn = FALSE)))) {
+        cli::cli_abort("Record the LAB1 triage (valuation log, 'LAB1 result 1') before the development results.")
+      }
+      TRUE
+    }, cue = tar_cue(mode = "always")),
+    tar_target(lab_dev, {
+      lab_triage_gate
+      lab_dev_results(lab_replays, register = read_contamination_register(contamination_register_file))
+    })
+  ),
   # League points: the league's K/DST scoring items are read from the private league snapshot at
   # build time (only where it exists locally; nothing league-specific is committed).
   if (file.exists(LG_SNAPSHOT_MANIFEST) && dir.exists(LG_SNAPSHOT_ROOT)) list(

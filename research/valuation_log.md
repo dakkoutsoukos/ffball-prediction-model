@@ -671,3 +671,14 @@ experiment X8), plus outcome-free triage for X8 and X9. LAB1 is an instrument, n
 3. Determinism: identical seeds give identical results.
 4. Toy-league tests pass.
 5. The X8/X9 triage report is produced before the realised development comparison, and long before VL11.
+
+### LAB1a (2026-10-13, amendment before any replay or triage was computed)
+
+LAB1's X9 triage set p_active to "P0's development active share by position". That share mixes starters with
+backups who carry small positive projections. For QB it is 0.752: about 25% of projected QBs take no snap. Read
+literally, it would sit a starting QB in a quarter of the simulations.
+
+**Amended.** p_active is the development active share (2020–2023, P0's `pd_based` rows) by **position × P0 base
+band** (`pd_band()`), falling back to the position's share for an empty band (`lab_active_table()`,
+`lab_p_active()`). The amendment was made after seeing only the position-level input shares, before any replay,
+X9 draw or lab output existed. No other part of LAB1 changes.
