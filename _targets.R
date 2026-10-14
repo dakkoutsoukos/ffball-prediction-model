@@ -611,7 +611,19 @@ list(
     tar_target(lab_dev, {
       lab_triage_gate
       lab_dev_results(lab_replays, register = read_contamination_register(contamination_register_file))
-    })
+    }),
+    # S1 (VL5, X23): matchup P(win) by simulation vs the normal approximation on the development matchups
+    tar_target(s1_pred, {
+      assert_family_seasons("decision_family", LAB_DEV_SEASONS, "development",
+                            read_contamination_register(contamination_register_file))
+      at <- lab_active_table(pd_based)
+      tab <- read_pod_table(pd_table_file)
+      purrr::map(lab_replays, function(r) {
+        S <- lab_season_data(player_week_all, team_games, r$season)
+        s1_predict(s1_matchups(r, S), player_week_all, tab, at)
+      }) |> purrr::list_rbind()
+    }),
+    tar_target(s1_eval, s1_evaluate(s1_pred))
   ),
   # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
   # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded
