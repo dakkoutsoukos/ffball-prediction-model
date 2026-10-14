@@ -32,7 +32,7 @@ Last updated: 2026-10-13.
 | P2 | Calibrated distributions v1 (E20, batch check 2024) | 2 | P1, F4, F2 | IN PROGRESS: E20 committed (f98f3ca); candidates C0-C3 built and tested (d871c7f); development run next | |
 | P3 | Dependence model (E21; gated) | 2 | P2 | IN PROGRESS: gate pre-registered (b382861) and built (8067cf6); runs after P2 development | |
 | P4 | Season dynamics (VL4) | 2 | P2, F4 | IN PROGRESS: VL4, VL4a committed; code built and tested (46d8f08); development run after P2 | |
-| P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | VALIDATING: engine built and tested (2b641eb); the 600 × 14 × 5,000 benchmark is pending; frozen P2/P4 components swap in after E22 | |
+| P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | COMPLETED (engine) 2026-10-14: 600 × 14 × 5,000 draws in 0.12 min (≤ 5); determinism, CRN under universe changes, mean preservation and decision-time vs hindsight tests pass | 2b641eb. Components are pluggable: the frozen P1 provider now; P2/P4 swap in if E22 passes |
 | S1 | Matchup win probability v1 (VL5) | 3 | P5, F3, F6 | COMPLETED (development) 2026-10-13 | VL5 (4d964c1); simulation non-inferior to the normal approximation (ΔBrier +0.0001, upper +0.0003) and the slope rule passes: S1-sim adopted; the check is in VL11; real-league calibration sealed until R1 |
 | S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | IN PROGRESS: thin slice built on S0 (a84579b, f4714a0); v1 pending | |
 | S3 | Valuation v3 (VL7) | 3 | P4, P5, S2, F6 | NOT STARTED | |
