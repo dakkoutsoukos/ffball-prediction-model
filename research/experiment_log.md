@@ -1692,3 +1692,27 @@ Lineup total = skill + K + D/ST; 11,052 team-weeks, development 2020–2023.
 - **Decision (E23's rule):** v0 passes, so v0 is adequate.
   - A later VL3 addendum may add v0 K/D-ST draws to S0's team totals.
   - Nothing else is built; the conditioned variant is not adopted.
+
+### B-001 result (2026-10-14): F4 part 2's K/DST scoring against ESPN's own actual stat lines (O8, X-029)
+
+- **Data:** ESPN K/DST week-of files for 2019–2023 (88 requests, `data/raw/espn_kdst/`). 2024 and 2025 are not read.
+- **Method:** ESPN's actual stat lines are rescored with the league's K/DST rules and compared per team-game with F4's
+  nflverse-built tables (match: |difference| < 0.01).
+
+| Unit | Team-games | v1 match (F4 tables) | v2 match (corrected D/ST definitions) |
+|---|---|---|---|
+| K | 2,654 | 0.996 | 0.996 |
+| D/ST | 2,654 | 0.980 | 0.989 |
+
+- **Causes found:**
+  - **Points allowed:** ESPN excludes safeties scored against the team's offense. Ours was 2 higher in 77 games.
+  - **Fumble recoveries:** ESPN counts every opponent fumble the team recovers; v1 restricted the play types.
+    11 differences remain unexplained.
+  - **K:** 10 team-weeks, mostly in 2019, attribute a kicker to a different team.
+- **The v2 definitions** are a new function, `kdst_dst_stats_v2()`; F4's tables are unchanged.
+- **Criterion:** F4's ≥ 99.9% per position is **not met**. B-001 is closed as measured: the tables are
+  "ESPN-checked: K 99.6%, D/ST 98.0% (98.9% with v2)".
+- **Impact:**
+  - v2 changes D/ST points in 1.3% of team-games: mean +0.018, SD 6.628 → 6.626.
+  - X22's gate and the frozen `kdst_v0` (built on v1) stand. A later distribution refit may use v2 with its own
+    pre-registration.
