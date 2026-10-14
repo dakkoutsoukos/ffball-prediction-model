@@ -644,6 +644,22 @@ list(
     # D3 (VL9, X16): QB streaming, focal arm E - C on the development replays
     tar_target(lab_stream, lab_stream_result(lab_replays, player_week_all, team_games,
                                              register = read_contamination_register(contamination_register_file))),
+    # VL11: the decision-family batch check on the 2025 replays (run ONCE; 2025 then goes under spent_checks)
+    tar_target(vl11_gate, {
+      if (!any(grepl("^## .*VL11: decision-family batch check", readLines("research/valuation_log.md", warn = FALSE)))) {
+        cli::cli_abort("Commit the VL11 pre-registration before the 2025 check.")
+      }
+      TRUE
+    }, cue = tar_cue(mode = "always")),
+    tar_target(vl11_frame_2025, {
+      vl11_gate
+      vl11_frame(player_week_all)
+    }),
+    tar_target(vl11_replay_2025, vl11_replay(vl11_frame_2025, team_games,
+                                             register = read_contamination_register(contamination_register_file))),
+    tar_target(vl11_result, vl11_primaries(vl11_replay_2025, vl11_frame_2025, team_games, read_pod_table(pd_table_file),
+                                           lab_active_table(pd_based), x10b_metric = "wins_added",
+                                           register = read_contamination_register(contamination_register_file))),
     # S3 (VL7, X10b): value metrics vs the realised gain from adding a free agent (arm A, focal teams)
     tar_target(x10b_rows, x10b_season(lab_replays, player_week_all, team_games, read_pod_table(pd_table_file),
                                       lab_active_table(pd_based)),
