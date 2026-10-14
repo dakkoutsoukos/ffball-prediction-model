@@ -1055,3 +1055,112 @@ matchup. 2,000 common-random-number draws per evaluation; a swap is made only if
 
 **Status.** D1's success criteria are met: triage reported, kill rule applied, late-window value estimated with a CI.
 VL11 re-tests on 2025 replays.
+
+## 2026-10-14 — VL7: S3 valuation v3 — X10a (QB hoarding under level uncertainty), X10b (which value metric predicts realised add gain), live values and roster risk (pre-registration, written before any computation)
+
+V1 and V2 stay unchanged (new functions only; their bit-identity tests keep passing).
+
+### X10a: does the V1 re-draft converge with level uncertainty and learning? (model-based; no outcomes)
+
+**Hypothesis** (VE3, finding 3): the V1 fixed-point re-draft hoarded QBs and did not converge because it values bench
+players only for availability coverage. With season-long level uncertainty and learning, it converges and rosters QBs
+within ±3 of the proportional pool.
+
+**Inputs.**
+- The archived valuation run `20261007T062429Z` (2026 week 5): 464 players, weeks 5–17, its `weekly.parquet` (E = proj,
+  A = p_active, lvl). Projections only; no 2026 outcome is loaded.
+- V1's default league (VE2 item 1) and V1's availability draws (S = 200, seed 20261007).
+
+**Harness check (first).** V1's own fixed point (`val_league_sim(pool = "simulation")`) on these inputs must reproduce
+VE3's hoarding: ≥ 25 QBs rostered and no convergence within 6 iterations (VE3's trial: 30, not converged). If it does
+not, the study stops and the discrepancy is recorded.
+
+**Level uncertainty.**
+- Each player gets a season-long level shock m = exp(−σ²/2 + σZ) per simulation, the same in every week. σ is S0's
+  frozen σ_L by position (QB 0.368, RB 0.373, WR 0.345, TE 0.388). Z is standard normal, seed 20261014.
+- Realised points: R(i, t, s) = 1[u < A] · lvl · m (V1's availability draw, the if-active level and the shock).
+
+**Learning.**
+- Lineups are chosen on D(i, t, s) = 1[u < A] · lvl · m̂, where m̂ = 1 until the learning lag ends and m̂ = m afterwards.
+- **Primary: lag 3 weeks.** Weeks 5–7 are decided on prior levels and weeks 8–17 on learned levels.
+- Sensitivities: lag 0 (immediate learning) and no learning (the control, which should behave like V1).
+
+**Streaming.** In each simulation and week, the slot can be streamed by the best undrafted player at the position by
+E · m̂ (decision), who scores E · m (realised). This is V1's "best undrafted by expectation" with learned levels.
+
+**Lineups, draft and fixed point.**
+- V1's slot greedy (most specific slots first). Each slot takes the roster player with the highest decision value,
+  unless the stream's decision value is higher; realised values are summed. This is a new evaluator.
+- V1's snake draft (candidates: the 6 best available per position by ROS points); each pick maximises the change in mean
+  realised lineup points.
+- Fixed point: draft → undrafted pool → stream, from the proportional pool, at most 6 iterations. Converged = the
+  drafted set repeats exactly (VE3's definition).
+
+**Decision rule.** The hypothesis is **supported** if the primary variant converges within 6 iterations **and** its
+last drafted set rosters 17–23 QBs (proportional pool 20 ± 3). Reported either way, with each iteration's QB count and
+number of changed players, for all three variants.
+
+**Use.** Documentation only: VE3 stands, the proportional pool stays in production and V1 is frozen. A later entry
+could use the re-draft for V3's generic teams if the hypothesis is supported.
+
+### X10b: which value metric best predicts the realised gain from adding a free agent? (F6 development replays)
+
+**Data.** F6 arm-A development replays 2020–2023 (80 leagues; `decision_family` development). The focal team at waiver
+stages t = 2–13:
+- roster: its week t − 1 roster;
+- free agents: players with a row in weeks ≤ t − 1 who are on no week t − 1 roster in that league (arm A);
+- candidates: the 5 best free agents per position by calibrated rest-of-season value (LAB1 waiver values), up to 20
+  per stage.
+
+**The add.** For candidate c the roster becomes r′ = r + c − d. The drop d maximises the calibrated expected lineup value
+(LAB1 pair gain; the roster stays legal). d may be c itself: a no-add with gain 0.
+
+**Target (realised).**
+- G = Σ over w = t…14 of [realised points of r′'s lineup in week w − realised points of r's lineup].
+- Lineups use arm A's raw policy with week-w information; rosters are otherwise frozen.
+
+**Metrics** (stage-t information only).
+- e(w) = calibrated per-game level (the season's waiver calibration a + b·L_avg4 at t − 1) × whether the player's last
+  known team plays week w.
+- R_p(w) = the best e(w) among the *other* free agents at the position.
+- **VOR** = Σ_w max(0, e_c(w) − R_p(w)).
+- **EVOR** = Σ_w E[max(0, X_c(w) − R_p(w))], with X = A·Y, A ~ Bernoulli(p). p is LAB1a's P(active) by position × band
+  of e, and Y follows the frozen P0 POD around e/p.
+- **MRU** = the mean over the league's teams of max(0, best add-with-drop gain), with the LAB1 pair gain (change in the
+  calibrated optimal lineup value × remaining weeks).
+- **Wins added** = Σ over w = t…14 of [P(win_w | r′) − P(win_w | r)] for the focal team. The opponent is the scheduled
+  one with its stage-t roster. Lineups are chosen by e(w). P(win) uses the normal approximation (S1 found it equivalent
+  to simulation) from the PODs' means and variances (`s1_pod_moments`).
+
+**Primary statistic.**
+- Per stage, the Spearman correlation between each metric and G across the stage's candidates (average ranks for ties).
+- Stages with fewer than 5 candidates, or with a constant G or a constant metric, are excluded for that metric.
+- The mean over stages is reported.
+
+**Inference** (one procedure): paired stage-level differences (metric − VOR) on the stages valid for both. Week-clustered,
+season-blocked bootstrap (`pd_cluster_boot`, 2,000 replicates), 95% percentile CIs.
+
+**Selection rule.** The primary display metric is the metric with the highest mean correlation, **if** its difference
+from VOR has a CI excluding 0 in its favour. Otherwise VOR stays the primary display (V1's generic metric; 05 §4.8).
+
+**Secondary** (not used for selection):
+- Pearson correlations;
+- top-1 hit rate (the metric's best candidate has the largest G);
+- results by the candidate's position and by stage half (t ≤ 7, t ≥ 8).
+
+VL11 re-tests on 2025.
+
+### Live values and roster risk (S3 display; not a test)
+
+- For each player on the owner's roster:
+  - wins added, ΔP(playoffs) and ΔP(title) from common-random-number removal on the S0 engine (decision-time lineups;
+    the vacated slot streamed);
+  - EVOR from the P0 POD against V2's waiver level;
+  - shown next to V1/V2's VOR and trade value, with S0's shadow label.
+- **Roster risk:**
+  - each starter's removal ΔP(playoffs) (concentration);
+  - the weeks in which a slot would be streamed (bye and coverage holes);
+  - this week's designated players with P1's P(active);
+  - the share of expected rest-of-season lineup points from the top two players.
+
+**S3 completion:** X10a reported, the X10b selection made, the live display built, and V1/V2 bit-identical.
