@@ -264,3 +264,14 @@ E19's interpretation rule made the rate table R0 the post-report P(active) provi
 - It applies a pre-registered outcome, not a tuning choice.
 - No 2026 outcome was used. The provider was fit on 2017–2018 and 2020–2023 only.
 - The tools are advisory (D0) or shadow (S0).
+
+## X-020 · 2026-10-14 · The distribution-stack batch check on 2024 (E22) is not run
+
+After development, the stack had no winner:
+- P2 selected C0, which is P0 itself;
+- P3's gate passed, so it is not built;
+- P4 is worse than its normal baseline even in sample.
+
+Running E22 would spend 2024, the family's only historical check season, to re-confirm failures. 2024 stays unspent, so
+a future P2 v2 or P4 v2 that wins in development can be checked cleanly. The decision uses no 2024 data and loosens no
+criterion. `spent_checks` is unchanged, and the frozen P0 table stays in production.
