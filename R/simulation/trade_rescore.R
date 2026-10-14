@@ -8,7 +8,7 @@
 #' Core: deltas for trades given as post-trade universe rows of the two teams.
 #' `trades`: list of list(team_a, rows_a, team_b, rows_b) with team ids as in `base_config` names.
 sim_trade_deltas <- function(uni, base_config, trades, state, spec, stream, table, sigma, sims = 10000L,
-                             chunk = 1000L, seed = 20261013L) {
+                             chunk = 1000L, seed = 20261013L, sigma_scale = 1, noise_scale = 1) {
   configs <- c(list(base = base_config), lapply(trades, function(tr) {
     cfg <- base_config
     cfg[[as.character(tr$team_a)]] <- tr$rows_a
@@ -16,7 +16,7 @@ sim_trade_deltas <- function(uni, base_config, trades, state, spec, stream, tabl
     cfg
   }))
   names(configs) <- c("base", paste0("trade", seq_along(trades)))
-  scores <- sim_scores(uni, configs, spec, stream, table, sigma, sims, chunk, seed)
+  scores <- sim_scores(uni, configs, spec, stream, table, sigma, sims, chunk, seed, sigma_scale, noise_scale)
   cp <- state$status$current_matchup_period
   summ <- lapply(scores, function(sc) sim_summarise(sim_resolve(sc, state, cp))$teams)
   b <- summ$base
@@ -53,7 +53,7 @@ sim_trade_deltas <- function(uni, base_config, trades, state, spec, stream, tabl
 #' V2's utility deltas and the partner lens (the partner's generic VOR net).
 sim_trade_rescore <- function(m, state, trades, table = read_pod_table(), params = read_s0_params(),
                               prior = read_availability_prior(), sims = 10000L, chunk = 1000L, seed = 20261013L,
-                              p_active_fun = NULL) {
+                              p_active_fun = NULL, sigma_scale = 1, noise_scale = 1) {
   weeks <- seq(m$current_week, max(m$league$playoff_weeks))
   pid <- m$sim$players$player_id
   team_rows <- lapply(m$state, function(s) s$rows)
@@ -82,7 +82,7 @@ sim_trade_rescore <- function(m, state, trades, table = read_pod_table(), params
     stats::setNames(as.list(x$W), x$position)
   }) |> rlang::set_names(as.character(weeks))
   d <- sim_trade_deltas(uni, base, tr_list, state, val_lineup_spec(m$league), stream, table, params$sigma_L,
-                        sims, chunk, seed)
+                        sims, chunk, seed, sigma_scale, noise_scale)
   d$v2_delta_a <- vapply(resolved, function(r) r$v2$delta_a, 0)
   d$v2_delta_b <- vapply(resolved, function(r) r$v2$delta_b, 0)
   d$partner_lens_b <- vapply(resolved, function(r) r$generic_b, 0)

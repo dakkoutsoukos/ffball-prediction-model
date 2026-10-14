@@ -463,3 +463,9 @@ test_that("D2 buy-low / sell-high signals compare model and raw ESPN rest-of-sea
   expect_equal(s$signal, c("buy_low", "sell_high"))
   expect_equal(s$ratio, c(16 / 12 - 1, 20 / 25 - 1))
 })
+
+test_that("D2: candidates that fail V2's application or invariants are flagged, valid ones pass", {
+  m <- toy_lg(base_players)
+  expect_true(d2_trade_valid(m, list(team_a = 1, give_a = "1_RB_a4", team_b = 2, give_b = "2_RB_b5")))
+  expect_false(d2_trade_valid(m, list(team_a = 1, give_a = "2_RB_b5", team_b = 2, give_b = "1_RB_a4")))
+})

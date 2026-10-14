@@ -76,14 +76,14 @@ d3_stream_view <- function(m, team, week = m$current_week, n = 5L, prior = read_
 #' (universe rows replacing that team's roster). Returns the team's change in expected wins,
 #' P(playoffs) and P(title) against the unchanged league, with the invariants' sums.
 sim_roster_deltas <- function(uni, base_config, changes, state, spec, stream, table, sigma, sims = 10000L,
-                              chunk = 1000L, seed = 20261013L) {
+                              chunk = 1000L, seed = 20261013L, sigma_scale = 1, noise_scale = 1) {
   configs <- c(list(base = base_config), lapply(changes, function(ch) {
     cfg <- base_config
     cfg[[as.character(ch$team)]] <- ch$rows
     cfg
   }))
   names(configs) <- c("base", paste0("change", seq_along(changes)))
-  scores <- sim_scores(uni, configs, spec, stream, table, sigma, sims, chunk, seed)
+  scores <- sim_scores(uni, configs, spec, stream, table, sigma, sims, chunk, seed, sigma_scale, noise_scale)
   cp <- state$status$current_matchup_period
   summ <- lapply(scores, function(sc) sim_summarise(sim_resolve(sc, state, cp))$teams)
   b <- summ$base
@@ -102,7 +102,7 @@ sim_roster_deltas <- function(uni, base_config, changes, state, spec, stream, ta
 #' as in V2 and the thin slice).
 sim_fa_rescore <- function(m, state, team, screen, k = 8L, table = read_pod_table(), params = read_s0_params(),
                            prior = read_availability_prior(), sims = 5000L, chunk = 1000L, seed = 20261013L,
-                           p_active_fun = NULL) {
+                           p_active_fun = NULL, sigma_scale = 1, noise_scale = 1) {
   team <- lg_find_team(m, team)
   top <- utils::head(screen, k)
   if (!nrow(top)) return(dplyr::mutate(top, d_wins = double(), d_playoffs = double(), d_title = double()))
@@ -124,6 +124,6 @@ sim_fa_rescore <- function(m, state, team, screen, k = 8L, table = read_pod_tabl
     stats::setNames(as.list(x$W), x$position)
   }) |> rlang::set_names(as.character(weeks))
   d <- sim_roster_deltas(uni, base, changes, state, val_lineup_spec(m$league), stream, table, params$sigma_L,
-                         sims, chunk, seed)
+                         sims, chunk, seed, sigma_scale, noise_scale)
   dplyr::bind_cols(top, dplyr::select(d, "d_wins", "d_playoffs", "d_title", "sum_p_playoffs", "sum_p_title"))
 }

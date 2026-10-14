@@ -55,6 +55,19 @@ d2_buy_sell <- function(m, me, threshold = D2_SIGNAL_THRESHOLD, min_ppg = D2_SIG
                  .data$signal, dplyr::desc(abs(.data$ratio)))
 }
 
+#' Does a candidate trade (list(team_a, give_a, team_b, give_b)) pass V2's own application and
+#' invariant checks? V2 is not changed: candidates that fail are excluded and counted.
+d2_trade_valid <- function(m, t) {
+  tryCatch({
+    ta <- lg_find_team(m, t$team_a)
+    tb <- lg_find_team(m, t$team_b)
+    g <- lg_validate_trade(m, ta, t$give_a, tb, t$give_b)
+    tr <- lg_apply_trade(m, ta, g$a, tb, g$b)
+    lg_check_invariants(m, tr, ta, g$a, tb, g$b)
+    TRUE
+  }, error = function(e) FALSE)
+}
+
 #' Agreement of two rankings of the same candidates: Kendall tau, top-1 and top-3 set disagreement.
 x11_agreement <- function(u, p) {
   n <- length(u)
@@ -85,11 +98,15 @@ x11_divergence <- function(m, state, k = 10L, sims = 2000L, seeds = c(20261013L,
     top <- utils::head(r, k)
     trades <- lapply(seq_len(nrow(top)), function(j) list(team_a = ta, give_a = top$a_rows[[j]], team_b = tb,
                                                           give_b = top$b_rows[[j]]))
+    ok <- vapply(trades, function(t) d2_trade_valid(m, t), TRUE)
+    n_invalid <- sum(!ok)
+    trades <- trades[ok]
+    if (length(trades) < 3) return(tibble::tibble(team_a = ta, team_b = tb, n_invalid = n_invalid, skipped = TRUE))
     d1 <- sim_trade_rescore(m, state, trades, sims = sims, seed = seeds[1], p_active_fun = p_active_fun)
     d2 <- sim_trade_rescore(m, state, trades, sims = sims, seed = seeds[2], p_active_fun = p_active_fun)
     p_a <- po$p_playoffs[match(ta, po$team_id)]
     dplyr::bind_cols(
-      tibble::tibble(team_a = ta, team_b = tb, p_playoffs_a = p_a,
+      tibble::tibble(team_a = ta, team_b = tb, n_invalid = n_invalid, skipped = FALSE, p_playoffs_a = p_a,
                      state = dplyr::case_when(p_a >= 0.75 ~ "contender", p_a >= 0.25 ~ "bubble", TRUE ~ "out")),
       dplyr::rename_with(x11_agreement(d1$v2_delta_a, d1$d_playoffs_a), ~ paste0(.x, "_playoffs")),
       dplyr::rename_with(x11_agreement(d1$v2_delta_a, d1$d_title_a), ~ paste0(.x, "_title")),
@@ -98,8 +115,11 @@ x11_divergence <- function(m, state, k = 10L, sims = 2000L, seeds = c(20261013L,
   }) |> purrr::list_rbind()
 }
 
-#' X11 summary: means and shares overall and by A's state.
+#' X11 summary: means and shares overall and by A's state (lists with >= 3 valid candidates), plus the
+#' count of V2 candidates excluded for failing V2's invariants.
 x11_summary <- function(rows) {
+  excluded <- list(invalid_candidates = sum(rows$n_invalid), skipped_lists = sum(rows$skipped))
+  rows <- rows[!rows$skipped, ]
   f <- function(x) dplyr::summarise(x, lists = dplyr::n(), candidates = mean(.data$n_playoffs),
                                     tau_playoffs = mean(.data$tau_playoffs, na.rm = TRUE),
                                     tau_title = mean(.data$tau_title, na.rm = TRUE),
@@ -110,5 +130,6 @@ x11_summary <- function(rows) {
                                     noise_top1_playoffs = mean(.data$top1_differs_seed_playoffs),
                                     noise_top1_title = mean(.data$top1_differs_seed_title),
                                     noise_tau_playoffs = mean(.data$tau_seed_playoffs, na.rm = TRUE))
-  list(overall = f(rows), by_state = dplyr::arrange(f(dplyr::group_by(rows, .data$state)), .data$state))
+  list(overall = f(rows), by_state = dplyr::arrange(f(dplyr::group_by(rows, .data$state)), .data$state),
+       excluded = excluded)
 }

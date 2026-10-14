@@ -230,6 +230,11 @@ res <- switch(cmd,
       top <- utils::head(r, k)
       trades <- lapply(seq_len(nrow(top)), function(i) list(team_a = me, give_a = top$a_rows[[i]], team_b = tb,
                                                             give_b = top$b_rows[[i]]))
+      ok <- vapply(trades, function(t) d2_trade_valid(m, t), TRUE)
+      if (any(!ok)) cli::cli_alert_info("{sum(!ok)} candidate{?s} failed V2's trade invariants and {?was/were} left out.")
+      if (!any(ok)) stop("No candidate trade passed V2's trade invariants.")
+      top <- top[ok, ]
+      trades <- trades[ok]
       state <- lg_state_from_snapshot(lg_latest_snapshot(season))
       if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
       d <- sim_trade_rescore(m, state, trades, sims = sims, p_active_fun = avail)

@@ -133,15 +133,7 @@ i3_drift_guard <- function(season, family = "distribution_stack", register = rea
 
 #' Print the I3 health panel (scripts/status.R and the D5 briefing): local files only.
 print_health <- function(season, now = Sys.time()) {
-  sched <- tryCatch(latest_live_file("schedules", season, now), error = function(e) NA_character_)
-  tg <- if (is.na(sched)) NULL else clean_team_games(sched, read_project_config()$season_type)
-  cov <- NULL
-  if (!is.null(tg)) {
-    week <- infer_target_week(tg, season, now)
-    if (!is.na(week)) cov <- tryCatch(post_report_coverage(season, week, tg, dispatch_runs(), now), error = function(e) NULL)
-  }
-  recs <- tryCatch(lg_ledger_read(alias = lg_credentials()$alias, season = season)$records, error = function(e) NULL)
-  x <- i3_checks(season, now, tg, cov, recs)
+  x <- i3_health(season, now)
   cli::cli_h2("Model and data health (I3)")
   for (i in seq_len(nrow(x))) {
     v <- if (is.na(x$value[i])) "NA" else format(round(x$value[i], 4))
@@ -150,4 +142,17 @@ print_health <- function(season, now = Sys.time()) {
            ALERT = cli::cli_alert_danger("{msg}"))
   }
   invisible(x)
+}
+
+#' The I3 checks with the live inputs: the schedule, this week's run coverage and the ledger.
+i3_health <- function(season, now = Sys.time()) {
+  sched <- tryCatch(latest_live_file("schedules", season, now), error = function(e) NA_character_)
+  tg <- if (is.na(sched)) NULL else clean_team_games(sched, read_project_config()$season_type)
+  cov <- NULL
+  if (!is.null(tg)) {
+    week <- infer_target_week(tg, season, now)
+    if (!is.na(week)) cov <- tryCatch(post_report_coverage(season, week, tg, dispatch_runs(), now), error = function(e) NULL)
+  }
+  recs <- tryCatch(lg_ledger_read(alias = lg_credentials()$alias, season = season)$records, error = function(e) NULL)
+  i3_checks(season, now, tg, cov, recs)
 }
