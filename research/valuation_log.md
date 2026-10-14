@@ -1650,3 +1650,52 @@ that many independent draws per unit.
   - Run time is unchanged (15 s).
 - **Live from this commit:** `odds`, `rescore`, `faboard`, `values3` and the D5 briefing. Ledger records name
   `kdst_v0`.
+
+## 2026-10-14 — VL12a: X11b, can trade-ranking instability be reduced by simulation design? (outcome-free design study; pre-registration, written before any computation)
+
+**Why.** X11 found ΔP's top-1 trade changes between two 2,000-simulation seeds in 64% of lists (playoffs) and 75%
+(title). Common random numbers are already used across a run's configurations. The instability is Monte Carlo
+variance. This study asks which simulation design gives decisions closer to the large-budget answer per unit of
+compute. It is **descriptive and outcome-free**: no 2026 outcome is used, and nothing is selected for production
+here. The official `rescore` and D5 methods stay unchanged. Any change needs its own addendum (VL12b) naming the
+design and its rule.
+
+**Data.**
+- The owner's league at the current snapshot.
+- The lists are X11's construction: every ordered pair; V2's top 10; candidates failing V2's invariants excluded;
+  ≥ 3 candidates.
+- S0 as live (P1 availability, VL3d K/D-ST, no adopted R3 cell).
+- Each list is simulated once with N = 20,000 simulations (seed 20261015), keeping per-simulation team-A outcomes for
+  the base and every candidate: playoff and title indicators, and wins.
+
+**Reference and evaluation halves.**
+- Simulations 1–10,000 are the **reference**. Its ΔP estimates define the best trade and each candidate's reference
+  value.
+- Simulations 10,001–20,000 are the **evaluation** pool. Every design is applied to it, so a design's error is never
+  measured against its own draws.
+
+**Designs** (for ΔP(playoffs) and ΔP(title) separately):
+- **D0, current:** a fixed 2,000 simulations. The 5 disjoint evaluation blocks give 5 replicates.
+- **D1, larger fixed budgets:** 5,000 (2 blocks) and 10,000 (1 block).
+- **D2, sequential racing:**
+  - batches of 1,000;
+  - after each batch, candidates are dropped if their paired (CRN) mean difference from the current leader is below
+    0 by more than z = 2.5 paired SEs;
+  - stops at one survivor or at 10,000 per candidate;
+  - cost = candidate-simulations used.
+- **D3, indifference display:** at a fixed 2,000, the set of candidates not significantly worse than the leader
+  (paired, z = 2.0). Its size and its coverage of the reference best are reported.
+
+**Measures** (per list, then means overall and by team state as in X11):
+- **Regret:** the reference ΔP of the reference best minus the reference ΔP of the design's choice. This is the
+  primary measure, since a "wrong" top-1 between near-equal trades costs little.
+- top-1 agreement with the reference;
+- relative cost (candidate-simulations against D0);
+- the share of lists whose reference top-two gap is below D0's paired SE (near-ties).
+
+**Reading (fixed now).**
+- A design is a candidate for VL12b only if it cuts the mean regret of D0 by at least half at no more than 5 times
+  D0's cost.
+- Otherwise the conclusion is that ranking noise is not worth reducing; the fragile flag and the near-tie display
+  carry the uncertainty.
+- Seeds, z values and batch size are fixed here and not tuned.
