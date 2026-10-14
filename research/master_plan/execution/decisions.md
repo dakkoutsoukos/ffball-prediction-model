@@ -336,3 +336,13 @@ methodology change for the owner.
   first draft iteration (27). No parameter was changed after it.
 - **D4:** the display's week-0 re-score of the top 3 is behind `--odds` (about a minute more), so that the default
   per-pick time stays within VL10's 60-second target. The mock-draft evaluation uses the league's real schedule.
+
+## X-028 · 2026-10-14 · Ledger seal 2 counts only the 2027 decision pre-registrations
+
+- **Found:** `ledger_reports_unsealed()` matched any VL8–VL11 heading. The 2026 development pre-registrations
+  (VL8–VL11, written 2026-10-13/14) therefore opened seal 2 mechanically from commit 95392b4. The intent is in E16 §5,
+  the register's `shadow_outputs` note and the test's own "the project's own log is still sealed": wait for the 2027
+  decision pre-registrations.
+- **Impact:** none. Seal 1 (season end plus 7 days) blocks every outcome join, and no report was produced.
+- **Fix:** headings must be dated 2027 or later (`from_year`). A test covers 2026-dated entries. This tightens the
+  seal to its documented intent; no methodology changed.

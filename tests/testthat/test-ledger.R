@@ -101,6 +101,11 @@ test_that("seal 2: reports wait for the VL8-VL11 pre-registrations", {
           "## 2027-07-01 — VL11: decision batch"), log, append = TRUE)
   expect_true(ledger_reports_unsealed(log))
   expect_equal(lg_ledger_report(j, unsealed = TRUE)$mean_gain_vs_alternative, 1)
+  # 2026 development entries with the same ids do not unseal (X-028)
+  dev <- withr::local_tempfile(fileext = ".md")
+  writeLines(c("## 2026-10-13 — VL8: lineup", "## 2026-10-14 — VL9: waivers", "## 2026-10-14 — VL10: draft",
+               "## 2026-10-14 — VL11: decision batch"), dev)
+  expect_false(ledger_reports_unsealed(dev))
   # the project's own log is still sealed
   expect_false(ledger_reports_unsealed(file.path(project_root, "research", "valuation_log.md")))
 })

@@ -95,10 +95,13 @@ ledger_join_allowed <- function(season, team_games, now = Sys.time()) {
   is.finite(last) && now >= last + 7 * 86400
 }
 
-#' Seal 2: may outcome or regret reports be produced? Only once VL8-VL11 are pre-registered.
-ledger_reports_unsealed <- function(log = "research/valuation_log.md", entries = LEDGER_UNSEAL_ENTRIES) {
+#' Seal 2: may outcome or regret reports be produced? Only once VL8-VL11 have their 2027 decision
+#' pre-registrations: a heading dated `from_year` or later (X-028; the 2026 development entries do not count).
+ledger_reports_unsealed <- function(log = "research/valuation_log.md", entries = LEDGER_UNSEAL_ENTRIES, from_year = 2027L) {
   if (!file.exists(log)) return(FALSE)
   heads <- grep("^## ", readLines(log, warn = FALSE), value = TRUE)
+  yr <- suppressWarnings(as.integer(sub("^## (\\d{4})-.*", "\\1", heads)))
+  heads <- heads[!is.na(yr) & yr >= from_year]
   all(vapply(entries, function(e) any(grepl(paste0("\\b", e, ":"), heads)), logical(1)))
 }
 
