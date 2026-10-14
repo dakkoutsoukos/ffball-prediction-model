@@ -26,18 +26,18 @@ Last updated: 2026-10-13.
 | R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
 | I1 | Platform runtime (renv profile) and modularisation | Season end | R1 | NOT STARTED | |
 | F4 | Position-general historical frame | 2 | F2 | COMPLETED 2026-10-13 for QB/RB/WR/TE. K/DST built and internally validated, but its ESPN scoring-match criterion is BLOCKED (B-001) | aff54ca (part 1: R-004, X-016); part 2 K/DST (R-005, X-017). docs/player_week_all.md |
-| F6 | Decision laboratory v1 | 2 | F2, F4 | NOT STARTED | |
-| P1 | Availability v2 (with R2, E19, batch check 2019) | 2 | F2, F4 | NOT STARTED | |
-| R2 | RB/TE/QB availability rules (with P1, E19) | 2/5 | F4 | NOT STARTED | |
-| P2 | Calibrated distributions v1 (E20, batch check 2024) | 2 | P1, F4, F2 | NOT STARTED | |
-| P3 | Dependence model (E21; gated) | 2 | P2 | NOT STARTED | |
-| P4 | Season dynamics (VL4) | 2 | P2, F4 | NOT STARTED | |
-| P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | NOT STARTED | |
-| S1 | Matchup win probability v1 (VL5) | 3 | P5, F3, F6 | NOT STARTED | |
-| S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | NOT STARTED | |
+| F6 | Decision laboratory v1 | 2 | F2, F4 | COMPLETED 2026-10-13 | LAB1, LAB1a, LAB1b (a008083, 786b892, c46dd21); replay 23.7 min (≤ 2 h); firewall tests pass; triage (X8, X9) recorded before results (0c01edd); development results descriptive (b57719e). X9 kill rule fired: D1 gets no full P(win) mode |
+| P1 | Availability v2 (with R2, E19, batch check 2019) | 2 | F2, F4 | VALIDATING: E19 (0447e38), E19b (0ad9e9b) committed; the 2019 batch check is running | Development: GLMM Brier skill 0.118 [0.084, 0.151] over the rate table |
+| R2 | RB/TE/QB availability rules (with P1, E19) | 2/5 | F4 | VALIDATING: B1 selected on development (parameters committed); the 2019 check is running | H14 underpowered (MDE 0.128 vs development effect 0.067), stated in E19b |
+| P2 | Calibrated distributions v1 (E20, batch check 2024) | 2 | P1, F4, F2 | IN PROGRESS: E20 committed (f98f3ca); candidates C0-C3 built and tested (d871c7f); development run next | |
+| P3 | Dependence model (E21; gated) | 2 | P2 | IN PROGRESS: gate pre-registered (b382861) and built (8067cf6); runs after P2 development | |
+| P4 | Season dynamics (VL4) | 2 | P2, F4 | IN PROGRESS: VL4, VL4a committed; code built and tested (46d8f08); development run after P2 | |
+| P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | VALIDATING: engine built and tested (2b641eb); the 600 × 14 × 5,000 benchmark is pending; frozen P2/P4 components swap in after E22 | |
+| S1 | Matchup win probability v1 (VL5) | 3 | P5, F3, F6 | COMPLETED (development) 2026-10-13 | VL5 (4d964c1); simulation non-inferior to the normal approximation (ΔBrier +0.0001, upper +0.0003) and the slope rule passes: S1-sim adopted; the check is in VL11; real-league calibration sealed until R1 |
+| S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | IN PROGRESS: thin slice built on S0 (a84579b, f4714a0); v1 pending | |
 | S3 | Valuation v3 (VL7) | 3 | P4, P5, S2, F6 | NOT STARTED | |
 | D1 | Lineup engine v1 (VL8; triage-gated) | 4 | S1, P5, F5, F6 | NOT STARTED | |
-| D2 | Trade engine v3 | 4 | S2, S3, F3, F5 | NOT STARTED | |
+| D2 | Trade engine v3 | 4 | S2, S3, F3, F5 | IN PROGRESS: thin slice (two-team ΔP re-scoring, partner-lens frontier, `rescore` CLI, ledgered); real league: 5 trades × 5,000 simulations in 0.56 min | |
 | D3 | Waiver / free-agent assistant (VL9) | 4 | S2, S3, F3, F6 | NOT STARTED | League has no FAAB (`isUsingAcquisitionBudget = FALSE`): the FAAB part is gated off; waiver priority applies |
 | D4 | Draft assistant (VL10; by Aug 2027) | 4 | S2, S3, O2/O8 captures | NOT STARTED | `keeperCount = 0`: keeper part gated off |
 | D5 | Weekly intelligence briefing | 4 | D1–D3, F5, I3 | NOT STARTED | |
