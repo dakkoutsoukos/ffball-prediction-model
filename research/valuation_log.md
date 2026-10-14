@@ -1385,3 +1385,65 @@ run on 2026.
 
 **Status.** D5 and I3 are built. D5's success criterion (produced for ≥ 90% of 2027 weeks before first kickoff) is
 tracked as ongoing.
+
+### VL7 result: S3 — X10a not supported; X10b selects wins added (computed after VL7 was committed in c7d2b9c)
+
+**X10a** (2026 week-5 run, V1's default league, S = 200; projections only).
+- **Harness check passes.** V1's own fixed point rosters 30 QBs and does not converge in 6 iterations. The changes per
+  iteration, 4, 1, 2, 1 and 4, are exactly VE3's trial.
+- **Disclosure.** Before the study, a timing run printed the lag-3 variant's iteration-1 QB count (27). No parameter
+  changed afterwards.
+
+| Variant | Converged | QBs per iteration | Final roster QB / RB / WR / TE |
+|---|---|---|---|
+| **Lag 3 (primary)** | yes, at iteration 5 | 27, 30, 32, 32, 32 | 32 / 36 / 48 / 24 |
+| Lag 0 (immediate learning) | yes, at iteration 6 | 27, 30, 31, 32, 32, 32 | 32 / 36 / 49 / 23 |
+| No learning (control) | no | 25, 28, 30, 30, 31, 31 | 31 / 37 / 48 / 24 |
+| Proportional pool (reference) | — | — | 20 / 46 / 54 / 20 |
+
+**Decision: the hypothesis is not supported.**
+- The primary converges, but rosters 32 QBs against 17–23.
+- Level uncertainty with learning removes the non-convergence (the fixed point settles) but **not** the hoarding.
+- It raises the option value of depth at every position, including a second QB whose learned level may beat the
+  starter's. Free-agent QBs are thin once 32 are rostered, so the streaming alternative stays weak.
+- The control behaves like V1, as designed.
+- VE3's decision stands: the proportional pool remains V1's waiver baseline. The re-draft is not used for V3's
+  generic teams.
+
+**X10b** (F6 arm-A development replays; 19,174 candidates over 960 focal stages; 12.4% would be added; 88.4% have zero
+realised gain). Valid stages (non-constant gain and metric) number 603 (597 for wins added).
+
+| Metric | Mean stage Spearman | Difference from VOR | 95% CI |
+|---|---|---|---|
+| VOR | 0.037 | — | — |
+| EVOR | 0.036 | −0.001 | [−0.017, +0.016] |
+| MRU | 0.070 | +0.033 | [−0.001, +0.070] |
+| **Wins added** | **0.203** | **+0.165** | **[+0.106, +0.226]** |
+
+**Selection (VL7's rule): wins added is the primary display metric.** It has the highest mean correlation, and its
+difference from VOR excludes 0.
+
+**Secondary** (pre-declared; not used for selection):
+- Pearson: VOR 0.038, EVOR 0.049, MRU 0.076, wins added 0.213.
+- Top-1 hit rate: 0.317, 0.325, 0.335, 0.385.
+- By position, wins added leads for RB, WR and TE; MRU leads for QB (0.23 vs 0.16).
+- Early stages (t ≤ 7) correlate more than late ones for every metric.
+
+**Post-hoc diagnostics** (labelled post hoc; they change nothing).
+- Wins added and the realised gain are both exactly 0 when the add is not made, which generic metrics cannot know. The
+  add indicator alone reaches a mean stage Spearman of 0.084, so the shared zero explains part of the advantage.
+- Among added candidates only (167 stages with ≥ 5 adds), wins added still leads within stages: 0.172, against VOR
+  0.094, EVOR 0.121 and MRU 0.138.
+- **Reading:** roster-aware value predicts a team's realised gain from an add better than generic value. All metrics
+  are weak predictors in absolute terms (correlations ≤ 0.2): weekly outcomes are noisy.
+
+**Live display (built under VL7):**
+- `values3` shows wins added and P(playoffs)/P(title) values from common-random-number removal, EVOR, and V1/V2 VOR
+  and trade value.
+- On the real league: 15 players in 1.3 min; invariants hold; Spearman(wins added, VOR) 0.95. The roster risk report
+  works.
+- With this result, wins added is the display's primary column; VOR and trade value stay as references.
+
+**S3 status.** COMPLETED (development): hypothesis reported (not supported), display metric selected by the rule, live
+display built, V1/V2 tests unchanged (full suite 355 blocks, 1,515 expectations, 0 failures). VL11 re-tests X10b
+(wins added vs VOR) on 2025.

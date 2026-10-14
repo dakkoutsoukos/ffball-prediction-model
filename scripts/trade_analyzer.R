@@ -283,6 +283,7 @@ res <- switch(cmd,
     print(dplyr::transmute(vals, .data$player, .data$position, wins_added = round(.data$wins_added, 2),
                            playoffs_value = round(.data$playoffs_value, 3), title_value = round(.data$title_value, 3),
                            evor = round(.data$evor, 1), vor = round(.data$vor, 1), trade_value = round(.data$trade_value, 1)))
+    cli::cli_text("Primary value: wins added (VL7: it predicted realised add gains best in the lab; VOR and trade value are references).")
     cli::cli_h3("Roster risk")
     cli::cli_text("Top two players supply {round(100 * risk$top2_share)}% of expected lineup points; the largest single-player P(playoffs) value is {round(risk$max_playoffs_value, 3)}.")
     if (nrow(risk$holes)) print(risk$holes) else cli::cli_text("No week leaves a starting slot without a playing roster player.")
