@@ -16,6 +16,7 @@ results are seen.*
 | R-007 | 2026-10-13 | F6 development results (descriptive) | LAB1 | Shadow calibrated − raw lineups +0.003 [−0.029, +0.034]; focal arms B/C/D − A +0.06/+0.02/+0.08 with wide CIs; regret and season outcomes equal across arms | Inconclusive / null at the late horizon (no detectable decision gain from calibration) |
 | R-008 | 2026-10-13 | S1 matchup P(win), development matchups (X23) | VL5 | 5,544 matchups: ΔBrier (simulation − normal) +0.0001 [−0.0001, +0.0003], non-inferior; slope 0.92 [0.72, 1.09] | Success (S1-sim adopted; equivalent, not better) |
 | R-009 | 2026-10-13 | Injury stack development (P1, R2) | E19, E19b | P1: GLMM vs rate table Brier skill 0.118 [0.084, 0.151], positive every season. R2: B1 and K1 qualify, B1 selected; 2019 MDE 0.128 vs development effect 0.067 (H14 underpowered) | Development success; 2019 check pending |
+| R-010 | 2026-10-13 | Injury stack, one-time 2019 batch check (P1 X5, R2 X14) | E19, E19b, E19c | **H5:** GLMM Brier skill 0.158 [0.079, 0.228], Holm p 0.001, but the slope rule fails (1.25 [1.04, 1.55]). **H14:** B1 ΔMSE +0.029 [−0.066, +0.140], p 0.69. Secondary: G1 skill RB 0.17, TE 0.00, QB 0.31. | **X5 failed** (slope rule), so the rate table R0 became the frozen provider and was adopted by D0/S0. **X14 failed** (null; underpowered as stated in advance). 2019 spent. |
 
 **Not yet run:** every experiment in the master plan's backlog ([09](../09_experiment_backlog.md)) except the
 power analysis (X1) and the P0 development evaluation above.
