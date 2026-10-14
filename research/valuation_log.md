@@ -814,3 +814,42 @@ P(active) by position × band (LAB1a).
 **Reading for VL11.** Calibration alone barely changes lineups, so a realised lineup effect of calibration will sit far
 below any plausible MDE. The waiver arm, and the availability and distribution arms once P1/P2 exist, carry the
 decision question. VL11's pre-registration should size its primaries with these flip rates in mind.
+
+### LAB1 result 2: development results (descriptive; computed after result 1 was committed in 0c01edd)
+
+Regular-season team-weeks, 2020–2023. Week-clustered, season-blocked bootstrap 95% intervals.
+
+| Comparison | n | Mean (points per team-week) | 95% CI |
+|---|---|---|---|
+| Shadow: calibrated − raw lineup on identical rosters (all teams, arm A) | 11,088 | +0.003 | [−0.029, +0.034] |
+| Focal arm B − A (calibrated lineups) | 1,120 | +0.059 | [−0.075, +0.208] |
+| Focal arm C − A (calibrated waivers) | 1,120 | +0.022 | [−0.406, +0.454] |
+| Focal arm D − A (both) | 1,120 | +0.081 | [−0.369, +0.545] |
+
+- **Regret** (hindsight-optimal minus realised, focal team): A 12.32, B 12.31, C 12.73, D 12.70.
+- **Season level** (descriptive; 80 leagues per arm): wins 6.96–6.98, playoffs 0.375–0.400, titles 0.113–0.125.
+
+**Reading.** At the late horizon, calibrating ESPN changes few decisions and no detectable realised points. That was
+the triage's prediction for lineups. For waivers it is an estimate with a wide interval. Accuracy gains of this size
+(calibration) do not translate into decision gains. The X8 arms that remain open are availability (needs P1) and
+distribution-aware values (needs P2). Development only: the decision family's check is VL11 (2025).
+
+### VL5 result: S1 matchup P(win) on the F6 development matchups (computed after VL5 was committed in 4d964c1)
+
+5,544 regular-season matchups (2020–2023, arm A).
+
+| | Simulation | Normal approximation |
+|---|---|---|
+| Brier | 0.21743 | 0.21731 |
+| Log loss | 0.6252 | 0.6246 |
+
+- **ΔBrier (simulation − normal) = +0.00011**, 95% CI [−0.00007, +0.00034]. The upper bound is ≤ +0.005, so **non-inferior**.
+- **Slope rule passes:** slope 0.92, CI [0.72, 1.09].
+- **CORP:** MCB 0.0018 vs 0.0018; DSC 0.0339 vs 0.0341; UNC 0.2496. Results are identical by league size.
+- **Reliability:** good throughout, except the top bin: forecast 0.94, observed 0.83 (n = 94).
+
+**Decision (VL5's rule): S1-sim is the matchup P(win) engine.** The simulation is not better than the normal
+approximation; it is equivalent at the late horizon with these PODs. Its value is consistency with the scenario
+engine's joint draws (S2, D-track). The normal approximation stays the documented fallback.
+
+Real-league calibration remains descriptive and sealed until R1. The decision family's check is VL11.
