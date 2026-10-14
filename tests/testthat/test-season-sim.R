@@ -147,3 +147,61 @@ test_that("a P1 provider sets the current week's availability in the universe (V
   expect_equal(u1$A[, 1], c(0.5, 1))
   expect_equal(u1$A[, 2], c(1, 1))                              # later weeks keep the run's availability
 })
+
+# ---- S2 v1 resolver (VL6) ----
+
+s2_state6 <- function(playoff_teams = 6, wins = rep(0L, 6), schedule_winners = NULL) {
+  sched <- tibble::tibble(matchup_id = 1:3, matchup_period = 1L, home_team = c(1L, 3L, 5L), away_team = c(2L, 4L, 6L),
+                          home_points = NA_real_, away_points = NA_real_, winner = "UNDECIDED", playoff_tier = "NONE")
+  st <- tibble::tibble(team_id = 1:6, wins = wins, losses = 0L, ties = 0L, points_for = 0, playoff_seed = NA_integer_,
+                       espn_playoff_pct = NA_real_)
+  rules <- list(teams = 6L, regular_periods = 1L, playoff_teams = playoff_teams,
+                matchup_periods = tibble::tibble(matchup_period = 1:4, scoring_periods = list(1L, 2L, 3L, 4L)))
+  list(rules = rules, schedule = sched, standings = st, status = list(current_matchup_period = 1L), has_schedule = TRUE)
+}
+
+s2_scores <- function(m) array(m, c(6, 4, 1), dimnames = list(as.character(1:6), as.character(1:4), NULL))
+
+test_that("S2 v1 reproduces S0's resolver exactly on the owner's format", {
+  sc <- ss_run(sims = 800)$base
+  a <- sim_resolve(sc, ss_state(), 3L)
+  b <- s2_resolve(sc, ss_state(), 3L)
+  expect_identical(b$seed, a$seed)
+  expect_identical(b$champion, a$champion)
+  expect_identical(b$wins, a$wins)
+  expect_identical(b$points_for, a$points_for)
+})
+
+test_that("6-team brackets give the top two seeds byes and follow the fixed bracket", {
+  base <- c(100, 90, 80, 70, 60, 50)
+  m <- cbind(base, base, base, base)
+  sc <- s2_scores(m)
+  r <- s2_resolve(sc, s2_state6(), 1L)
+  # week 1: 1, 3, 5 win; seeds 1-3 = teams 1, 3, 5 (points), seeds 4-6 = teams 2, 4, 6
+  expect_equal(as.vector(r$seed), c(1L, 4L, 2L, 5L, 3L, 6L))
+  expect_equal(r$champion, 1L)
+  m[2, 3] <- 150                                                  # team 2 (seed 4) upsets seed 1 in round 2
+  r2 <- s2_resolve(s2_scores(m), s2_state6(), 1L)
+  expect_equal(r2$champion, 2L)                                   # then beats team 3 (90 vs 80) in the final
+})
+
+test_that("division winners take the top seeds; head-to-head breaks ties on wins", {
+  base <- c(100, 90, 80, 70, 60, 50)
+  m <- cbind(base, base, base, base)
+  st <- s2_state6(playoff_teams = 4, wins = c(3L, 2L, 1L, 0L, 0L, 0L))
+  div <- c(`1` = "A", `2` = "A", `3` = "B", `4` = "B", `5` = "C", `6` = "C")
+  r0 <- s2_resolve(s2_scores(m), st, 1L)
+  expect_equal(as.vector(r0$seed)[1:3], c(1L, 2L, 3L))           # no divisions: team 2 is seed 2
+  r1 <- s2_resolve(s2_scores(m), st, 1L, divisions = div)
+  expect_equal(as.vector(r1$seed)[c(1, 3, 5, 2)], 1:4)            # winners 1, 3, 5 first; team 2 is the wild card
+  # H2H: teams 3 and 4 end tied on wins (2 each); team 4 wins their week-1 game, team 3 has more points
+  st2 <- s2_state6(playoff_teams = 4, wins = c(3L, 3L, 2L, 1L, 0L, 0L))
+  st2$standings$points_for <- c(0, 0, 500, 400, 0, 0)
+  m2 <- m
+  m2[4, 1] <- 85                                                  # week 1: team 4 (85) beats team 3 (80)
+  r_pts <- s2_resolve(s2_scores(m2), st2, 1L, tiebreak = "TOTAL_POINTS_SCORED")
+  r_h2h <- s2_resolve(s2_scores(m2), st2, 1L, tiebreak = "H2H")
+  expect_equal(c(r_pts$wins[3, 1], r_pts$wins[4, 1]), c(2, 2))
+  expect_lt(r_pts$seed[3, 1], r_pts$seed[4, 1])                   # points: team 3 (580) above team 4 (485)
+  expect_lt(r_h2h$seed[4, 1], r_h2h$seed[3, 1])                   # head to head: team 4 above team 3
+})
