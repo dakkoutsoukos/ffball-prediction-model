@@ -1,0 +1,91 @@
+# R2 (E19, X14) candidate parameters, derived from development seasons 2020-2023 only; fixed BEFORE the 2019 check (E19b). Do not edit.
+derived_from: 2020-2023
+RB:
+  n_dev:
+    Q_DNP: 31
+    Q_LP: 234
+    Q_FP: 52
+    Q_other: 9
+    D: 2
+    listed_DNP_LP: 165
+    Q_pool: 328
+  pooled_into_Q_pool:
+  - Q_DNP
+  - Q_FP
+  - Q_other
+  - D
+  b1_multiplier_adj: -0.04
+  k1_multiplier_adj:
+    Q_pool: -0.04
+    Q_LP: -0.03
+    listed_DNP_LP: -0.04
+  k2_logit:
+    (Intercept): 3.316
+    dnp: -0.786
+    lp: -0.585
+    doubtful: -1.856
+    returning: -1.731
+    streak: 0.423
+  k2_ratio_if_active:
+    Q_pool: 0.95
+    Q_LP: 0.96
+    listed_DNP_LP: 0.93
+TE:
+  n_dev:
+    Q_DNP: 27
+    Q_LP: 157
+    Q_FP: 54
+    Q_other: 7
+    D: 1
+    listed_DNP_LP: 128
+    Q_pool: 246
+  pooled_into_Q_pool:
+  - Q_DNP
+  - Q_FP
+  - Q_other
+  - D
+  b1_multiplier_adj: -0.11
+  k1_multiplier_adj:
+    Q_pool: -0.11
+    Q_LP: -0.1
+    listed_DNP_LP: -0.02
+  k2_logit:
+    (Intercept): 3.767
+    dnp: -1.994
+    lp: -0.678
+    doubtful: -17.649
+    returning: -1.882
+    streak: 0.327
+  k2_ratio_if_active:
+    Q_pool: 0.82
+    Q_LP: 0.82
+    listed_DNP_LP: 0.96
+QB:
+  n_dev:
+    Q_DNP: 4
+    Q_LP: 51
+    Q_FP: 19
+    Q_other: 0
+    D: 0
+    listed_DNP_LP: 36
+    Q_pool: 74
+  pooled_into_Q_pool:
+  - Q_DNP
+  - Q_LP
+  - Q_FP
+  - Q_other
+  - D
+  - listed_DNP_LP
+  b1_multiplier_adj: -0.1
+  k1_multiplier_adj:
+    Q_pool: -0.1
+  k2_logit:
+    (Intercept): 2.08
+    dnp: 1.063
+    lp: 0.933
+    doubtful: 0.0
+    returning: -1.88
+    streak: 0.203
+  k2_ratio_if_active:
+    Q_pool: 0.82
+selected: B1

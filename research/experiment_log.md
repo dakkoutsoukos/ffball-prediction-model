@@ -1452,3 +1452,48 @@ development replays (2020–2023; LAB1, LAB1a, LAB1b), all teams. These carry sa
 - the variance ratio Var(realised − simulated mean) / mean simulated variance;
 - coverage for lineups with at least one same-team QB–pass-catcher pair versus without;
 - the same by league size.
+
+---
+
+## 2026-10-13 — E19b: injury stack development results, fixed R2 parameters and MDE (written before the 2019 check)
+
+All numbers come from development seasons 2020–2023 (training 2017–2018), out of sample by season. 2019 has not been built or viewed.
+
+**P1 (X5), report population, RB/TE/QB pooled** (n = 3,835; observed active 0.628).
+
+| | R0 rate table | G1 GLMM |
+|---|---|---|
+| Brier | 0.1155 | 0.1019 |
+| Log loss | 0.368 | 0.323 |
+
+- **Brier skill 0.118**, season-blocked week-clustered 95% CI [0.084, 0.151].
+- G1's pooled calibration slope is 0.86.
+- **By season:** skill 0.177 (2020), 0.034 (2021), 0.120 (2022), 0.130 (2023).
+- **By position:** QB 0.25, RB 0.07, TE 0.08; WR 0.06 (contaminated, reported only).
+- **COVID sensitivity** (2020–2021 excluded): skill 0.121, slope 0.85.
+- **Unlisted base rates** (players with a snap in the previous game): QB 0.81–0.86, RB 0.89–0.94, WR 0.90–0.94, TE 0.92–0.97.
+- **Fit notes.**
+  - mgcv reports "step failure" in the smoothing-parameter search for some folds. The fits converged and the scores above come from them.
+  - Two designation × practice cells are empty (rank deficiency 2). Their coefficients are 0 by mgcv's identifiability constraints.
+  - Prediction keeps the team-season effect at 0, as E19 fixed.
+
+**R2 (X14), development pooled RB/TE/QB** (14,970 rows; B0 MSE 30.68). ΔMSE against B0, week-clustered season-blocked CIs:
+
+| | ΔMSE | 95% CI | ΔMAE | Qualifies |
+|---|---|---|---|---|
+| B1 | −0.067 | [−0.104, −0.032] | −0.0069 | yes |
+| K1 | −0.054 | [−0.097, −0.013] | −0.0056 | yes |
+| K2 | −0.013 | [−0.126, +0.100] | −0.0101 | no |
+
+**Selection (E19's rule): B1** (lowest development MSE among the qualifiers, and the simplest).
+- Questionable/Doubtful multipliers: RB −0.04, TE −0.11, QB −0.10, i.e. ×0.96, ×0.89, ×0.90.
+- Every group of the three positions pools into Q_pool except RB/TE Q_LP and listed_DNP_LP. The QB rows are small: 74 Q/D in development.
+
+**Fixed parameters:** `research/m6_candidate_params.yml` (sha256 `bc89ca47abac598b18b49b593a77ebd7b95d07b67d8ebf02db4f7dd23828841a`).
+It is checked against a fresh derivation by the target `m6_params_check`.
+
+**MDE for H14 on 2019** (weeks 5–17; 13 weeks): σ_w of the week-level pooled ΔMSE = 0.165, so MDE = 0.128 at one-sided
+α = 0.025 and power 0.8. The development effect (−0.067) is about half the MDE. **H14 is underpowered**, and a null in
+2019 would be uninformative about R2. This is stated now so a null cannot be read as evidence of no effect.
+
+**Next:** `e19_check` runs once, then E19c, and `spent_checks` is updated.
