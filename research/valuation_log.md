@@ -1019,3 +1019,39 @@ go by waiver priority. Keepers 0.
 - **Primary estimate** (no test; D3's criterion): ΔE − C in focal realised lineup points per team-week, regular season. Week-clustered, season-blocked bootstrap 95% CI.
 - **Also reported:** QB claims per season; realised QB points of the focal starter.
 - **Use:** streaming is recommended by the tool only if the CI excludes 0 in its favour. Otherwise the streaming view is informational. VL11 re-tests on 2025.
+
+### VL8 result: D1 late-window value (computed after VL8 was committed in 6a23352; estimation only)
+
+**Data.** 11,088 team-weeks: F6 arm-A development replays 2020–2023, 80 leagues, regular season, both sides of every
+matchup. 2,000 common-random-number draws per evaluation; a swap is made only if ΔP(win) > 2 Monte Carlo SE.
+
+| Quantity (late window − EV, per team-week) | Estimate | 95% CI (week-clustered, season-blocked) |
+|---|---|---|
+| Win rate | +0.0003 | [−0.0005, +0.0012] |
+| Realised points | +0.010 | [−0.014, +0.032] |
+| Team-weeks with any swap | 2.4% (268) | — |
+
+**By decision point** (team-weeks with a swap; win-rate difference among them):
+- before Sunday early (Thursday final): 265, +0.015, about 4 net wins;
+- before Sunday night: 3, −0.33 (one loss);
+- before Monday: 1, 0.
+
+**By the realised margin before the first swap** (268 swapped team-weeks; small cells, descriptive):
+
+| Margin | ≤ −30 | (−30, −10] | (−10, 0] | (0, 10] | (10, 30] | > 30 |
+|---|---|---|---|---|---|---|
+| n | 9 | 39 | 142 | 34 | 37 | 7 |
+| Win-rate difference | 0 | +0.077 | +0.014 | +0.029 | −0.081 | 0 |
+
+**Reading.**
+- The CI includes 0, so by VL8's rule the late-window module ships **only as an informational display**; it makes no
+  live recommendation.
+- Opportunities are rare: 0.34 swaps per team-season, almost all after the Thursday game. By Sunday night few rosters
+  still have an unlocked bench player whose swap moves P(win) by more than 2 SE.
+- Even at the point estimate the gain is about 0.005 wins per team-season. This agrees with X9's outcome-free triage
+  (LAB1 result 1: P(win)-optimal lineups rarely differ from EV lineups in this format).
+- Limitations: the opponent keeps its EV lineup; no in-game information (injuries during games); K and D/ST are not in
+  the lab; the PODs assume independence (P3's gate found a variance ratio of 1.04).
+
+**Status.** D1's success criteria are met: triage reported, kill rule applied, late-window value estimated with a CI.
+VL11 re-tests on 2025 replays.

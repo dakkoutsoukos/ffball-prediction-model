@@ -21,5 +21,6 @@ results are seen.*
 | R-012 | 2026-10-14 | P3 gate (E21) on 11,052 development lineups | E21 | Coverage 0.498/0.794/0.892 under independence; variance ratio 1.04 (stacks 1.11) | Null recorded: P3 not built |
 | R-013 | 2026-10-14 | P4 development (VL4); X2, X26 | VL4, VL4a | σ_L 0.25–0.50 by position × band; ROS CRPS worse than VE1-normal in every cell (50% coverage 0.32–0.48). X2 residual persistence ≈ 0; X26 ESPN revision slope 0.11–0.14 | **Failed experiment** (development); not advanced. 2024 batch (E22) not run (X-020) |
 | R-014 | 2026-10-14 | S2 v1 week-k P(playoffs) calibration (descriptive) | VL6 | Brier 0.192/0.153/0.124 at k = 4/7/10; slope 0.68–0.79 without a level shock; 0.94–1.07 with S0's σ_L | Success (estimation); supports S0's level-shock design |
+| R-015 | 2026-10-14 | D1 late-window value (X9 second part), 11,088 development team-weeks | VL8 | Win rate late window − EV +0.0003 [−0.0005, +0.0012]; points +0.010 [−0.014, +0.032]; swaps in 2.4% of team-weeks, 265 of 268 after the Thursday game | Null: CI includes 0, so the late-window module is informational only |
 
 **Scope.** The table lists only experiments that have been run. The rest of the backlog ([09](../09_experiment_backlog.md)) is pending; the tracker gives each milestone's status.
