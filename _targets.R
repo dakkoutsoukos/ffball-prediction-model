@@ -771,6 +771,24 @@ list(
     tar_target(kdst_dst_week_tbl, kdst_dst_week(kdst_dst_stats_tbl, kdst_rules), format = "parquet"),
     tar_target(kdst_team_k_tbl, kdst_team_k(kdst_k_week_tbl, team_games), format = "parquet")
   ),
+  # X22 (E23, E23a): K and D/ST distributions for lineup totals, on E21's development lineups
+  if (build_valuation && file.exists(POD_TABLE_FILE) && file.exists(LG_SNAPSHOT_MANIFEST) && dir.exists(LG_SNAPSHOT_ROOT)) list(
+    tar_target(x22_units_tbl, {
+      assert_family_seasons("distribution_stack", 2019L, "warmup", read_contamination_register(contamination_register_file))
+      x22_units(kdst_team_k_tbl, kdst_dst_week_tbl, team_games, X22_UNIT_SEASONS)
+    }),
+    tar_target(x22_rows, {
+      reg <- read_contamination_register(contamination_register_file)
+      assert_family_seasons("distribution_stack", P2_DEV, "development", reg)
+      fa <- p2_frame(player_week_all, c(P2_WARMUP, P2_DEV), active_only = FALSE)
+      at <- lab_active_table(pd_based)
+      purrr::map(lab_replays, function(r) {
+        S <- lab_season_data(player_week_all, team_games, r$season)
+        x22_gate_season(fa, p3_lineups(r, S), at, x22_units_tbl, x22_fit(x22_units_tbl, seq(2019L, r$season - 1L)), seed = 21L)
+      }) |> purrr::list_rbind()
+    }),
+    tar_target(x22_result, x22_gate(x22_rows, register = read_contamination_register(contamination_register_file)))
+  ),
 
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
