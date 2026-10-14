@@ -14,7 +14,7 @@
 LEDGER_ROOT <- "data/archive/decisions"
 LEDGER_MANIFEST <- "archive/decision_manifest.csv"
 LEDGER_SCHEMA <- "decision_record_v1"
-LEDGER_TYPES <- c("lineup", "trade_analyze", "trade_search", "trade_target", "trade_sell", "waivers", "odds")
+LEDGER_TYPES <- c("lineup", "trade_analyze", "trade_search", "trade_target", "trade_sell", "waivers", "odds", "trade_rescore")
 LEDGER_UNSEAL_ENTRIES <- c("VL8", "VL9", "VL10", "VL11")
 
 #' Record one recommendation. `recommendation`, `alternatives` and `metrics` are plain lists or

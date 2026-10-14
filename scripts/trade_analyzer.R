@@ -16,6 +16,10 @@
 #   Rscript scripts/trade_analyzer.R odds [--sims 10000] [--add "Player"] [--drop "Player"]
 #        # SHADOW season, playoff and title odds (master plan S0, VL3): this week's P(win), your leverage,
 #        # sensitivity bands, and a what-if with common random numbers. Unvalidated; see the printed label.
+#   Rscript scripts/trade_analyzer.R rescore --b "Team" [--k 5] [--sims 5000]
+#        # SHADOW thin slice (master plan S2/D2): the top K trades with that team by the utility screen,
+#        # re-scored by both teams' P(playoffs) and P(title) with common random numbers, plus the
+#        # partner's generic-value view and the frontier. Unvalidated; see the printed label.
 #   Rscript scripts/trade_analyzer.R ledger-action --decision <id> --action followed|partially|ignored [--note "..."]
 # Recommendations (lineup, analyze, fair, target, sell, waivers) are recorded in the private decision
 # ledger (master plan F5; data/archive/decisions/, hashes in archive/decision_manifest.csv). Their
@@ -29,7 +33,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|odds|ledger-action> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -196,6 +200,39 @@ res <- switch(cmd,
     cli::cli_text("Ledgered {.val {d$decision_id}} (shadow odds; evaluation-only archive).")
     NULL
   },
+  rescore = {
+    # S2/D2 thin slice: V2's utility screen, then the top K re-scored by both teams' P(playoffs) and
+    # P(title) on the S0 engine (common random numbers); partner lens = the partner's generic VOR net.
+    if (is.na(me)) stop("Set --me (your team).")
+    if (is.null(opt$b)) stop("Usage: trade_analyzer.R rescore --b \"Team\" [--k 5] [--sims 5000]")
+    tb <- lg_find_team(m, opt$b)
+    k <- as.integer(opt$k %||% 5)
+    sims <- as.integer(opt$sims %||% 5000)
+    s <- la$search
+    r <- lg_trade_search(m, me, tb, NULL, top_n = s$top_n, tv_band = s$tv_band, max_eval = s$max_eval,
+                         eps = la$eps, strong = la$strong, horizon = horizon)
+    if (!nrow(r)) {
+      cli::cli_alert_info("No candidate trades passed the utility screen.")
+      NULL
+    } else {
+      top <- utils::head(r, k)
+      trades <- lapply(seq_len(nrow(top)), function(i) list(team_a = me, give_a = top$a_rows[[i]], team_b = tb,
+                                                            give_b = top$b_rows[[i]]))
+      state <- lg_state_from_snapshot(lg_latest_snapshot(season))
+      if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
+      d <- sim_trade_rescore(m, state, trades, sims = sims)
+      out <- dplyr::bind_cols(top[c("a_gives", "b_gives")], d)
+      cli::cli_alert_warning(S0_LABEL)
+      print(dplyr::transmute(out, you_give = .data$a_gives, you_get = .data$b_gives,
+                             your_dP_playoffs = round(.data$d_playoffs_a, 3), your_dP_title = round(.data$d_title_a, 3),
+                             their_dP_playoffs = round(.data$d_playoffs_b, 3), their_dP_title = round(.data$d_title_b, 3),
+                             their_generic_view = round(.data$partner_lens_b, 1), your_dU = round(.data$v2_delta_a, 1),
+                             their_dU = round(.data$v2_delta_b, 1)))
+      fr <- trade_frontier(out)
+      cli::cli_text("Frontier (your simulated title gain vs the partner's generic-value view): trades {paste(fr$trade, collapse = ', ')}.")
+      list(rescore = dplyr::select(out, -"label"), frontier_trades = fr$trade, sims = sims)
+    }
+  },
   lineup = {
     team <- if (!is.null(opt$team)) lg_find_team(m, opt$team) else me
     if (is.na(team)) stop("Set --team (your team could not be detected).")
@@ -227,7 +264,7 @@ if (!is.null(res)) {
   cli::cli_text("Archived query {.file {basename(q)}}")
   # Decision ledger (master plan F5): every recommendation, with its information state; outcomes sealed
   ledger_type <- unname(c(lineup = "lineup", analyze = "trade_analyze", fair = "trade_search", target = "trade_target",
-                          sell = "trade_sell", waivers = "waivers")[cmd])
+                          sell = "trade_sell", waivers = "waivers", rescore = "trade_rescore")[cmd])
   if (!is.na(ledger_type)) {
     p <- if (cmd == "lineup") lg_ledger_lineup_payload(adv) else list(recommendation = res, alternatives = NULL, metrics = list())
     d <- lg_ledger_record(ledger_type, m$inputs, season, m$current_week, p$recommendation, p$alternatives, p$metrics,
