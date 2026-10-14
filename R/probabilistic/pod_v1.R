@@ -142,12 +142,15 @@ p2_quantiles_c1 <- function(fit, rows, tau = P2_TAU) {
 }
 
 # ---- C2: EMOS-style shash regression -----------------------------------------------------------------
-P2_C2_FORMULA <- list(y ~ s(base, k = 10), ~ s(base, k = 10) + status + td_share + implied_total + spread + vol_shrunk,
+# E20a: the shash is fit to the residual r = y - base (location smooth in base), the same model space
+# as E20's y ~ s(base) but without its degenerate optimum; quantiles of y are base + quantiles of r.
+P2_C2_FORMULA <- list(r ~ s(base, k = 10), ~ s(base, k = 10) + status + td_share + implied_total + spread + vol_shrunk,
                       ~ 1, ~ 1)
 
 p2_fit_c2 <- function(train) {
   lapply(stats::setNames(P2_POSITIONS, P2_POSITIONS), function(p) {
     d <- train[train$position == p, ]
+    d$r <- d$y - d$base
     d$status <- droplevels(d$status)
     f <- P2_C2_FORMULA
     if (nlevels(d$status) < 2) f[[2]] <- stats::update(f[[2]], ~ . - status)
@@ -175,7 +178,7 @@ p2_quantiles_c2 <- function(fit, rows, tau = P2_TAU) {
     nd$status <- factor(ifelse(as.character(nd$status) %in% fit[[p]]$status_levels, as.character(nd$status), "none"),
                         fit[[p]]$status_levels)
     lp <- stats::predict(fit[[p]]$fit, newdata = nd, type = "link")
-    out[i, ] <- pmax(p2_shash_q(lp, tau), fit[[p]]$floor)
+    out[i, ] <- pmax(rows$base[i] + p2_shash_q(lp, tau), fit[[p]]$floor)   # E20a: residual model
   }
   out
 }
