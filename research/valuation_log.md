@@ -926,3 +926,49 @@ All are uncapped. For comparison, S0's position-level σ_L is 0.35–0.39.
 **Outcome.** P4 v1 fails in development, so it is **not advanced** (E22 not run) and not adopted. S0's VL3 engine stays
 in shadow use with its label. The X26 learning slope is recorded for P5/S3's simulated policies. A future P4 v2, for
 example an additive level shock or a revision-path model built on X26, needs its own pre-registration.
+
+## 2026-10-14 — VL8: D1 lineup engine — late-window value (X9 second part; pre-registration, written before any computation)
+
+**Scope after triage.** X9's kill rule fired (LAB1 result 1), so D1 has no full pre-kickoff P(win) mode. D1 =
+- EV lineups with D0's kickoff slotting and game-time plans (P1 provider);
+- decision confidence (shown, not tested);
+- a **late-window module**, whose value this entry estimates.
+
+**Question.** Lineups lock per game. Once earlier games are final, does re-optimising the still-unlocked slots for
+P(win), given the realised score so far, win more matchups than keeping the EV lineup?
+
+**Data.** F6 arm-A development replays (2020–2023; `decision_family` development). Every regular-season matchup is
+analysed from the focal side of each team-week, so both teams of a matchup appear.
+
+**Decision points** (each player's NFL game slot from the F4 kickoff, US Eastern):
+- Thursday;
+- Sunday early (before 15:00);
+- Sunday late (15:00–19:59);
+- Sunday night and Monday (20:00 or later, Sunday or Monday).
+
+Decisions happen before each of: Sunday early (Thursday final), Sunday night (all Sunday daytime final), Monday (all
+Sunday final). The Sunday-late slot shares the Sunday-early decision, because early games are not final at 16:05.
+
+**Policies** (team scored on realised points; the opponent keeps its EV lineup):
+- **EV:** the lab's calibrated EV lineup (F4 base, late horizon).
+- **Late window:** at each decision point, the starters in unlocked slots are re-chosen among unlocked roster players.
+  - The objective is P(win), given the realised points of both teams' locked starters and the PODs of all unlocked players.
+  - PODs come from the frozen P0 table with position × band P(active).
+  - P(win) is computed by simulation (2,000 common-random-number draws), searching over single swaps between an unlocked starter and an unlocked bench player (as X9).
+  - A swap is made only if ΔP(win) exceeds 2 Monte Carlo SE.
+
+**Primary estimate** (no hypothesis test; D1's criterion is "late-window value estimated with CI"):
+- the difference in win rate per team-week (late window − EV);
+- week-clustered, season-blocked bootstrap 95% CI.
+
+**Also reported:**
+- realised points difference;
+- share of team-weeks with any late-window swap;
+- results by decision point;
+- results by the realised margin before the decision.
+
+**Interpretation and use.**
+- **CI excludes 0 in favour of the late window:** the late-window module ships, with live use gated on live box scores (owner decision O8).
+- **Otherwise:** it ships only as an informational display.
+
+VL11 re-tests on 2025 replays.
