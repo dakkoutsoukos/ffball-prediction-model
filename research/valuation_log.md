@@ -867,3 +867,35 @@ From now on S0 (`odds`, and the thin slice's `rescore`) uses it through `p1_live
 
 `--fixed-prior` restores the published prior. The ledger records the source in `model_versions$availability`.
 Everything else in VL3 is unchanged: σ_L, P0 noise, rules, label. S0 stays shadow and unvalidated.
+
+## 2026-10-14 — VL6: S2 v1 season and playoff simulator (pre-registration; estimation only, written before any computation)
+
+**Scope.** S0's resolver generalised to the formats ESPN offers, plus a week-k calibration study on the F6 replays.
+S0, the shadow engine, stays in service for the owner's league until S2 v1 is built and passes its rule tests.
+
+**Rules engine (`s2_resolve`).**
+- 2, 4, 6 or 8 playoff teams; byes for the top 2 seeds when there are 6 playoff teams; multi-week rounds.
+- Divisions: division winners take the top seeds, then wild cards by record.
+- Tiebreaks: win share, then the configured rule (TOTAL_POINTS_SCORED or head-to-head), then points for, then team id.
+- No reseeding (ESPN does not reseed). Playoff ties go to the higher seed.
+- **Rule-reproduction tests:**
+  - On the owner's format (4 teams, 1-week semifinal, 2-week final) S2 must reproduce S0's `sim_resolve()` exactly on identical score arrays.
+  - Hand-computed fixtures cover 6-team byes, divisions and both tiebreaks.
+
+**Week-k calibration study** (`decision_family` development 2020–2023, F6 arm A, all teams; descriptive estimation):
+- **When:** at k ∈ {4, 7, 10}, each replay league's rosters are frozen at week k.
+- **Simulation:**
+  - The remaining regular-season weeks are simulated with P4's rolling-origin components (mean if active by horizon bucket, attrition) fit on seasons before s.
+  - Weekly noise is P0, and there is no level shock. S0's σ_L is calibrated to ROS totals, not to team-score week sequences. A level-shock sensitivity at S0's σ_L is reported.
+  - Lineups are decision-time (lab optimiser on active × mean); 2,000 simulations; the lab's playoff rule (top 4 by wins, then points for).
+- **Compared with:** each team's realised playoff qualification in the replay. Rosters keep evolving there through waivers, which the forecast ignores; that is a stated limitation.
+- **Reported:** Brier, the reliability table, and the calibration slope with season-blocked bootstrap CIs, by k.
+- **No hypothesis test:** season-level outcomes have effective n ≈ seasons (05 §6).
+
+**Also reported:**
+- all-play records and schedule luck (realised wins minus all-play expected wins) for the replay leagues;
+- the ΔP(title) decomposition for a roster change, into regular-season wins, seeding/bye and playoff-week points. The decomposition uses common random numbers, combining configurations week by week.
+
+**Success (07 S2):** rules reproduced exactly; invariants (Σ P(playoffs) = playoff teams, Σ P(title) = 1); calibration
+estimates with honest CIs. The prospective comparison with ESPN's `playoffPct` is logged only if ESPN ever returns it
+(X-004: absent for this league).
