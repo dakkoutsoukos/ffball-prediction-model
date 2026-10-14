@@ -1418,3 +1418,37 @@ than C1, and it must pass the coverage gate.
 **POD assembly and freezing.**
 - POD_h = p_active(h) × F(y | active, base_h, x) + (1 − p_active(h)) × δ₀, with p_active from P1's provider (E19 outcome). The R3 horizon spread term enters once R3 adopts it.
 - The selected candidate is frozen as `models/probabilistic/pod_v1.yml` with a fingerprint, and archived prospectively like P0.
+
+---
+
+## 2026-10-13 — E21: P3 dependence, gate test (pre-registration, written before any lineup-total computation)
+
+**Question** (master plan P3's gate). On development seasons, does independence across players mis-calibrate
+**lineup totals**? P3 (team and game factors) is built only if it does. Otherwise the null is recorded and P5
+uses independence.
+
+**Lineups.** Realistic legal lineups, not random ones: every regular-season starting lineup of arm A in the F6
+development replays (2020–2023; LAB1, LAB1a, LAB1b), all teams. These carry same-team pairs at realistic rates.
+
+**Player distributions** (out of sample by season s, refit on 2019…s−1):
+- the E20-selected P2 candidate's F(y | active, base, x), applied to every starter of season s, including starters who turned out inactive;
+- P(active), from the position × P0-band development active share (LAB1a's table);
+- each starter's predictive distribution: p_active · F + (1 − p_active) · δ₀;
+- a starter without a week-t ESPN row contributes 0.
+
+**Independence prediction.** Lineup totals are simulated with 2,000 independent draws per lineup (inverse CDF on the
+99-level grid, tails held at the end quantiles), with a fixed seed per season.
+
+**Gate statistics** (pooled over 2020–2023):
+- the randomised PIT of each realised lineup total;
+- coverage of the 50/80/90% central intervals;
+- the coverage gate of 05 §6 over the three levels: week-clustered, season-blocked 95% CI; a cell fails when the Holm-adjusted test (across the 3 cells) rejects overlap with nominal ± 3 pp.
+
+**Decision rule.**
+- **Gate fails** (independence mis-calibrates lineup totals): build P3 with its four candidates (independence; team factor; team and game factors; shrunk role-pair matrix), to be batch-checked with P2 on 2024.
+- **Gate passes:** record the null; P5 uses independence.
+
+**Descriptive** (no decision use):
+- the variance ratio Var(realised − simulated mean) / mean simulated variance;
+- coverage for lineups with at least one same-team QB–pass-catcher pair versus without;
+- the same by league size.
