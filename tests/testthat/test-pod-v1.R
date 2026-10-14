@@ -105,3 +105,23 @@ test_that("development runs refuse 2024 rows and check the register", {
   fr <- p2_toy(seasons = 2023:2024)
   expect_error(p2_dev_run(fr, "C0", register = p2_reg()), "may not contain")
 })
+
+test_that("E22's decision applies Holm over the primaries present", {
+  p2 <- list(selected = "C2", p_vs_c0 = 0.004, ci_vs_c0 = c(-0.05, -0.01), not_worse_than_c1 = TRUE, gate_passed = TRUE)
+  p4 <- list(p = 0.03, ci = c(-0.4, -0.02), gate_passed = TRUE)
+  d <- e22_decide(p2, p4)
+  expect_equal(unname(d$p_holm), c(0.008, 0.03))
+  expect_true(d$success_p2 && d$success_p4)
+  p4$p <- 0.04
+  p2$p_vs_c0 <- 0.03
+  d2 <- e22_decide(p2, p4)
+  expect_equal(unname(d2$p_holm), c(0.06, 0.06))
+  expect_false(d2$success_p2 || d2$success_p4)
+  p2$selected <- "C0"                                            # development kept P0: P2 has no primary
+  d3 <- e22_decide(p2, p4)
+  expect_equal(names(d3$p_holm), "P4")
+  expect_false(d3$success_p2)
+  expect_true(d3$success_p4)
+  b <- e22_player_boot(c(1, 1, 3, 3), c("a", "a", "b", "b"), reps = 200L)
+  expect_true(all(b %in% c(1, 2, 3)))                            # players resampled whole
+})
