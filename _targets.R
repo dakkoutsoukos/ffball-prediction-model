@@ -519,6 +519,58 @@ list(
     )
   ),
 
+  # ---- Master plan F4: position-general historical frame --------------------
+  # QB/RB/WR/TE, 2019-2025 (R/data/player_week_all.R; player_week.R untouched). Infrastructure: no
+  # selection; analyses on it call assert_family_seasons(). Each check aborts on failure.
+  if (build_valuation) list(
+    tar_target(pwa_components, pwa_espn_components(c(raw_espn$path, val_raw_espn$path)), format = "parquet"),
+    tar_target(pwa_components_check, {
+      chk <- pwa_check_components(espn_weekly, pwa_components)
+      if (chk$differing > 0) cli::cli_abort("Re-parsed components differ from espn_weekly on {chk$differing} WR rows.")
+      chk
+    }),
+    tar_target(player_week_all,
+               build_player_week_all(espn_weekly, val_espn_hist, pwa_components, espn_crosswalk, val_crosswalk,
+                                     player_stats, rosters_weekly, team_games, injuries, injury_detail, snaps),
+               format = "parquet"),
+    # F4 criteria, fixed before the first build: scoring match >= 99.9% per position; the frozen WR rows reproduced.
+    tar_target(pwa_scoring, {
+      s <- pwa_scoring_match(player_week_all)
+      if (any(s$match_share < 0.999)) cli::cli_abort("F4 scoring match below 99.9% for {.val {s$position[s$match_share < 0.999]}}.")
+      s
+    }),
+    tar_target(pwa_wr_check, {
+      chk <- pwa_check_wr_reproduction(player_week_all, player_week_base)
+      if (!chk$pass) cli::cli_abort("F4 WR rows do not reproduce the frozen WR frame.")
+      chk
+    }),
+    # Corruption tests: outcomes of weeks >= g must not move week-g features; injury features for all positions.
+    tar_target(pwa_leakage, {
+      set.seed(11)
+      gis <- sort(sample(unique(game_index(player_week_all$season, player_week_all$week)), 6))
+      leaks <- pwa_check_leakage(player_week_all, dplyr::filter(snaps, season %in% PWA_SEASONS), team_games, gis)
+      if (length(leaks)) cli::cli_abort("F4 features leak: {.val {leaks}}")
+      list(weeks = gis, leaks = leaks)
+    }),
+    tar_target(pwa_injury_leakage, {
+      raw <- dplyr::filter(read_parquet_files(raw_injuries), .data$season %in% 2018:2024, .data$game_type == "REG")
+      fn <- function(t, rows, tg) {
+        p <- tempfile(fileext = ".parquet")
+        on.exit(unlink(p))
+        arrow::write_parquet(rows, p)
+        m4_add_features(t, pregame_injury_detail(p, tg), tg)
+      }
+      probe <- dplyr::select(dplyr::filter(player_week_all, .data$season %in% 2019:2024, .data$position %in% PWA_POSITIONS),
+                             "season", "week", "gsis_id", "team", "roster_status", "has_stat_line", "actual", "actual_targets")
+      set.seed(4)
+      gis <- sort(sample(unique(game_index(probe$season, probe$week)), 6))
+      leaks <- check_injury_leakage(probe, raw, team_games, fn, weeks = gis)
+      if (length(leaks)) cli::cli_abort("F4 injury features leak: {.val {leaks}}")
+      list(weeks = gis, leaks = leaks)
+    }),
+    tar_target(pwa_audit_tables, pwa_audit(player_week_all))
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: it reads the latest archived valuation run.

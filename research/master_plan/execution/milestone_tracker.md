@@ -25,7 +25,7 @@ Last updated: 2026-10-13.
 | S0 | In-season league simulator v0, shadow (VL3) | 1 | F3-lite, P0, F5 | COMPLETED 2026-10-13 | f4f1e06 (VL3), 136d766 (σ_L), 0012a18 (engine + CLI); runs need a fresh league snapshot |
 | R1 | M5: score the 2026 record + VE-P1 | Season end | F1; season over | NOT STARTED | Jan 2027 |
 | I1 | Platform runtime (renv profile) and modularisation | Season end | R1 | NOT STARTED | |
-| F4 | Position-general historical frame | 2 | F2 | NOT STARTED | |
+| F4 | Position-general historical frame | 2 | F2 | IN PROGRESS: part 1 (QB/RB/WR/TE frame) validated 2026-10-13; part 2 (K and D/ST) in progress | Part 1: `player_week_all` target; scoring ≥ 99.96% per position; frozen WR rows reproduced; no leaks (R-004, X-016); docs/player_week_all.md |
 | F6 | Decision laboratory v1 | 2 | F2, F4 | NOT STARTED | |
 | P1 | Availability v2 (with R2, E19, batch check 2019) | 2 | F2, F4 | NOT STARTED | |
 | R2 | RB/TE/QB availability rules (with P1, E19) | 2/5 | F4 | NOT STARTED | |

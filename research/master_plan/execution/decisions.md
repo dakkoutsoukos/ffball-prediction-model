@@ -193,3 +193,24 @@ and a broken one crashes it.
 **Not done.** `git_state()` itself is untouched, because it is the protocol's official-run check. *Recommendation:* the
 owner could tighten it the same way. That would change the official run script's behaviour, so it is the owner's
 call, not an execution default.
+
+## X-016 · 2026-10-13 · F4 frame: scope, criteria fixed before the first build, data choices
+
+**Timing.** 07/11 place F4 after R1 and I1. The owner asked (2026-10-13) to continue through every unblocked
+milestone, and F4 depends only on F2-lite. It uses base R and lockfile packages, with no `renv.lock` change. It
+selects nothing and computes no hypothesis test, so it does not touch the 2026 record or any batch check.
+
+**Criteria fixed in code before the first build** (`pwa_scoring_match()`, `pwa_check_wr_reproduction()`):
+- **Scoring.** League points must equal ESPN's actual within 0.011 points on ≥ 99.9% of rows with an ESPN actual, per position. Rows without a stat line count as 0.
+- **WR reproduction.** "WR rows reproduce the existing frame exactly" is read as:
+  - every frozen WR-frame key (2019–2025, with a game) is present;
+  - every shared column is identical;
+  - the one exception is rows whose ESPN default position is QB/RB/TE. The WR frame never saw those files, so the ESPN columns, position and name legitimately differ;
+  - no new WR rows.
+
+**Data choices.**
+1. **WR rows.** These keep `espn_weekly`, restricted to ESPN position WR. QB/RB/TE come from `val_espn_hist`. Components are re-parsed from the cached raw files: the six WR ones plus passing and rushing TDs. The re-parse equals the frozen WR components on all 45,857 rows.
+2. **Neutral-site as-of lines** (the X-007 gap). These come from the same public nfldata git history by E11's method (lazy per-version fetches through the existing local clone). They are cached under new names; E11's caches are untouched. Fetches are guarded: an incomplete table is never cached. Nothing nfldata-derived is committed.
+3. **`prev_offense_snaps`.** A missing snap record counts as 0 (snap tables keep only players with snaps).
+4. **Defensive-roster rows.** The 38 rows with a defensive roster position stay, as in the frozen WR frame. None is projected.
+5. **Rolling base.** P0's `pd_rolling_base()` unchanged. On 2019–2023 it equals P0's `pd_based` exactly (31,225 rows). For 2024–2025 rows, it is built by the same rolling-origin rule. Nothing about those seasons' fit or residuals was computed or viewed, consistent with the distribution stack's "nothing on 2024–2025 before the batch check".
