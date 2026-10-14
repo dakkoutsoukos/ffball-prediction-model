@@ -670,7 +670,21 @@ list(
     tar_target(p2_c3_base_choice, p2_c3_base(p2_dev_c0, p2_dev_c2)),
     tar_target(p2_dev_c3, p2_dev_run(p2_frame_dev, "C3", c3_base = p2_c3_base_choice,
                                      register = read_contamination_register(contamination_register_file))),
-    tar_target(p2_dev, p2_dev_summary(list(p2_dev_c0, p2_dev_c1, p2_dev_c2, p2_dev_c3)))
+    tar_target(p2_dev, p2_dev_summary(list(p2_dev_c0, p2_dev_c1, p2_dev_c2, p2_dev_c3))),
+    # E21: P3's gate on F6 development lineups (needs the lab replays and P2's selection)
+    if (file.exists(POD_TABLE_FILE)) list(
+      tar_target(p3_gate_rows, {
+        reg <- read_contamination_register(contamination_register_file)
+        assert_family_seasons("distribution_stack", P2_DEV, "development", reg)
+        fa <- p2_frame(player_week_all, c(P2_WARMUP, P2_DEV), active_only = FALSE)
+        at <- lab_active_table(pd_based)
+        purrr::map(lab_replays, function(r) {
+          S <- lab_season_data(player_week_all, team_games, r$season)
+          p3_gate_season(fa, p3_lineups(r, S), p2_dev$selected, at, seed = 21L)
+        }) |> purrr::list_rbind()
+      }),
+      tar_target(p3_gate_result, p3_gate(p3_gate_rows))
+    )
   ),
   # League points: the league's K/DST scoring items are read from the private league snapshot at
   # build time (only where it exists locally; nothing league-specific is committed).

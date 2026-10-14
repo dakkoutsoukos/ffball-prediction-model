@@ -20,18 +20,21 @@ P2_CANDIDATES <- c("C0", "C1", "C2", "C3")       # simplest first (the tie rule'
 
 #' Point-in-time player volatility: the SD of the player's residuals (y - base) over his earlier
 #' projected active weeks, shrunk toward the position's SD over all earlier weeks.
-p2_volatility <- function(fr, n0 = P2_SHRINK_N) {
-  fr <- fr[order(fr$season, fr$week, fr$gsis_id), ]
-  r <- fr$y - fr$base
+p2_volatility <- function(fr, n0 = P2_SHRINK_N, use = rep(TRUE, nrow(fr))) {
+  o <- order(fr$season, fr$week, fr$gsis_id)
+  fr <- fr[o, ]
+  use <- use[o]                                          # rows that contribute (active rows); all rows get a value
+  r <- ifelse(use, fr$y - fr$base, 0)
+  u <- as.numeric(use)
   gi <- fr$season * 100L + fr$week
-  # player: cumulative sums over strictly earlier rows of the same player
-  pl <- data.frame(id = fr$gsis_id, gi = gi, r = r)
-  pl$n <- stats::ave(pl$r, pl$id, FUN = function(x) seq_along(x) - 1)
+  # player: cumulative sums over strictly earlier contributing rows of the same player
+  pl <- data.frame(id = fr$gsis_id, gi = gi, r = r, u = u)
+  pl$n <- stats::ave(pl$u, pl$id, FUN = function(x) cumsum(x) - x)
   pl$s1 <- stats::ave(pl$r, pl$id, FUN = function(x) cumsum(x) - x)
   pl$s2 <- stats::ave(pl$r, pl$id, FUN = function(x) cumsum(x^2) - x^2)
   var_p <- ifelse(pl$n >= 2, (pl$s2 - pl$s1^2 / pmax(pl$n, 1)) / pmax(pl$n - 1, 1), NA_real_)
   # position: expanding over strictly earlier weeks
-  pw <- dplyr::summarise(data.frame(position = fr$position, gi = gi, r = r), n = dplyr::n(), s1 = sum(.data$r),
+  pw <- dplyr::summarise(data.frame(position = fr$position, gi = gi, r = r, u = u), n = sum(.data$u), s1 = sum(.data$r),
                          s2 = sum(.data$r^2), .by = c("position", "gi")) |>
     dplyr::arrange(.data$position, .data$gi) |>
     dplyr::mutate(cn = cumsum(.data$n) - .data$n, c1 = cumsum(.data$s1) - .data$s1, c2 = cumsum(.data$s2) - .data$s2,
@@ -44,12 +47,14 @@ p2_volatility <- function(fr, n0 = P2_SHRINK_N) {
   fr
 }
 
-#' P2 rows: projected, active F4 player-weeks of `seasons`, with the closed covariate list.
-p2_frame <- function(player_week_all, seasons) {
+#' P2 rows: projected F4 player-weeks of `seasons` with the closed covariate list; active rows only
+#' unless `active_only = FALSE` (E21's gate scores inactive starters too). Volatility is built from
+#' active rows only, so active rows carry the same values either way.
+p2_frame <- function(player_week_all, seasons, active_only = TRUE) {
   fr <- player_week_all |>
-    dplyr::filter(.data$season %in% !!seasons, .data$position %in% P2_POSITIONS, .data$pop_espn, .data$active) |>
-    dplyr::transmute(.data$season, .data$week, .data$gsis_id, .data$position, y = .data$actual, .data$base,
-                     .data$espn_proj, active = TRUE,
+    dplyr::filter(.data$season %in% !!seasons, .data$position %in% P2_POSITIONS, .data$pop_espn) |>
+    dplyr::transmute(.data$season, .data$week, .data$gsis_id, .data$position, .data$team, y = .data$actual, .data$base,
+                     .data$espn_proj, .data$active,
                      status = factor(dplyr::case_when(.data$designation %in% c("Questionable", "Doubtful", "Out") ~ "QD",
                                                       .data$designation %in% "listed_only" ~ "listed",
                                                       TRUE ~ "none"), c("none", "listed", "QD")),
@@ -57,7 +62,8 @@ p2_frame <- function(player_week_all, seasons) {
                                                   dplyr::coalesce(.data$espn_proj_rushing_tds, 0)) +
                                              4 * dplyr::coalesce(.data$espn_proj_passing_tds, 0)) / .data$espn_proj, 0), 1),
                      implied_total = .data$implied_team_total, spread = .data$team_spread)
-  fr <- p2_volatility(fr)
+  fr <- p2_volatility(fr, use = fr$active)
+  if (active_only) fr <- fr[fr$active, ]
   # rows without a closing line (rare) take the position's training-free neutral value
   fr$implied_total[is.na(fr$implied_total)] <- 22
   fr$spread[is.na(fr$spread)] <- 0
