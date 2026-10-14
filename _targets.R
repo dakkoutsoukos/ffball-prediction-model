@@ -655,6 +655,23 @@ list(
       })
     )
   ),
+  # ---- Master plan P2: calibrated distributions v1 (E20) --------------------------
+  # Development 2020-2023, out of sample by season (2019 warm-up). Nothing on 2024-2025 before E22.
+  if (build_valuation) list(
+    tar_target(p2_frame_dev, {
+      reg <- read_contamination_register(contamination_register_file)
+      assert_family_seasons("distribution_stack", P2_DEV, "development", reg)
+      assert_family_seasons("distribution_stack", P2_WARMUP, "warmup", reg)
+      p2_frame(player_week_all, c(P2_WARMUP, P2_DEV))
+    }),
+    tar_target(p2_dev_c0, p2_dev_run(p2_frame_dev, "C0", register = read_contamination_register(contamination_register_file))),
+    tar_target(p2_dev_c1, p2_dev_run(p2_frame_dev, "C1", register = read_contamination_register(contamination_register_file))),
+    tar_target(p2_dev_c2, p2_dev_run(p2_frame_dev, "C2", register = read_contamination_register(contamination_register_file))),
+    tar_target(p2_c3_base_choice, p2_c3_base(p2_dev_c0, p2_dev_c2)),
+    tar_target(p2_dev_c3, p2_dev_run(p2_frame_dev, "C3", c3_base = p2_c3_base_choice,
+                                     register = read_contamination_register(contamination_register_file))),
+    tar_target(p2_dev, p2_dev_summary(list(p2_dev_c0, p2_dev_c1, p2_dev_c2, p2_dev_c3)))
+  ),
   # League points: the league's K/DST scoring items are read from the private league snapshot at
   # build time (only where it exists locally; nothing league-specific is committed).
   if (file.exists(LG_SNAPSHOT_MANIFEST) && dir.exists(LG_SNAPSHOT_ROOT)) list(
