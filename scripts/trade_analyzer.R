@@ -25,6 +25,7 @@
 # ledger (master plan F5; data/archive/decisions/, hashes in archive/decision_manifest.csv). Their
 # outcomes stay sealed until after the season and the 2027 decision pre-registrations.
 # Common options: --allow-stale  --policy empty_slots|none|unlimited  --horizon full|regular|playoffs  --season 2026
+#   --fixed-prior  use the published availability prior instead of P1's frozen provider (E19c) in lineup, odds, rescore
 # Teams: name, abbreviation or id. Players: name (resolved to ESPN ids) or ESPN id. "--me" defaults
 # to the team owned by the configured SWID. Results are model estimates of expected rest-of-season
 # lineup points, not predictions that another manager will accept a trade.
@@ -59,6 +60,8 @@ la <- m$la
 cli::cli_h1("Trade analyzer - {m$policy} streaming, weeks {paste(range(m$weeks), collapse = '-')}, horizon {horizon}")
 cli::cli_text("League snapshot {m$inputs$league_captured_at_utc} ({round(m$inputs$league_age_hours, 1)} h old); valuation run {m$inputs$valuation_run_id}{if (!m$inputs$valuation_league_format) ' (default V1 format)' else ''}")
 me <- if (!is.null(opt$me)) lg_find_team(m, opt$me) else lg_my_team(m$teams)
+# Post-report P(active) for D0 and S0: P1's frozen provider (E19c) unless --fixed-prior (the published prior)
+avail <- if (isTRUE(opt[["fixed-prior"]])) NULL else p1_live_availability(season, m$current_week, Sys.time())
 mtv_for <- function(rows) {
   cached <- lg_cached_mtv(m)
   if (!is.null(cached) && all(rows %in% cached$row)) return(cached)
@@ -157,7 +160,7 @@ res <- switch(cmd,
       pick <- function(x) if (is.null(x)) character() else m$sim$players$player_id[lg_find_player(m, x)]
       wi <- list(team = me, add = pick(opt$add), drop = pick(opt$drop))
     }
-    od <- sim_league_odds(m, state, sims = sims, what_if = wi)
+    od <- sim_league_odds(m, state, sims = sims, what_if = wi, p_active_fun = avail)
     base <- od$results$base
     lab <- function(t) vapply(t, function(x) lg_team_label(m, x), "")
     cli::cli_alert_warning(od$label)
@@ -176,7 +179,7 @@ res <- switch(cmd,
     cli::cli_text("ESPN's own playoff odds: {if (all(is.na(od$espn_playoff_pct$espn_playoff_pct))) 'not provided by ESPN for this league' else 'see ledger record'}")
     # VL3 sensitivity bands (2,000 simulations each, same seed)
     bands <- purrr::map(list(c(0.5, 1), c(1.5, 1), c(1, 0.8), c(1, 1.2)), function(b) {
-      r <- sim_league_odds(m, state, sims = 2000, sigma_scale = b[1], noise_scale = b[2])$results$base$teams
+      r <- sim_league_odds(m, state, sims = 2000, sigma_scale = b[1], noise_scale = b[2], p_active_fun = avail)$results$base$teams
       dplyr::mutate(dplyr::select(r, "team_id", "p_playoffs", "p_title"), sigma_scale = b[1], noise_scale = b[2])
     }) |>
       purrr::list_rbind()
@@ -195,8 +198,9 @@ res <- switch(cmd,
                 invariants = as.list(base$invariants), label = od$label, espn_playoff_pct = od$espn_playoff_pct)
     d <- lg_ledger_record("odds", m$inputs, season, m$current_week, rec, if (!is.null(wi)) list(what_if = wi) else NULL,
                           list(sims = sims, seed = od$seed, elapsed_seconds = od$elapsed_seconds),
-                          options = opt, model_versions = list(simulator = "s0_v0 (VL3)", s0_params = "s0_params_v0",
-                                                               pod = "pod_baseline_v0", sigma_L = as.list(od$sigma_L)))
+                          options = opt, model_versions = list(simulator = "s0_v0 (VL3, VL3b)", s0_params = "s0_params_v0",
+                                                               pod = "pod_baseline_v0", sigma_L = as.list(od$sigma_L),
+                                                               availability = od$availability_source))
     cli::cli_text("Ledgered {.val {d$decision_id}} (shadow odds; evaluation-only archive).")
     NULL
   },
@@ -220,7 +224,7 @@ res <- switch(cmd,
                                                             give_b = top$b_rows[[i]]))
       state <- lg_state_from_snapshot(lg_latest_snapshot(season))
       if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
-      d <- sim_trade_rescore(m, state, trades, sims = sims)
+      d <- sim_trade_rescore(m, state, trades, sims = sims, p_active_fun = avail)
       out <- dplyr::bind_cols(top[c("a_gives", "b_gives")], d)
       cli::cli_alert_warning(S0_LABEL)
       print(dplyr::transmute(out, you_give = .data$a_gives, you_get = .data$b_gives,
@@ -239,7 +243,9 @@ res <- switch(cmd,
     now <- if (!is.null(opt$now)) as.POSIXct(opt$now, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC") else Sys.time()
     if (is.na(now)) stop("--now must look like 2026-10-18T14:00:00Z")
     tg <- clean_team_games(latest_live_file("schedules", season, now), "REG")
-    adv <- lg_lineup_advice(m, team, tg, now)
+    # the provider as of --now (the lineup's own clock), unless --fixed-prior
+    adv <- lg_lineup_advice(m, team, tg, now,
+                            p_active_fun = if (is.null(avail)) NULL else p1_live_availability(season, m$current_week, now))
     cli::cli_h2("{lg_team_label(m, team)}: week {adv$week} lineup as of {fmt_et(now)}")
     print(dplyr::transmute(adv$lineup, .data$slot, .data$player, .data$position, .data$nfl,
                            kickoff = ifelse(is.na(.data$kickoff_utc), "-", format(.data$kickoff_utc, "%a %H:%M", tz = DISPATCH_TZ)),

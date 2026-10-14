@@ -665,6 +665,21 @@ list(
                         m6_params_check, m6_params_check$selected %||% NA_character_,
                         register = read_contamination_register(contamination_register_file))
       })
+    ),
+    # E19c: the frozen P1 provider (R0) must equal a fresh derivation
+    tar_target(p1_provider_derived, {
+      tr <- p1_frame_dev[p1_frame_dev$population == "report", ]
+      yaml::yaml.load(yaml::as.yaml(p1_rate_provider_list(p1_fit_rate_table(tr))))
+    }),
+    if (file.exists(P1_PROVIDER_FILE)) list(
+      tar_target(p1_provider_file, P1_PROVIDER_FILE, format = "file"),
+      tar_target(p1_provider_check, {
+        frozen <- yaml::read_yaml(p1_provider_file)
+        if (!isTRUE(all.equal(frozen, p1_provider_derived, check.attributes = FALSE, tolerance = 1e-9))) {
+          cli::cli_abort("{.file {p1_provider_file}} differs from the derived P1 provider.")
+        }
+        digest_text(yaml::as.yaml(frozen))
+      })
     )
   ),
   # ---- Master plan P2: calibrated distributions v1 (E20) --------------------------

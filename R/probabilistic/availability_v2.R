@@ -248,6 +248,76 @@ e19_batch_check <- function(injury_detail, snaps, player_stats, rosters_weekly, 
 
 P1_PROVIDER_FILE <- "models/probabilistic/p1_availability_v2.yml"
 
+#' E19c: the frozen post-report provider is R0, the rate table fit on the report rows of 2017-2018
+#' and 2020-2023 (G1 failed the slope rule). As a plain list for the frozen YAML.
+p1_rate_provider_list <- function(fit, digits = 6) {
+  rows <- function(t) {
+    t <- dplyr::mutate(t, dplyr::across(dplyr::where(is.factor), as.character), p = round(.data$p, digits))
+    lapply(seq_len(nrow(t)), function(i) as.list(t[i, ]))
+  }
+  list(version = "p1_availability_v2", model = "R0 rate table: designation x practice x position, with fallbacks",
+       pre_registration = "E19 (E19b, E19c)", fitted_on = "report population 2017-2018 and 2020-2023",
+       min_cell = fit$min_cell, overall = round(fit$overall, digits),
+       full = rows(fit$full), dp = rows(fit$dp), d = rows(fit$d))
+}
+
+#' Read the frozen R0 provider back into the rate-table form used by p1_predict_rate_table().
+p1_read_rate_provider <- function(path = P1_PROVIDER_FILE) {
+  y <- yaml::read_yaml(path)
+  tab <- function(x) purrr::map(x, tibble::as_tibble) |> purrr::list_rbind()
+  list(full = tab(y$full), dp = tab(y$dp), d = tab(y$d), overall = y$overall, min_cell = y$min_cell, meta = y[c("version", "model")])
+}
+
+#' P(active) at the post-report horizon from the frozen provider (designation, practice, position).
+#' A missing practice status uses the designation-level rate.
+p1_provider_p_active <- function(provider, designation, practice, position) {
+  nd <- tibble::tibble(designation = as.character(designation), practice = as.character(practice),
+                       position = as.character(position))
+  p <- p1_predict_rate_table(provider, dplyr::mutate(nd, practice = dplyr::coalesce(.data$practice, "none")))
+  miss <- is.na(nd$practice)
+  if (any(miss)) {
+    k <- match(nd$designation[miss], provider$d$designation)
+    p[miss] <- dplyr::coalesce(ifelse(provider$d$n[k] >= provider$min_cell, provider$d$p[k], NA_real_), provider$overall)
+  }
+  p
+}
+
+# ESPN injury statuses -> official designations (statuses not listed: no designation, P(active) 1).
+P1_ESPN_DESIGNATION <- c(QUESTIONABLE = "Questionable", DAY_TO_DAY = "Questionable", DOUBTFUL = "Doubtful", OUT = "Out")
+P1_ESPN_ZERO <- c("INJURY_RESERVE", "SUSPENSION")
+
+#' Live post-report P(active) for D0 and S0 (E19c): the frozen rate-table provider applied to the
+#' ESPN status (designation) and the official practice status from the latest live injury report
+#' retrieved at or before `now`, used only for teams whose FINAL report is in (M4's
+#' live_injury_detail()); otherwise the designation-level rate. Returns function(gsis_id, status,
+#' position) -> P(active) with a "source" attribute; NULL when the provider file does not exist.
+p1_live_availability <- function(season, week, now = Sys.time(), provider_path = P1_PROVIDER_FILE, root = LIVE_ROOT) {
+  if (!file.exists(provider_path)) return(NULL)
+  provider <- p1_read_rate_provider(provider_path)
+  prac <- tryCatch({
+    path <- latest_live_file("injuries", season, now, root)
+    captured <- parse_utc_stamp(sub("^retrieved_at=(.*)[.]parquet$", "\\1", basename(path)))
+    tg <- clean_team_games(latest_live_file("schedules", season, now, root), "REG")
+    det <- live_injury_detail(path, tg, captured, season, week)
+    # only the target week's final reports (earlier weeks' rows exist for lagged features)
+    det <- det[det$season == season & det$week == week, ]
+    dplyr::distinct(dplyr::select(det, "gsis_id", "practice"), .data$gsis_id, .keep_all = TRUE)
+  }, error = function(e) tibble::tibble(gsis_id = character(), practice = character()))
+  f <- function(gsis_id, status, position) {
+    st <- toupper(as.character(status))
+    des <- unname(P1_ESPN_DESIGNATION[st])
+    pr <- prac$practice[match(gsis_id, prac$gsis_id)]
+    p <- rep(1, length(st))
+    has <- !is.na(des)
+    if (any(has)) p[has] <- p1_provider_p_active(provider, des[has], pr[has], position[has])
+    p[st %in% P1_ESPN_ZERO] <- 0
+    p
+  }
+  attr(f, "source") <- sprintf("P1 rate table (E19c, %s); final-report practice status known for %d players",
+                               provider$meta$version, nrow(prac))
+  f
+}
+
 #' The frozen provider as a plain list: G1's fixed effects (the team-season effect is 0 at
 #' prediction, as E19 fixed), the factor levels and the formula's parametric part.
 p1_provider_list <- function(fit, check) {

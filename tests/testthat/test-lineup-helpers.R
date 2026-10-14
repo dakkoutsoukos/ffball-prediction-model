@@ -165,3 +165,16 @@ test_that("lineup advice joins roster, projections and kickoffs and respects ESP
   expect_equal(a$lineup$slot[a$lineup$player == "RB5"], "IR")
   expect_equal(nrow(a$plan), 0L)
 })
+
+test_that("a P1 p_active column replaces the fixed prior in game-time plans (E19c)", {
+  d <- lh_team()
+  d$status[d$player_name == "WR2"] <- "QUESTIONABLE"
+  league <- lh_league()
+  st <- val_lineup_locked(ifelse(d$is_ir, 0, d$proj), d$position, league)
+  d$starter <- st
+  d$slot <- val_flex_slotting(d$proj, d$position, st, d$kickoff_utc, league)
+  d$p_active <- ifelse(d$status == "QUESTIONABLE", 0.48, 1)    # e.g. Questionable after a DNP Friday
+  p <- val_gametime_plan(d, league, lh_prior(), now = lh_et("2026-10-18 09:00"))
+  expect_equal(p$p_active, 0.48)
+  expect_equal(p$plan_ev, 0.48 * 14 + 0.52 * 6)
+})

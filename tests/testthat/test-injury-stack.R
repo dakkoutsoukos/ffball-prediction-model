@@ -98,6 +98,78 @@ test_that("the frozen provider reproduces the GLMM's predictions with the random
   expect_equal(p1_provider_predict(prov, d[1:200, ]), as.numeric(p1_predict_glmm(g, d[1:200, ])), tolerance = 1e-6)
 })
 
+test_that("the frozen rate-table provider round-trips through YAML with identical predictions", {
+  set.seed(9)
+  n <- 3000
+  tr <- tibble::tibble(designation = factor(sample(c("Out", "Questionable", "listed_only", "Doubtful"), n, TRUE), c(P1_DESIGNATIONS, "none")),
+                       practice = factor(sample(c("DNP", "LP", "FP"), n, TRUE), P1_PRACTICE),
+                       position = factor(sample(P1_POSITIONS, n, TRUE), P1_POSITIONS),
+                       active = stats::runif(n) < 0.6)
+  fit <- p1_fit_rate_table(tr)
+  path <- tempfile(fileext = ".yml")
+  writeLines(yaml::as.yaml(p1_rate_provider_list(fit)), path)
+  prov <- p1_read_rate_provider(path)
+  nd <- tr[1:300, ]
+  expect_equal(p1_provider_p_active(prov, nd$designation, nd$practice, nd$position),
+               round(p1_predict_rate_table(fit, nd), 6), tolerance = 1e-9)
+})
+
+test_that("the live provider maps ESPN statuses and falls back to designation-level rates", {
+  set.seed(10)
+  n <- 4000
+  tr <- tibble::tibble(designation = factor(sample(c("Out", "Questionable", "Doubtful", "listed_only"), n, TRUE, c(0.3, 0.4, 0.1, 0.2)),
+                                            c(P1_DESIGNATIONS, "none")),
+                       practice = factor(sample(c("DNP", "LP", "FP"), n, TRUE), P1_PRACTICE),
+                       position = factor(sample(P1_POSITIONS, n, TRUE), P1_POSITIONS))
+  tr$active <- stats::runif(n) < c(Out = 0.01, Questionable = 0.7, Doubtful = 0.08, listed_only = 0.95)[as.character(tr$designation)]
+  path <- tempfile(fileext = ".yml")
+  writeLines(yaml::as.yaml(p1_rate_provider_list(p1_fit_rate_table(tr))), path)
+  expect_null(p1_live_availability(2026L, 6L, provider_path = tempfile()))           # no frozen provider: NULL
+  f <- p1_live_availability(2026L, 6L, provider_path = path, root = tempfile())       # no live files: no practice
+  p <- f(c("g1", "g2", "g3", "g4", "g5"), c("QUESTIONABLE", "DOUBTFUL", "NORMAL", "INJURY_RESERVE", "OUT"),
+         c("WR", "RB", "TE", "WR", "QB"))
+  q_rate <- mean(tr$active[tr$designation == "Questionable"])
+  expect_equal(p[1], round(q_rate, 6), tolerance = 1e-9)        # designation-level rate without practice status
+  expect_equal(p[3:4], c(1, 0))
+  expect_lt(p[5], 0.05)
+  expect_match(attr(f, "source"), "P1 rate table")
+})
+
+test_that("live practice status counts only from the target week's final reports", {
+  set.seed(11)
+  n <- 6000
+  tr <- tibble::tibble(designation = factor("Questionable", c(P1_DESIGNATIONS, "none")),
+                       practice = factor(sample(c("DNP", "LP", "FP"), n, TRUE), P1_PRACTICE),
+                       position = factor(sample(P1_POSITIONS, n, TRUE), P1_POSITIONS))
+  tr$active <- stats::runif(n) < c(DNP = 0.3, LP = 0.6, FP = 0.95)[as.character(tr$practice)]
+  path <- tempfile(fileext = ".yml")
+  writeLines(yaml::as.yaml(p1_rate_provider_list(p1_fit_rate_table(tr))), path)
+  root <- tempfile()
+  stamp <- "20261014T150000Z"
+  dir.create(file.path(root, "schedules", "season=2026"), recursive = TRUE)
+  dir.create(file.path(root, "injuries", "season=2026"), recursive = TRUE)
+  sched <- tibble::tibble(game_type = "REG", season = 2026L, week = c(5L, 6L, 6L), game_id = c("g5", "g6a", "g6b"),
+                          home_team = c("DAL", "DAL", "PHI"), away_team = c("NYG", "NYG", "WAS"), location = "Home",
+                          gameday = c("2026-10-11", "2026-10-18", "2026-10-18"), gametime = "13:00", result = c(3, NA, NA),
+                          spread_line = 0, total_line = 44, home_rest = 7, away_rest = 7, roof = "outdoors")
+  arrow::write_parquet(sched, file.path(root, "schedules", "season=2026", paste0("retrieved_at=", stamp, ".parquet")))
+  inj <- tibble::tibble(game_type = "REG", season = 2026L, week = c(6L, 6L, 5L), team = c("DAL", "PHI", "DAL"),
+                        gsis_id = c("g1", "g2", "g3"), position = "WR", report_status = c("Questionable", NA, "Questionable"),
+                        practice_status = c("Limited Participation in Practice", "Did Not Participate In Practice",
+                                            "Full Participation in Practice"),
+                        report_primary_injury = "Knee", practice_primary_injury = "Knee")
+  arrow::write_parquet(inj, file.path(root, "injuries", "season=2026", paste0("retrieved_at=", stamp, ".parquet")))
+  f <- p1_live_availability(2026L, 6L, now = as.POSIXct("2026-10-14 16:00", tz = "UTC"), provider_path = path, root = root)
+  p <- f(c("g1", "g2", "g3"), rep("QUESTIONABLE", 3), rep("WR", 3))
+  prov <- p1_read_rate_provider(path)
+  q_lp <- p1_provider_p_active(prov, "Questionable", "LP", "WR")
+  q_any <- p1_provider_p_active(prov, "Questionable", NA, "WR")
+  expect_equal(p[1], q_lp)                                       # DAL's week-6 report is final (has a designation)
+  expect_equal(p[2], q_any)                                      # PHI's report has no designation yet: not final
+  expect_equal(p[3], q_any)                                      # a week-5 practice status never counts for week 6
+  expect_match(attr(f, "source"), "known for 1 players")
+})
+
 test_that("the week bootstrap resamples whole weeks within each season", {
   sc <- tibble::tibble(season = rep(c(2020L, 2021L), each = 6), week = rep(rep(1:3, each = 2), 2),
                        x = c(1, 1, 2, 2, 3, 3, 10, 10, 20, 20, 30, 30))

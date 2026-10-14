@@ -98,7 +98,8 @@ val_seatable_in <- function(positions, slot_names, league) {
 #' the slots of the starters still unlocked at that time. Plan EV = p * proj + (1 - p) * E(pivot).
 val_gametime_plan <- function(d, league, prior = read_availability_prior(), now = Sys.time()) {
   lead <- (prior$decision_lead_minutes %||% 90) * 60
-  d$p <- val_designation_prior(d$status, prior)
+  # P1's provider (E19c) arrives as a p_active column; otherwise the fixed published prior
+  d$p <- if ("p_active" %in% names(d)) d$p_active else val_designation_prior(d$status, prior)
   d$E <- d$p * d$proj
   plan_rows <- which(d$starter & d$p < 1)
   if (!length(plan_rows)) return(tibble::tibble())
@@ -147,7 +148,7 @@ val_gametime_plan <- function(d, league, prior = read_availability_prior(), now 
 
 #' D0 advice for one team of the league model: recommended starters (locks respected), kickoff
 #' slotting, game-time plans, and the expected points of the recommended vs current ESPN lineup.
-lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read_availability_prior()) {
+lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read_availability_prior(), p_active_fun = NULL) {
   wk <- m$current_week
   ros <- dplyr::filter(m$input_data$roster, .data$team_id == !!team, .data$is_skill)
   w <- dplyr::filter(m$input_data$weekly, .data$week == !!wk) |>
@@ -170,8 +171,10 @@ lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read
   st <- val_lineup_locked(value, d$position, m$league, d$locked | d$is_ir, ifelse(d$locked, d$espn_slot, NA_character_))
   d$starter <- st
   d$slot <- val_flex_slotting(value, d$position, st, d$kickoff_utc, m$league, ifelse(d$locked, d$espn_slot, NA_character_))
-  plan <- val_gametime_plan(dplyr::transmute(d, .data$player_name, .data$position, .data$proj, .data$status, .data$kickoff_utc,
-                                             .data$starter, .data$slot, .data$is_ir), m$league, prior, now)
+  pd <- dplyr::transmute(d, .data$player_name, .data$position, .data$proj, .data$status, .data$kickoff_utc,
+                         .data$starter, .data$slot, .data$is_ir)
+  if (!is.null(p_active_fun)) pd$p_active <- p_active_fun(d$player_id, d$status, d$position)
+  plan <- val_gametime_plan(pd, m$league, prior, now)
   lineup <- d |>
     dplyr::transmute(slot = dplyr::coalesce(.data$slot, ifelse(.data$is_ir, "IR", "BE")), player = .data$player_name,
                      .data$player_id, .data$espn_id,
@@ -185,5 +188,5 @@ lg_lineup_advice <- function(m, team, team_games, now = Sys.time(), prior = read
   lineup <- lineup[order(match(lineup$slot, order_slots), lineup$kickoff_utc), ]
   list(team = team, week = wk, now = now, lineup = lineup, plan = plan,
        ev_recommended = sum(d$proj[d$starter]), ev_current = sum(d$proj[d$current_starter]),
-       prior_source = prior$source)
+       prior_source = if (is.null(p_active_fun)) prior$source else attr(p_active_fun, "source") %||% "P1 provider")
 }

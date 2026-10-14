@@ -249,3 +249,18 @@ before R1. mgcv 1.9.3 is a recommended package and is available. A random-interc
 equivalently as `gam(..., family = binomial, method = "REML")` with `s(team_season, bs = "re")`: a Gaussian
 random effect, REML-estimated variance, and predictions at 0 for unseen levels. This is recorded in E19 before
 any fit. It is a substitution, not a change of model.
+
+## X-019 · 2026-10-14 · The live tools adopt P1's frozen provider (E19c)
+
+E19's interpretation rule made the rate table R0 the post-report P(active) provider, after G1 failed the slope rule.
+
+**Wiring.**
+- D0's game-time plans (`lineup`) and S0's current-week availability (`odds`, `rescore`) now take P(active) from `p1_live_availability()`. That is the frozen provider applied to the ESPN status and, once the team's final report is in, the official practice status.
+- The published prior remains as `--fixed-prior` and as the fallback when the provider file is absent.
+- The change is additive: optional `p_active_fun` arguments and a `p_active` column. Behaviour without them is unchanged and covered by tests.
+- S0's change is recorded as VL3b. The ledger records the availability source with every lineup and odds record.
+
+**Why it is safe mid-season.**
+- It applies a pre-registered outcome, not a tuning choice.
+- No 2026 outcome was used. The provider was fit on 2017–2018 and 2020–2023 only.
+- The tools are advisory (D0) or shadow (S0).

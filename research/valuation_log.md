@@ -853,3 +853,17 @@ approximation; it is equivalent at the late horizon with these PODs. Its value i
 engine's joint draws (S2, D-track). The normal approximation stays the documented fallback.
 
 Real-league calibration remains descriptive and sealed until R1. The decision family's check is VL11.
+
+### VL3b (2026-10-14): S0's current-week availability from P1's frozen provider
+
+VL3 gave designated players in the current week the published fixed prior (Q 0.71, D 0.07) "until P1 exists".
+E19c froze P1's post-report provider: the rate table by designation × final practice status × position,
+`models/probabilistic/p1_availability_v2.yml`.
+
+From now on S0 (`odds`, and the thin slice's `rescore`) uses it through `p1_live_availability()`:
+- the ESPN status gives the designation;
+- the official practice status counts only once the team's final report is captured (M4's live rule); before that, the designation-level rate applies;
+- IR and suspension are 0; unlisted players are 1.
+
+`--fixed-prior` restores the published prior. The ledger records the source in `model_versions$availability`.
+Everything else in VL3 is unchanged: σ_L, P0 noise, rules, label. S0 stays shadow and unvalidated.

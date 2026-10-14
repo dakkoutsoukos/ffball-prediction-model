@@ -16,7 +16,8 @@ S0_LABEL <- paste("SHADOW / UNVALIDATED (VL3): inputs are early-week, so odds ar
 #' Universe of simulated players with week-by-week availability and if-active levels.
 #' `weekly` is a valuation run's weekly table; `player_ids` the players to simulate. In the current
 #' week (A = 1 in the run), designated players get the designation prior.
-sim_universe <- function(weekly, player_ids, positions, weeks, current_week, prior = read_availability_prior()) {
+sim_universe <- function(weekly, player_ids, positions, weeks, current_week, prior = read_availability_prior(),
+                         p_active_fun = NULL) {
   n <- length(player_ids)
   W <- length(weeks)
   A <- matrix(0, n, W)
@@ -29,7 +30,9 @@ sim_universe <- function(weekly, player_ids, positions, weeks, current_week, pri
   cw <- match(current_week, weeks)
   if (!is.na(cw)) {
     cur <- w[w$week == current_week, ]
-    p <- val_designation_prior(cur$availability_status, prior)
+    # VL3b: P1's frozen provider (E19c) when supplied; otherwise the fixed published prior
+    p <- if (is.null(p_active_fun)) val_designation_prior(cur$availability_status, prior) else
+      p_active_fun(cur$player_id, cur$availability_status, positions[match(cur$player_id, player_ids)])
     A[cbind(match(cur$player_id, player_ids), cw)] <- ifelse(cur$has_game, pmin(A[cbind(match(cur$player_id, player_ids), cw)], p), 0)
   }
   list(player_id = player_ids, position = positions, weeks = weeks, A = A, lvl = lvl)
@@ -239,7 +242,7 @@ sim_summarise <- function(res, owner = NA_integer_) {
 #' drop) of universe player ids gives a second configuration simulated with common random numbers.
 sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0_params(),
                             prior = read_availability_prior(), sims = 10000, chunk = 1000, seed = 20261013,
-                            what_if = NULL, sigma_scale = 1, noise_scale = 1) {
+                            what_if = NULL, sigma_scale = 1, noise_scale = 1, p_active_fun = NULL) {
   t0 <- Sys.time()
   weekly <- m$input_data$weekly
   league <- m$league
@@ -251,7 +254,7 @@ sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0
   extra <- if (!is.null(what_if)) what_if$add else character()
   ids <- unique(c(pid[unlist(team_rows)], extra))
   pos <- m$sim$players$position[match(ids, pid)]
-  uni <- sim_universe(weekly, ids, pos, weeks, m$current_week, prior)
+  uni <- sim_universe(weekly, ids, pos, weeks, m$current_week, prior, p_active_fun)
   cfg <- function(add = character(), drop = character(), team = NA) {
     lapply(names(team_rows), function(t) {
       r <- match(pid[team_rows[[t]]], ids)
@@ -276,5 +279,6 @@ sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0
   list(results = res, label = S0_LABEL, current_period = cp, sims = sims, seed = seed,
        sigma_scale = sigma_scale, noise_scale = noise_scale, sigma_L = params$sigma_L,
        espn_playoff_pct = state$standings[, c("team_id", "espn_playoff_pct")],
+       availability_source = if (is.null(p_active_fun)) prior$source else attr(p_active_fun, "source") %||% "P1 provider",
        elapsed_seconds = round(as.numeric(difftime(Sys.time(), t0, units = "secs")), 1))
 }

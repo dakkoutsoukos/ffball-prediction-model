@@ -135,3 +135,15 @@ test_that("the partner-lens frontier keeps only non-dominated trades", {
   f <- trade_frontier(d)
   expect_equal(f$trade, c(1, 2, 5))
 })
+
+test_that("a P1 provider sets the current week's availability in the universe (VL3b)", {
+  weekly <- tibble::tibble(player_id = rep(c("a", "b"), each = 2), week = rep(3:4, 2), has_game = TRUE, p_active = 1,
+                           lvl = 10, availability_status = c("QUESTIONABLE", "NORMAL", "NORMAL", "NORMAL"))
+  prior <- list(p_active = c(QUESTIONABLE = 0.71), default = 1, source = "prior")
+  u0 <- sim_universe(weekly, c("a", "b"), c("WR", "RB"), 3:4, 3, prior)
+  expect_equal(u0$A[, 1], c(0.71, 1))
+  f <- function(id, status, position) ifelse(status == "QUESTIONABLE", 0.5, 1)
+  u1 <- sim_universe(weekly, c("a", "b"), c("WR", "RB"), 3:4, 3, prior, p_active_fun = f)
+  expect_equal(u1$A[, 1], c(0.5, 1))
+  expect_equal(u1$A[, 2], c(1, 1))                              # later weeks keep the run's availability
+})

@@ -5,7 +5,8 @@ reg_path <- function() file.path(project_root, "research", "contamination_regist
 test_that("the register allows each family's own seasons and roles", {
   r <- read_contamination_register(reg_path())
   expect_true(assert_family_seasons("injury_stack", 2020:2023, "development", r))
-  expect_true(assert_family_seasons("injury_stack", 2019, "check", r))
+  # the injury stack's one 2019 check was run (E19c) and is recorded under spent_checks
+  expect_error(assert_family_seasons("injury_stack", 2019, "check", r), "already spent")
   expect_true(assert_family_seasons("distribution_stack", 2024, "check", r))
   expect_true(assert_family_seasons("decision_family", 2025, "check", r))
   expect_true(assert_family_seasons("horizon_study", 2026, "outcome_free", r))
