@@ -6,8 +6,9 @@
 # Sections: lineup and game-time plan (D0, P1), S0 odds with VL3's band, the D3 waiver board, D2 trades
 # with every other team, S3 values and roster risk, and I3's health panel. Each recommendation carries a
 # robustness flag (VL13) and is ledgered (F5). The report is written to data/archive/briefings/
-# (git-ignored); the console shows only counts and flags. No ESPN request is made: refresh the league
-# snapshot first (a stale snapshot is used and flagged). Outputs are SHADOW / UNVALIDATED (S0's label).
+# (git-ignored), with a self-contained HTML copy (I2); the console shows only counts and flags. No ESPN
+# request is made: refresh the league snapshot first (a stale snapshot is used and flagged). Outputs are
+# SHADOW / UNVALIDATED (S0's label).
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
@@ -74,6 +75,11 @@ b$ledger <- ids
 path <- file.path(D5_ROOT, sprintf("season=%d", season), sprintf("week=%02d", m$current_week),
                   paste0("briefing_", format(now, "%Y%m%dT%H%M%SZ", tz = "UTC"), ".md"))
 dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-writeLines(d5_markdown(b), path, useBytes = TRUE)
+md <- d5_markdown(b)
+writeLines(md, path, useBytes = TRUE)
+# I2 (optional): the same report as a self-contained local HTML page (no external resources)
+html <- sub("[.]md$", ".html", path)
+writeLines(d5_md_to_html(md, title = paste("Briefing week", b$week)), html, useBytes = TRUE)
 cat(d5_console(b, path), sep = "\n")
+cat("Local page:", html, "\n")
 cat(sprintf("Elapsed %.1f min\n", as.numeric(difftime(Sys.time(), t0, units = "mins"))))

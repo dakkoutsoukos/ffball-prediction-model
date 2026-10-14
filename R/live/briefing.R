@@ -150,3 +150,41 @@ d5_console <- function(b, path) {
     sprintf("Health: %d OK, %d WARN, %d ALERT", h[["OK"]], h[["WARN"]], h[["ALERT"]]),
     sprintf("Ledgered: %d record(s)", length(b$ledger)))
 }
+
+#' I2 (optional, VL13's briefing as a local page): the briefing's Markdown subset (headings, quotes,
+#' bullets, pipe tables, bold, paragraphs) as one self-contained HTML file. Base R only; the page has no
+#' external resources, so nothing leaves the machine.
+d5_md_to_html <- function(lines, title = "FFball briefing") {
+  esc <- function(x) gsub(">", "&gt;", gsub("<", "&lt;", gsub("&", "&amp;", x, fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  inline <- function(x) gsub("\\*\\*([^*]+)\\*\\*", "<strong>\\1</strong>", esc(x))
+  cells <- function(x) trimws(strsplit(sub("^\\|", "", sub("\\|\\s*$", "", x)), "|", fixed = TRUE)[[1]])
+  out <- character()
+  i <- 1L
+  n <- length(lines)
+  while (i <= n) {
+    l <- lines[i]
+    if (startsWith(l, "|")) {
+      j <- i
+      while (j <= n && startsWith(lines[j], "|")) j <- j + 1L
+      tb <- lines[i:(j - 1L)]
+      body <- tb[-c(1, 2)]
+      out <- c(out, "<table>", paste0("<tr>", paste0("<th>", inline(cells(tb[1])), "</th>", collapse = ""), "</tr>"),
+               vapply(body, function(r) paste0("<tr>", paste0("<td>", inline(cells(r)), "</td>", collapse = ""), "</tr>"), ""),
+               "</table>")
+      i <- j
+      next
+    }
+    out <- c(out, if (startsWith(l, "## ")) paste0("<h2>", inline(sub("^## ", "", l)), "</h2>") else
+      if (startsWith(l, "# ")) paste0("<h1>", inline(sub("^# ", "", l)), "</h1>") else
+        if (startsWith(l, "> ")) paste0("<blockquote>", inline(sub("^> ", "", l)), "</blockquote>") else
+          if (startsWith(l, "- ")) paste0("<ul><li>", inline(sub("^- ", "", l)), "</li></ul>") else
+            if (nzchar(trimws(l))) paste0("<p>", inline(l), "</p>") else character())
+    i <- i + 1L
+  }
+  css <- paste("body{font-family:system-ui,sans-serif;max-width:1100px;margin:2em auto;padding:0 16px;color:#1d1d1f}",
+               "table{border-collapse:collapse;margin:0.5em 0 1em;font-size:0.9em}",
+               "th,td{border:1px solid #c7c7cc;padding:3px 8px;text-align:left}th{background:#f2f2f7}",
+               "blockquote{border-left:4px solid #ff9500;margin:0;padding:0.3em 0.8em;background:#fff8ec}")
+  c("<!doctype html>", "<html><head><meta charset=\"utf-8\">", paste0("<title>", esc(title), "</title>"),
+    paste0("<style>", css, "</style></head><body>"), out, "</body></html>")
+}

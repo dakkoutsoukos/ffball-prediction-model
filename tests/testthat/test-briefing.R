@@ -26,3 +26,16 @@ test_that("the console summary carries counts and flags but no team or player na
   expect_match(out, "Trades: 12 re-scored; best dP\\(title\\) \\+0.012; FRAGILE")
   expect_match(out, "Health: 2 OK, 1 WARN, 0 ALERT")
 })
+
+test_that("I2: the briefing's Markdown subset becomes self-contained HTML with escaped text", {
+  md <- c("# Weekly briefing: A & B", "", "> SHADOW", "", "## Lineup", "Robustness: **FRAGILE** (flips).", "",
+          "|slot |player  |", "|:----|:-------|", "|QB   |X <Y>   |", "|RB   |Z       |", "", "- one", "- two")
+  h <- d5_md_to_html(md)
+  expect_true(any(h == "<h1>Weekly briefing: A &amp; B</h1>"))
+  expect_true(any(h == "<blockquote>SHADOW</blockquote>"))
+  expect_true(any(h == "<p>Robustness: <strong>FRAGILE</strong> (flips).</p>"))
+  expect_true(any(h == "<tr><th>slot</th><th>player</th></tr>"))
+  expect_true(any(h == "<tr><td>QB</td><td>X &lt;Y&gt;</td></tr>"))
+  expect_equal(sum(h == "<table>"), 1)
+  expect_false(any(grepl("https?://|<script|<link", h)))
+})
