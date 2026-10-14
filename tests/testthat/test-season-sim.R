@@ -205,3 +205,23 @@ test_that("division winners take the top seeds; head-to-head breaks ties on wins
   expect_lt(r_pts$seed[3, 1], r_pts$seed[4, 1])                   # points: team 3 (580) above team 4 (485)
   expect_lt(r_h2h$seed[4, 1], r_h2h$seed[3, 1])                   # head to head: team 4 above team 3
 })
+
+test_that("D3: roster-change deltas are zero for no change and positive for an upgrade (common random numbers)", {
+  uni <- ss_universe()
+  uni$player_id <- c(uni$player_id, "fa")
+  uni$position <- c(uni$position, "RB")
+  uni$A <- rbind(uni$A, 0.95)
+  uni$lvl <- rbind(uni$lvl, 30)
+  cfg <- ss_config()
+  spec <- val_lineup_spec(ss_league())
+  stream <- lapply(as.character(uni$weeks), function(w) list(QB = 5, RB = 4, WR = 4)) |> rlang::set_names(as.character(uni$weeks))
+  sig <- c(QB = 0.3, RB = 0.3, WR = 0.3, TE = 0.3)
+  changes <- list(list(team = 2L, rows = cfg[["2"]]),
+                  list(team = 2L, rows = c(cfg[["2"]][-2], length(uni$player_id))))
+  d <- sim_roster_deltas(uni, cfg, changes, ss_state(), spec, stream, ss_table(), sig, sims = 1500L, chunk = 500L, seed = 3L)
+  expect_equal(c(d$d_wins[1], d$d_playoffs[1], d$d_title[1]), c(0, 0, 0))
+  expect_gt(d$d_title[2], 0)
+  expect_gt(d$d_wins[2], 0)
+  expect_equal(d$sum_p_playoffs, c(4, 4))
+  expect_equal(d$sum_p_title, c(1, 1))
+})

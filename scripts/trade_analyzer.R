@@ -20,8 +20,11 @@
 #        # SHADOW thin slice (master plan S2/D2): the top K trades with that team by the utility screen,
 #        # re-scored by both teams' P(playoffs) and P(title) with common random numbers, plus the
 #        # partner's generic-value view and the frontier. Unvalidated; see the printed label.
+#   Rscript scripts/trade_analyzer.R faboard [--k 8] [--sims 5000] [--per-pos 6]
+#        # SHADOW free-agent board (master plan D3, VL9): the utility screen of adds, the top K re-scored by
+#        # your P(playoffs) and P(title) with common random numbers, drop advice, and this week's streaming view.
 #   Rscript scripts/trade_analyzer.R ledger-action --decision <id> --action followed|partially|ignored [--note "..."]
-# Recommendations (lineup, analyze, fair, target, sell, waivers) are recorded in the private decision
+# Recommendations (lineup, analyze, fair, target, sell, waivers, faboard) are recorded in the private decision
 # ledger (master plan F5; data/archive/decisions/, hashes in archive/decision_manifest.csv). Their
 # outcomes stay sealed until after the season and the 2027 decision pre-registrations.
 # Common options: --allow-stale  --policy empty_slots|none|unlimited  --horizon full|regular|playoffs  --season 2026
@@ -34,7 +37,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|values|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|faboard|values|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -237,6 +240,38 @@ res <- switch(cmd,
       list(rescore = dplyr::select(out, -"label"), frontier_trades = fr$trade, sims = sims)
     }
   },
+  faboard = {
+    # D3 (VL9): V2's utility screen of free-agent adds, the top K re-scored by your P(playoffs) and
+    # P(title) on the S0 engine (common random numbers), drop advice, and this week's streaming view.
+    if (is.na(me)) stop("Set --me (your team).")
+    k <- as.integer(opt$k %||% 8)
+    sims <- as.integer(opt$sims %||% 5000)
+    state <- lg_state_from_snapshot(lg_latest_snapshot(season))
+    if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
+    sc <- d3_fa_screen(m, me, cand_per_pos = as.integer(opt[["per-pos"]] %||% 6))
+    board <- sim_fa_rescore(m, state, me, sc, k = k, sims = sims, p_active_fun = avail)
+    drops <- d3_drop_advice(m, me)
+    sv <- d3_stream_view(m, me, p_active_fun = avail)
+    cli::cli_alert_warning(S0_LABEL)
+    cli::cli_text("{if (isTRUE(state$rules$faab)) 'FAAB league: bids are not modelled yet.' else 'No FAAB: claims go by waiver priority.'} Your waiver rank: {state$standings$waiver_rank[state$standings$team_id == me] %||% NA}.")
+    cli::cli_h3("Free-agent board (top {k} adds by the utility screen)")
+    if (nrow(board)) {
+      print(dplyr::transmute(board, .data$add, .data$position, .data$drop, dU = round(.data$dU, 1),
+                             dP_playoffs = round(.data$d_playoffs, 3), dP_title = round(.data$d_title, 3),
+                             d_wins = round(.data$d_wins, 2)))
+    } else {
+      cli::cli_text("No free agent improves your expected rest-of-season lineup.")
+    }
+    cli::cli_h3("Drop advice (cheapest roster players to release)")
+    print(dplyr::transmute(drops, .data$player, .data$position, cost_dU = round(.data$cost, 1)))
+    if (any(drops$cost < 0)) cli::cli_text("A negative cost means streaming free agents in that player's slot is worth more than keeping him.")
+    cli::cli_h3("Streaming view, week {m$current_week} (expected points; gain = change in this week's best lineup)")
+    print(dplyr::transmute(sv, .data$position, .data$player, expected = round(.data$expected, 1), gain = round(.data$gain, 1),
+                           .data$stream_candidate))
+    cli::cli_text("Streaming is {sv$status[1] %||% 'informational'} (VL9). Board deltas below about 0.005 are within simulation noise.")
+    list(board = dplyr::select(board, -"drop_rows", -"new_rows"), drop_advice = drops, stream_view = sv, sims = sims,
+         streaming_recommended = D3_STREAMING_RECOMMENDED)
+  },
   lineup = {
     team <- if (!is.null(opt$team)) lg_find_team(m, opt$team) else me
     if (is.na(team)) stop("Set --team (your team could not be detected).")
@@ -270,7 +305,7 @@ if (!is.null(res)) {
   cli::cli_text("Archived query {.file {basename(q)}}")
   # Decision ledger (master plan F5): every recommendation, with its information state; outcomes sealed
   ledger_type <- unname(c(lineup = "lineup", analyze = "trade_analyze", fair = "trade_search", target = "trade_target",
-                          sell = "trade_sell", waivers = "waivers", rescore = "trade_rescore")[cmd])
+                          sell = "trade_sell", waivers = "waivers", faboard = "waivers", rescore = "trade_rescore")[cmd])
   if (!is.na(ledger_type)) {
     p <- if (cmd == "lineup") lg_ledger_lineup_payload(adv) else list(recommendation = res, alternatives = NULL, metrics = list())
     d <- lg_ledger_record(ledger_type, m$inputs, season, m$current_week, p$recommendation, p$alternatives, p$metrics,

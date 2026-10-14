@@ -370,3 +370,51 @@ test_that("position limits count active players only; a pre-existing excess forc
   tr2 <- lg_trade(m, 1, "1_WR_a5", 2, "2_RB_b2") # a third active RB exceeds the limit: an RB is dropped
   expect_equal(tr2$teams$dropped[tr2$teams$team_id == 1] %in% c("1_RB_a4", "2_RB_b2", "1_RB_a2"), TRUE)
 })
+
+# ---- D3 (VL9): free-agent board, drop advice, streaming view (new functions; V2 reused) ----------------
+
+d3_weekly <- function(players, weeks = 1, byes = list()) {
+  w <- tidyr::expand_grid(player_id = names(players), week = weeks)
+  w$lvl <- unname(players[w$player_id])
+  for (b in names(byes)) w$lvl[w$player_id == b & w$week == byes[[b]]] <- 0
+  w$p_active <- as.numeric(w$lvl > 0)
+  w$has_game <- w$lvl > 0
+  w$availability_status <- "NORMAL"
+  w
+}
+d3_prior <- list(p_active = c(QUESTIONABLE = 0.71), default = 1, source = "prior")
+
+test_that("D3 screen: an add that beats the FLEX gains its lineup difference with the cheapest forced drop", {
+  p <- base_players
+  p[["F_WR_f3"]] <- 13
+  m <- toy_lg(p)
+  sc <- d3_fa_screen(m, 1)
+  expect_equal(nrow(sc), 1)                             # the QB and RB free agents add nothing
+  expect_equal(sc$add, "F_WR_f3")
+  expect_equal(sc$drop, "1_WR_a5")
+  expect_equal(sc$dU, (20 + 15 + 13 + 12) - (20 + 15 + 12 + 10))
+  expect_setequal(m$sim$players$player_id[sc$new_rows[[1]]], c("1_QB_a1", "1_RB_a2", "1_WR_a3", "1_RB_a4", "F_WR_f3"))
+})
+
+test_that("D3 drop advice orders roster players by the utility their removal costs", {
+  m <- toy_lg(base_players)
+  d <- d3_drop_advice(m, 1, n = 3)
+  expect_equal(d$player, c("1_WR_a5", "1_RB_a4", "1_WR_a3"))
+  expect_equal(d$cost, c(0, 10 - 6, 12 - 6))
+})
+
+test_that("D3 streaming view: a free agent fills a bye-week hole for that week only", {
+  m <- toy_lg(base_players, weeks = 1:2, byes = list(`1_QB_a1` = 1))
+  m$input_data <- list(weekly = d3_weekly(base_players, 1:2, list(`1_QB_a1` = 1)))
+  v1 <- d3_stream_view(m, 1, week = 1, prior = d3_prior)
+  expect_equal(v1$gain[v1$player == "F_QB_f1"], 12)
+  expect_true(v1$stream_candidate[v1$player == "F_QB_f1"])
+  expect_equal(v1$gain[v1$player == "F_WR_f3"], 0)      # 8 does not beat the FLEX (10)
+  v2 <- d3_stream_view(m, 1, week = 2, prior = d3_prior)
+  expect_equal(v2$gain[v2$player == "F_QB_f1"], 0)
+  expect_true(all(v2$status == "informational (X16 not supported)"))
+  # P1's provider lowers this week's expected points of a designated player
+  f <- function(id, status, position) ifelse(id == "F_QB_f1", 0.5, 1)
+  v3 <- d3_stream_view(m, 1, week = 1, prior = d3_prior, p_active_fun = f)
+  expect_equal(v3$expected[v3$player == "F_QB_f1"], 6)
+})
