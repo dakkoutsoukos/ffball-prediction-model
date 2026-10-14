@@ -8,7 +8,8 @@ test_that("the register allows each family's own seasons and roles", {
   # the injury stack's one 2019 check was run (E19c) and is recorded under spent_checks
   expect_error(assert_family_seasons("injury_stack", 2019, "check", r), "already spent")
   expect_true(assert_family_seasons("distribution_stack", 2024, "check", r))
-  expect_true(assert_family_seasons("decision_family", 2025, "check", r))
+  # VL11 ran once on 2025 and is recorded under spent_checks
+  expect_error(assert_family_seasons("decision_family", 2025, "check", r), "already spent")
   expect_true(assert_family_seasons("horizon_study", 2026, "outcome_free", r))
 })
 

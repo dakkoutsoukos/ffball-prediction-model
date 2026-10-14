@@ -72,3 +72,7 @@ spent_checks:
     family: injury_stack
     season: 2019
     entry: "E19c (P1 X5 and R2 X14, Holm; X5 failed the slope rule, X14 null)"
+  - date: "2026-10-14"
+    family: decision_family
+    season: 2025
+    entry: "VL11 (X8, X9, X10b, X16, X23; Holm): X10b and X23 supported; X8, X9, X16 not"

@@ -365,9 +365,10 @@ test_that("VL11's 2025 base ignores 2024 rows; other seasons keep the F4 base", 
 
 test_that("the VL11 check refuses a spent 2025 and the development seasons", {
   reg <- read_contamination_register(file.path(project_root, "research", "contamination_register.yml"))
-  spent <- reg
-  spent$spent_checks <- c(spent$spent_checks, list(list(date = "2027-01-01", family = "decision_family", season = 2025L, entry = "VL11")))
-  expect_error(assert_family_seasons("decision_family", 2025L, "check", spent), "spent|already")
+  # VL11 ran on 2026-10-14: the register records 2025 as spent, so no rebuild can run
+  expect_error(assert_family_seasons("decision_family", 2025L, "check", reg), "spent|already")
   expect_error(assert_family_seasons("decision_family", 2023L, "check", reg), "may not use")
-  expect_silent(assert_family_seasons("decision_family", 2025L, "check", reg))
+  unspent <- reg
+  unspent$spent_checks <- Filter(function(x) !identical(x$family, "decision_family"), reg$spent_checks)
+  expect_silent(assert_family_seasons("decision_family", 2025L, "check", unspent))
 })

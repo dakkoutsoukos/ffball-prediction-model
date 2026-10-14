@@ -269,4 +269,4 @@ d4_rescore_odds <- function(rosters, taken, p, order, owner, pool, cands, weekly
 
 #' VL10 use rule, set from the recorded mock-draft result: the assistant's pick is shown first only if
 #' the mock drafts' P(playoffs) difference had a CI excluding 0 in its favour.
-D4_ASSISTANT_PRIMARY <- FALSE
+D4_ASSISTANT_PRIMARY <- TRUE

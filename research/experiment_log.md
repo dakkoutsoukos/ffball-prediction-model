@@ -1676,3 +1676,19 @@ schedule's **closing** lines at the late horizon.
 **Amended.** The conditioned variant uses `team_games$implied_team_total`: the closing total and spread, valid at
 kickoff, as in E20's C2. It exists for every season. K uses the team's own value; D/ST uses the opponent's. A missing
 line takes the training median. Nothing else in E23 changes.
+
+### E23 result: X22 — v0 K and D/ST distributions pass E21's gate (2026-10-14; run in the previous session, written up from the stored target `x22_result`)
+
+Lineup total = skill + K + D/ST; 11,052 team-weeks, development 2020–2023.
+
+| Variant | 50% coverage | 80% | 90% | Variance ratio | Fails |
+|---|---|---|---|---|---|
+| Without K/D-ST units ("none") | 0.498 | 0.794 | 0.891 | 1.04 | no |
+| **v0** | 0.505 | 0.799 | 0.898 | 1.01 | no |
+| Conditioned (closing implied totals) | 0.502 | 0.800 | 0.895 | 1.02 | no |
+
+- 80% coverage by league size (v0): 8 teams 0.792, 10 teams 0.802, 12 teams 0.802.
+- PIT histograms are flat; every decile is between 0.086 and 0.105.
+- **Decision (E23's rule):** v0 passes, so v0 is adequate.
+  - A later VL3 addendum may add v0 K/D-ST draws to S0's team totals.
+  - Nothing else is built; the conditioned variant is not adopted.

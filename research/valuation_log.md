@@ -1511,3 +1511,78 @@ every cell, against E17a's 4, so no cell is adopted yet. The hook is built now a
 - **Bit-identity.** The term is drawn from a separate random substream, so S0's results are unchanged when no cell is
   adopted (tested).
 - **Scope.** `odds`, `rescore`, `faboard`, `values3` and the D5 briefing. Ledger records name the horizon source.
+
+### VL11 result: the 2025 decision-family batch check (run once on 2026-10-14; 2025 now under `spent_checks`)
+
+The run happened in the previous session (targets `vl11_frame_2025`, `vl11_replay_2025`, `vl11_result`, 33 min, exit
+0) and was written up in this session from the stored target. Nothing was re-run.
+
+| id | Estimate [95% CI] | n | p (bootstrap) | p (Holm) | HLN-type t p | Supported |
+|---|---|---|---|---|---|---|
+| X8 | calibrated − raw points −0.021 [−0.043, +0.002] | 2,772 team-weeks | 0.962 | 1 | 0.938 | no |
+| X9 | late-window − EV win rate −0.0004 [−0.0011, 0.0000]; swaps 1.3% | 2,772 | 1 | 1 | 0.824 | no |
+| X10b | Spearman wins added − VOR +0.251 [+0.130, +0.371] | 130 stages | 0.0005 | 0.0025 | 0.007 | **yes** |
+| X16 | arm E − C points +0.31 [−0.17, +0.80] | 280 team-weeks | 0.097 | 0.289 | 0.128 | no |
+| X23 | ΔBrier sim − normal −0.00005 [−0.00037, +0.00030] (margin 0.005); sim slope 1.10 | 1,386 matchups | 0.0005 | 0.0025 | < 0.001 | **yes** |
+
+**Applied use rules (no re-tuning):**
+- X10b supported: wins added stays the primary display in `values3`.
+- X23 supported: S1-sim stays.
+- X9 not supported: the late-window module stays informational.
+- X16 not supported: `D3_STREAMING_RECOMMENDED` stays FALSE. The 2025 point estimate is positive; development was
+  negative. Neither excludes 0.
+- X8: on 2025, calibrated lineups do not score more than raw ESPN lineups (the difference is near 0). This informs the
+  lineup default only. D0 keeps calibrated projections; they are not worse by any material amount.
+
+From now on, 2027 prospective results are the only confirmatory evidence for decisions.
+
+### X11 result (VL12, descriptive; owner's league, matchup period 6, snapshot 10.5 h old; aggregates only)
+
+- 56 ordered-pair lists with ≥ 3 candidates; 9.96 candidates on average.
+- **Overall:**
+  - Kendall τ(ΔU, ΔP(playoffs)) 0.38; τ(ΔU, ΔP(title)) 0.30.
+  - Top-1 disagreement: 0.68 for playoffs (seed-to-seed noise floor 0.64); 0.84 for title (floor 0.75).
+  - Top-3 disagreement 0.89 / 0.95.
+  - Seed-to-seed τ for ΔP(playoffs): 0.46.
+- **By team state** (top-1 disagreement for playoffs vs its floor):
+
+  | State | Lists | Disagreement | Floor |
+  |---|---|---|---|
+  | Bubble | 35 | 0.60 | 0.57 |
+  | Contender | 14 | 0.86 | 0.71 |
+  | Out | 7 | 0.71 | 0.86 |
+
+- **Reading:**
+  - ΔU and ΔP rank trades only loosely alike, but most of the disagreement is at the level of simulation noise at
+    2,000 simulations. ΔP's own ranking repeats poorly between seeds.
+  - The divergence beyond noise is small: about +0.04 for playoffs and +0.09 for title, largest for contenders.
+  - **Display implication:** in `rescore`, ΔP at 2,000 simulations should not be read as a ranking among close
+    candidates. The existing robustness flag (D5's "fragile") stays the guard.
+  - No test, no selection. The run excluded the candidates that failed V2's invariants (X-021); their count is in the
+    private log only.
+- **D2 status:** complete (development).
+
+### VL10 result: D4 mock-draft evaluation (labelled simulation evidence; projections only)
+
+- **Design:** 200 mock drafts per policy on the owner's format (8 teams, 10 regular weeks, 4 playoff teams); the seat
+  cycles through 1–8; seeds are common across policies.
+- **Paired differences, assistant − VOR-greedy** (normal 95% CI over the 200 paired drafts):
+
+  | Metric | Difference [95% CI] |
+  |---|---|
+  | Owner U | +13.96 [+12.56, +15.36] |
+  | Week-0 E[wins] | +0.129 [+0.107, +0.152] |
+  | **P(playoffs)** | **+0.026 [+0.022, +0.031]** (mean 0.573 → 0.599) |
+
+  P(playoffs) gain by seat: 0.034, 0.017, 0.028, 0.036, 0.029, 0.029, 0.026, 0.008.
+- **Use rule:** the P(playoffs) CI excludes 0 in the assistant's favour, so its top pick is shown first
+  (`D4_ASSISTANT_PRIMARY <- TRUE`).
+- **Caveat:**
+  - The opponents follow the same model that the assistant's rollouts assume. The gain is evidence within that model
+    and an upper bound on the gain against real drafters.
+  - The 2027 survival calibration against the owner's pick log is the prospective check.
+- **Gated off:** the keeper part (`keeperCount = 0`) and the FAAB part (`isUsingAcquisitionBudget = FALSE`).
+- **Time target:** one recommendation (pool built, 100 rollouts × 16 candidates, first pick) takes 0.32 min, or 19 s,
+  against the 60 s target. Building the pool takes 0.06 min, once per draft. The optional week-0 re-score is outside
+  this figure.
+- **D4 status:** complete (development).
