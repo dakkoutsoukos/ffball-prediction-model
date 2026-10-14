@@ -7,10 +7,11 @@
 # committed and pushed, and when the evidence was last backed up. The "Scheduled
 # operations" section adds the dispatcher's view (F0): which upcoming games have a run
 # made after both teams' final injury reports, alerts for games within 3 h of kickoff
-# without one, and the all-position capture cadence.
+# without one, and the all-position capture cadence. "Model and data health" adds I3's checks (VL13).
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 args <- commandArgs(trailingOnly = TRUE)
 season <- if (length(args) >= 1) as.integer(args[[1]]) else nfl_season()
 invisible(print_status(season))
 invisible(print_ops_status(season))
+invisible(print_health(season))
