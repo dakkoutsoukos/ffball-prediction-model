@@ -899,3 +899,30 @@ S0, the shadow engine, stays in service for the owner's league until S2 v1 is bu
 **Success (07 S2):** rules reproduced exactly; invariants (Σ P(playoffs) = playoff teams, Σ P(title) = 1); calibration
 estimates with honest CIs. The prospective comparison with ESPN's `playoffPct` is logged only if ESPN ever returns it
 (X-004: absent for this league).
+
+### VL4 result: P4 development (descriptive; σ_L matched in sample, 2020–2023)
+
+**σ_L** by position × L-tertile band (simulation matching, 200 draws):
+
+| | Band 1 | Band 2 | Band 3 |
+|---|---|---|---|
+| QB | 0.446 | 0.387 | 0.253 |
+| RB | 0.501 | 0.401 | 0.361 |
+| TE | 0.410 | 0.332 | 0.424 |
+| WR | 0.355 | 0.370 | 0.290 |
+
+All are uncapped. For comparison, S0's position-level σ_L is 0.35–0.39.
+
+**ROS evaluation against VE1-normal** (same mean; normal spread at the training residual SD):
+- P4's CRPS is **worse** in every position × w cell, by 0.2% to 3.5%.
+- P4's coverage at 50% is 0.32–0.48, too low. At 80% it is 0.68–0.80; at 90%, 0.76–0.88.
+- So the multiplicative lognormal shock on summed weekly draws has the right SD (by construction) but the wrong shape: too peaked, with heavy tails.
+
+**Parameter studies (X2, X26).**
+- **X2:** lag-1 autocorrelation of residuals against the calibrated week-of base is QB 0.035 [−0.012, 0.085], RB 0.027 [−0.005, 0.058], WR 0.002, TE −0.006. ICC is ≤ 0.003. Residuals against the week-of projection do not persist.
+- **X26:** ESPN moves next week's projection by 0.114–0.142 of the residual, depending on position (tight CIs). This is the empirical learning rule.
+- **Reading:** ROS level uncertainty comes from ESPN's future revisions, not from a persistent bias in its current projection.
+
+**Outcome.** P4 v1 fails in development, so it is **not advanced** (E22 not run) and not adopted. S0's VL3 engine stays
+in shadow use with its label. The X26 learning slope is recorded for P5/S3's simulated policies. A future P4 v2, for
+example an additive level shock or a revision-path model built on X26, needs its own pre-registration.

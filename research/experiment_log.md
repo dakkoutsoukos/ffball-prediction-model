@@ -1561,3 +1561,69 @@ The quantile code matches mgcv's own `qf` (unit test).
 - If the repaired C2 still fails the gate or loses, the selection stays as the rule gives it. No further variants.
 
 **Record.** The first development results, with C0 selected, are kept here. They appear in E20's result entry beside the repaired run.
+
+---
+
+## 2026-10-14 — E20 result: P2 development (with E20a) — C0 selected; no calibrated candidate beats P0
+
+Development 2020–2023, out of sample by season (fit on 2019…s−1); 23,491 active projected rows; 99-level grid.
+
+| Candidate | CRPS | ΔCRPS vs C0 [95% CI] | Coverage 50/80/90 | Gate (12 cells, Holm) |
+|---|---|---|---|---|
+| C0 (P0's procedure) | 2.9706 | — | 0.500 / 0.805 / 0.900 | **passes** |
+| C1 (IDR) | 2.9614 | −0.0092 [−0.0130, −0.0051] (−0.31%) | 0.572 / 0.845 / 0.922 | **fails** (5 cells; intervals too wide) |
+| C2 (shash EMOS), first run | 12.37 | +9.40 | 0.472 / 0.641 / 0.729 | fails (7 cells) |
+| C2 after E20a (residual fit) | 12.39 | +9.42 | 0.476 / 0.644 / 0.728 | fails (7 cells) |
+| C3 (C0 + adaptive conformal) | 2.9703 | −0.0002 [−0.0005, +0.00003] | 0.500 / 0.805 / 0.901 | passes |
+
+**Selection (E20's rule).** The candidates passing the gate are C0 and C3. C3's advantage is 0.01%, inside the 0.5% tie
+band, so the simpler candidate wins: **C0**.
+
+**C2.** QB fits well (CRPS 3.99, as good as C0). RB, WR and TE converge to degenerate shash optima, with the log-scale
+predictor ranging from −17 to +2. E20a's residual parameterisation did not change that, so the one-attempt rule closes
+C2.
+
+**Interpretations** (X3, X4):
+- **X3:** "C0 or C1 wins: spread is mainly a function of level, so keep the simple model." IDR is slightly sharper but over-covers its central intervals out of sample.
+- **X4** (which covariates predict spread) is **inconclusive**: the only candidate carrying the covariates failed to fit.
+
+**Outcome.** P2 v1 adds no new distribution. **The frozen P0 table (`pod_baseline_v0`) stays the production
+F(y | active, base).** P2 has no primary in E22. A future P2 v2, such as a different family or a fitting strategy for
+C2's covariates, needs its own pre-registration. It could still be checked on 2024 (see E22 below).
+
+---
+
+## 2026-10-14 — E21 result: P3 gate — independence is adequate; P3 not built
+
+There are 11,052 regular-season lineups (F6 arm A, 2020–2023). Player PODs came out of sample from the E20-selected
+candidate (C0) with position × band P(active); 2,000 independent draws per lineup.
+
+| Interval | Coverage | 95% CI | Holm p |
+|---|---|---|---|
+| 50% | 0.498 | [0.485, 0.512] | 1 |
+| 80% | 0.794 | [0.780, 0.807] | 1 |
+| 90% | 0.892 | [0.881, 0.902] | 1 |
+
+- **The gate passes**, so **P3 is not built** and the null is recorded. P5 uses independence.
+- **Descriptive:**
+  - variance ratio 1.04; PIT deciles 0.09–0.11;
+  - lineups with a same-team QB–pass-catcher stack: 80% coverage 0.782, variance ratio 1.11. Without one: 0.797, ratio 1.02. A small stack effect, inside the gate;
+  - by league size: 80% coverage 0.785 / 0.795 / 0.799 at 8 / 10 / 12 teams.
+
+---
+
+## 2026-10-14 — E22: distribution-stack batch check on 2024 — NOT RUN (no development winner)
+
+E20, E21 and VL4 planned one batch check on 2024 for the stack members that reached it. After development:
+- **P2:** C0 (= P0) is selected, so P2 has no primary.
+- **P3:** not built (its gate passed).
+- **P4:** worse than its VE1-normal baseline even in sample (VL4 result).
+
+The batch would only re-confirm development failures, and it would **spend 2024** for the whole family.
+
+**Decision:** the 2024 batch is not run now. 2024 stays unspent for the distribution stack. A future pre-registered
+P2 v2 or P4 v2 can use it once it wins in development.
+
+This decision uses no 2024 data and does not change any criterion in favour of a result. It declines to test candidates
+that development already rejected. `spent_checks` is unchanged. The frozen P0 table remains in production. Its
+prospective record continues (2026 archive, 2027 confirmatory).
