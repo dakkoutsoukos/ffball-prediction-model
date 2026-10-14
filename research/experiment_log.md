@@ -1363,3 +1363,58 @@ P(active | early) = Σ_d P(final designation = d | midweek status) × P(active |
   - A passing R2 candidate becomes a new lineage, `m6_*` (registry, fingerprints, prospective from freeze).
   - The P1 provider is frozen with a content fingerprint.
   - Nothing from M1–M4 changes.
+
+---
+
+## 2026-10-13 — E20: P2 calibrated outcome distributions v1 (distribution stack; pre-registration, written before any P2 computation)
+
+**Family.** `distribution_stack`:
+- development 2020–2023; warm-up 2019;
+- **one batch check on 2024**: E22, pre-registered separately after development, covering P2 and P4, and P3 if gated in;
+- confirmatory 2027; 2025 excluded; 2026 sealed.
+
+Nothing is computed or viewed on 2024–2025 for this family before E22.
+
+**Target.** F(y | active, base, x) at the **late horizon**: the league points of F4 rows that are ESPN-projected
+(projection > 0) and active (≥ 1 offensive snap), at QB/RB/WR/TE. The base is F4's rolling-origin calibrated ESPN.
+
+**Scoring grid.**
+- Every candidate produces quantiles at τ = 0.01, 0.02, …, 0.99 (99 levels).
+- CRPS: `crps_quantiles()` on that grid (trapezoid rule, tails held at the end quantiles).
+- Coverage: the central 50/80/90% intervals from the grid.
+- PIT: randomised, from the grid CDF.
+
+**Development protocol.** Out of sample by season, as in E18: for s = 2020…2023, every candidate is fit on seasons
+2019…s−1 and scored on s. Pooled development metrics are over all four positions; position results are reported too.
+
+**Candidates** (three plus the baseline):
+
+| id | Method |
+|---|---|
+| **C0** (baseline; P0's procedure) | Empirical quantiles of (y − base) by position × P0 band, with P0's merging rule (cells ≥ 200) and position floors, on the 99-level grid |
+| **C1** (IDR benchmark) | Per position, isotonic distributional regression of y on base [Henzi et al. 2021]. P(y ≤ z) is antitonic in base, fitted by PAVA (`stats::isoreg`) at 199 thresholds: the training quantiles of y at 0.005, 0.010, …, 0.995. Predictions at a new base interpolate linearly between neighbouring training bases, held constant outside their range. Quantiles come from inverting the CDF, linear between thresholds. |
+| **C2** (EMOS-style) | Per position, `mgcv::gam(list(y ~ s(base, k = 10), ~ s(base, k = 10) + status + td_share + implied_total + spread + vol_shrunk, ~ 1, ~ 1), family = mgcv::shash(), method = "REML")`, with quantiles from the family's quantile function, floored at the position floor. Location is smooth in base; log-scale is smooth in base plus the closed covariate list; skewness and kurtosis are constant per position. |
+| **C3** (adaptive conformal) | The better of C0 and C2 by development CRPS (decided before C3 is scored), plus per-position adaptive level tracking [Gibbs & Candès 2021]. For each τ, the week-t level is τ + δ, clipped to [0.005, 0.995]. After each week, δ ← δ + 0.01 × (τ − ĉ), where ĉ is the share of that week's rows with y ≤ q_τ. δ resets to 0 at each season's start. |
+
+**Closed covariate list for C2** (05 §4.3), all pregame-valid at the late horizon:
+- base;
+- **status:** not listed / listed without a designation / Questionable or Doubtful (F4's timed report features);
+- **td_share:** the share of ESPN's projected points that comes from touchdowns, (6 × (receiving TDs + rushing TDs) + 4 × passing TDs) / projection, clipped to [0, 1];
+- **implied_total** and **spread:** the schedule's closing values, valid at kickoff. The as-of lines are reserved for earlier horizons (R5).
+- **vol_shrunk:** the player's residual SD over his earlier projected active weeks (all earlier seasons in the frame, plus earlier weeks of the season), shrunk toward the position's training residual SD: sqrt((n·sd_player² + 8·sd_position²)/(n + 8)).
+
+**Selection** (fixed now):
+1. The lowest pooled development CRPS wins.
+2. **Coverage gate** (05 §6), on development: in each position × level cell (50/80/90%), the week-clustered 95% CI of coverage must overlap [nominal − 3 pp, nominal + 3 pp], with Holm across the 12 cells. A candidate that fails is not selected.
+3. A CRPS difference below 0.5% of the best is a tie; the simpler candidate wins (C0 < C1 < C2 < C3).
+
+**Development inference** (reported, not a test): paired week-clustered, season-blocked bootstrap (2,000 replicates)
+of ΔCRPS against C0 and against C1. Also reported: PIT histograms, MCB/DSC/UNC via the CORP decomposition of
+threshold Brier scores, and threshold-weighted CRPS above 20 points, by position and band.
+
+**Then E22** (2024, one batch): the selected candidate's ΔCRPS against C0 must have a CI below 0, it must be no worse
+than C1, and it must pass the coverage gate.
+
+**POD assembly and freezing.**
+- POD_h = p_active(h) × F(y | active, base_h, x) + (1 − p_active(h)) × δ₀, with p_active from P1's provider (E19 outcome). The R3 horizon spread term enters once R3 adopts it.
+- The selected candidate is frozen as `models/probabilistic/pod_v1.yml` with a fingerprint, and archived prospectively like P0.
