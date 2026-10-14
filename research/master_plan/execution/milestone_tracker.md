@@ -40,15 +40,15 @@ Last updated: 2026-10-14.
 | D2 | Trade engine v3 | 4 | S2, S3, F3, F5 | IN PROGRESS: thin slice (two-team ΔP re-scoring, partner-lens frontier, `rescore` CLI, ledgered); real league: 5 trades × 5,000 simulations in 0.56 min | |
 | D3 | Waiver / free-agent assistant (VL9) | 4 | S2, S3, F3, F6 | COMPLETED (development) 2026-10-14: `faboard` (ΔU screen, top 8 re-scored by ΔP with common random numbers, drop advice, streaming view), ledgered as `waivers`; real league: 8 adds re-scored in 0.8 min, invariants hold. X16 null (E − C −0.13 [−0.56, +0.31]), so streaming stays informational | VL9 (8b20073), code 33ca7f3 and 5fff19e, result in the valuation log. League has no FAAB (`isUsingAcquisitionBudget = FALSE`): FAAB part gated off; waiver priority applies. VL11 re-tests X16 on 2025 |
 | D4 | Draft assistant (VL10; by Aug 2027) | 4 | S2, S3, O2/O8 captures | NOT STARTED | `keeperCount = 0`: keeper part gated off |
-| D5 | Weekly intelligence briefing | 4 | D1–D3, F5, I3 | NOT STARTED | |
+| D5 | Weekly intelligence briefing | 4 | D1–D3, F5, I3 | COMPLETED (build) 2026-10-14; the 2027 criterion (produced for ≥ 90% of weeks before first kickoff) is tracked as ongoing | VL13 (d9f7ecf); `scripts/briefing.R`, `R/live/briefing.R` (9fe40a2). First real-league run: 12.2 min, every section built, robustness flags (trades FRAGILE, lineup and waivers robust), 4 ledger records, name-free console. Manual (no new ESPN requests, X-022) |
 | VL11 | Decision-family batch check (2025 replays) | 4 | F6, D1–D3 pre-registrations | NOT STARTED | |
 | R3 | Forecast-horizon study (E17 + E17a; outcome-free) | 5 | F0 | IN PROGRESS (tooling built c32408f; data accruing) | Refreshed weekly by the dispatcher; adoption per cell at 4 target weeks (about early November); then wire the spread/drift into S0's current-week draws |
 | R4 | Multi-source capture ◇ | 5 | O3 | NOT STARTED | Owner decision O3 (default: not captured) |
-| R5 | As-of market context | 5 | F4 | NOT STARTED | Inside P2/P3 |
-| R6 | ESPN-independent fallback ◇ | 5 | F4 | NOT STARTED | |
-| R7 | Usage reliability, first-read share ◇ | 5 | F4 | NOT STARTED | |
-| I2 | Local dashboard ◇ | 6 | D5 | NOT STARTED | |
-| I3 | Monitoring and alerting | 6 | with D5 | NOT STARTED | |
+| R5 | As-of market context | 5 | F4 | COMPLETED 2026-10-14 (closed inside P2, inconclusive): the only market-context candidate (E20's C2, closing spread and total in the scale) was degenerate; P3 was not built, so as-of lines have no host model (X-026) | E20, E20a, E20 result |
+| R6 | ESPN-independent fallback ◇ | 5 | F4 | DEFERRED 2026-10-14 (optional; X-026): ESPN access works; the build (L) needs its own family and check seasons. Revisit if ESPN access breaks, or in the 2027 off-season | |
+| R7 | Usage reliability, first-read share ◇ | 5 | F4 | DEFERRED 2026-10-14 (optional; X-026): first-read share needs a new charting dataset and a 2025 check (`usage_features`); the lowest-scored item, scheduled for the 2027 off-season | |
+| I2 | Local dashboard ◇ | 6 | D5 | COMPLETED 2026-10-14 (static variant): the briefing is also written as a self-contained local HTML page; Quarto/Shiny are not installed (X-024) | fbc34f5 |
+| I3 | Monitoring and alerting | 6 | with D5 | COMPLETED (build) 2026-10-14: freshness, dispatcher, run coverage, ESPN 401 and Monte Carlo SE checks live in `scripts/status.R` (all OK on 2026-10-14); drift e-processes built and tested, sealed for 2026 and needing the 2027 protocol's approval for in-season use | VL13 (d9f7ecf); `R/live/monitor.R` (d51e7b6) |
 
 ## Acceptance criteria (from 07; checkable items first)
 

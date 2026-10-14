@@ -1360,3 +1360,28 @@ and ΔP(title) with common random numbers, drop advice, and the streaming view. 
 
 **Status.** D3's criteria are met: streaming is recommended only if the replay CI excludes 0 (it does not), and the
 FAAB part is gated off (the league uses no budget). VL11 re-tests X16 on 2025.
+
+### VL13 result: D5 briefing and I3 checks on the real league (2026-10-14; aggregates only)
+
+**I3.** `scripts/status.R` prints the health panel. On 2026-10-14 all seven checks were OK:
+- capture 24.9 h old; league snapshot 10.5 h; valuation run 24.8 h;
+- dispatcher's last entry 0.9 h ago;
+- no game without a post-report run; no HTTP 401 in the last 7 days;
+- the newest odds record's maximum Monte Carlo SE is 0.005 (10,000 simulations).
+
+The drift e-processes keep their level under the null and alarm under drift on synthetic sequences (tests). They do not
+run on 2026.
+
+**D5.** The first briefing on the real league ran in 12.2 min. It wrote the private report and its HTML copy (I2), and
+4 ledger records (lineup, odds, waivers, trade re-scoring). The console showed counts and flags only:
+
+| Section | Result |
+|---|---|
+| Lineup | 8 changes, +33.6 expected points against the current ESPN lineup (the D0 finding still stands); robust |
+| Odds | VL3 band shown |
+| Waivers | 8 adds re-scored; best ΔP(playoffs) +0.037; robust |
+| Trades | 21 valid candidates re-scored; best ΔP(title) +0.032; **fragile**: the best trade changes under at least one VL3 setting or the second seed |
+| Health | 7 OK |
+
+**Status.** D5 and I3 are built. D5's success criterion (produced for ≥ 90% of 2027 weeks before first kickoff) is
+tracked as ongoing.
