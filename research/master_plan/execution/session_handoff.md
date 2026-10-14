@@ -3,7 +3,7 @@
 *Exact instructions for resuming execution in a new Claude Code session. Update at the end of every
 substantial work segment.*
 
-Last updated: 2026-10-14 (session 2: Phases 2–4 largely built; see "Exact next action").
+Last updated: 2026-10-14 (session 3: recovery; all buildable pre-season-end work done; see "Exact next action").
 
 ## Read first (in this order)
 

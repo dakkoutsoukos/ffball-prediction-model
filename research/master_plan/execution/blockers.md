@@ -7,6 +7,7 @@
 | id | Since | Milestone(s) | Blocker | Needed to unblock | Workaround / independent work |
 |---|---|---|---|---|---|
 | B-001 | 2026-10-13 | F4 (K and D/ST criterion only) | F4's "scoring match ≥ 99.9% per position" cannot be checked for K and D/ST: no ESPN K/DST actuals exist locally (historical files cover QB/RB/WR/TE slots only) | Owner decision O8 (K/DST slot ids in the capture, or historical K/DST week-of files), **or** the 2026 league data once R1 unseals 2026 outcomes | K/DST tables built and internally validated (R-005), and labelled "not ESPN-validated". QB/RB/WR/TE criteria met; Phase 2 proceeds on them |
+| B-002 | 2026-10-14 | S0 K/D-ST addendum (E23 result permits v0 K/D-ST draws in S0 team totals) | S0 needs the league's K and D/ST slots, rostered units and scoring; live captures do not include K/DST slot ids | Owner decision O8 (K/DST slots in the capture) | Simulators keep excluding K and D/ST and say so; X22 shows v0 would be adequate |
 
 ## Waiting on owner decisions (not blocking current work)
 
