@@ -3,7 +3,7 @@
 *Exact instructions for resuming execution in a new Claude Code session. Update at the end of every
 substantial work segment.*
 
-Last updated: 2026-10-14 (session 3: recovery; all buildable pre-season-end work done; see "Exact next action").
+Last updated: 2026-10-14 (session 3, second segment: O8 K/DST, VL3d, O3 research, X11b pending re-run).
 
 ## Read first (in this order)
 
@@ -82,26 +82,24 @@ this handoff). Keep every safeguard, test requirement, approval boundary and int
 
 ## Exact next action
 
-Session 3 (2026-10-14) recovered an interrupted session. The tree was clean, but four completed runs had not been
-written up. They are now recorded (3d669cc):
-- VL11 (2025 batch, run once; 2025 spent): X10b and X23 supported; X8, X9 and X16 not;
-- X22 (v0 K/D-ST passes);
-- X11 (divergence near the noise floor);
-- D4 mock drafts (assistant primary, 19 s per pick).
+**Session 3, second segment (2026-10-14).** The owner approved O8 and B-002 (X-029). Done and committed:
+- ESPN K/DST files and live capture (`R/data/espn_kdst.R`);
+- B-001 measured (K 0.996, D/ST 0.980; 0.989 with v2; not met, negligible impact);
+- VL3d: v0 K/D-ST draws live in S0 (`models/simulation/kdst_v0.yml`);
+- O3 desk research (`o3_projection_sources.md`);
+- VL12a pre-registered, X11b code and tests committed.
 
-D2, D4 and VL11 are complete. X-028 fixed ledger seal 2, which had opened mechanically; no report was produced. Suite:
-360 blocks, 1,539 expectations, 0 failures.
+Suite: 367 blocks, 0 failures.
 
-**Nothing in the roadmap is buildable now without the owner or the calendar.** The queue:
-1. **In season (no code):**
-   - Keep the tree clean around slate windows.
-   - Commit `archive/decision_manifest.csv` after ledger runs.
-   - Remind the owner to push (about 99 local commits).
-2. **About early November:** when `hz_adoption()` reports a ready cell (E17a: 4 target weeks), the VL3c hook activates
-   by itself. Record the adoption (cells, V-hat) in the valuation log as a VL3c note; there is no code change.
-3. **Owner decisions pending:**
-   - O8 rest: K/DST slots would unblock B-001 and B-002 (S0 v0 K/D-ST draws, which needs a VL3 addendum first).
-     Transactions and box scores would enable the late-window display.
-   - O3 for R4.
-4. **Season end (January 2027):** R1 (M5 scoring, VE-P1), then I1, F2-full, F3-full and B-001; then the 2027
-   decision pre-registrations (dated 2027, which also lifts seal 2, X-028).
+**Interrupted:** the X11b run (`tmp/x11b_run.R`, 6 PSOCK workers × 20,000 simulations per list) was killed by Claude
+Code's low-memory reaper before it saved anything. No result exists, and VL12a is unspent (nothing was computed). The
+owner said to re-run only when asked.
+1. When the owner asks, re-run with fewer workers (`makePSOCKcluster(3)`) or smaller chunks. Then record the
+   "X11b result" under VL12a's fixed reading rule and update the D2 row.
+2. The rest of the queue is unchanged:
+   - R3 adoption is about early November and needs no code;
+   - O3 decision (R4) and the X22b proposal (player-specific K/D-ST from ESPN's K/DST projections; needs its own
+     pre-registration);
+   - season end (January 2027): R1, I1, F2-full, F3-full (the other O8 items are approved; X-029), then the
+     2027-dated decision pre-registrations.
+3. Keep the tree clean around slate windows (Thu ~17:15 ET), and remind the owner to push.
