@@ -699,3 +699,45 @@ The rule is applied to every season, so all four are re-replayed.
 
 **Order of events.** Before this amendment, three seasons' replays were stored. Nothing from them was read: no
 triage, no lineup or waiver output, no outcome. Everything else in LAB1 and LAB1a is unchanged.
+
+## 2026-10-13 — VL4: P4 season dynamics (X2, X7, X26; pre-registration, written before any P4 computation)
+
+**Family.** `distribution_stack`:
+- development 2020–2023; warm-up 2019;
+- **check 2024 in the E22 batch** (with P2, and with P3 if its gate builds it);
+- 2025 excluded; 2026 sealed.
+
+Rest-of-season (ROS) forecasts are **rolling origin** (refit on seasons < s). The frozen `ros_v1` parameters were
+derived from 2019–2025 and are not used, so the 2024 check stays clean.
+
+**ROS rows.**
+- **As-of weeks:** w ∈ {4, 8, 12}.
+- **Population:** players at QB/RB/WR/TE ranked within their position at week w by L_avg4 (the mean of the last, up to 4, positive ESPN projections through w): top 24 QB, 48 RB, 60 WR, 24 TE (VE1's relevance thresholds).
+- **Future weeks:** t = w+1 … 16 in which the player's last known team plays (byes are not attrition).
+- **Realised ROS total:** Σ_t points, with 0 when there is no row.
+
+**Model components** (fit on seasons < s; F4 data):
+- **Mean if active:** μ_h. Per position and horizon bucket h = t − w ∈ {1, 2–3, 4–7, 8+}, OLS of points on L_avg4(w) over active future rows.
+- **Attrition:** A_h. The share of future team-game weeks in which the player was active, by position × L band (P0's bands applied to L_avg4) × horizon bucket.
+- **Weekly noise:** the E20-selected P2 candidate's F(y | active, base = μ_h).
+  - Covariates at future weeks are their as-of values: status "none", the week-w TD share, implied total 22, spread 0, and the as-of volatility.
+- **Level shock:** L ~ lognormal(−σ_L²/2, σ_L²), held for the season. σ_L is set per position × L band (3 bands: the position's tertiles of L_avg4 on 2019–2023) by **simulation matching** on development rows (2019–2023, all three w):
+  - SD of simulated ROS residuals = SD of observed ones, with availability and noise drawn separately;
+  - 200 draws per row; common random numbers; bisection on [0, 1.5]. This is VL3's procedure, by band.
+- **ROS distribution:** 2,000 draws per (player, w) of Σ_t active_t · L · F⁻¹(u | μ_h).
+- **Baseline, VE1-normal:** the same mean Σ_t A_h μ_h, with a normal spread at the training residual SD of ROS totals by position × w (seasons < s).
+
+**Diagnostics** (parameter studies; development 2020–2023; no pass/fail):
+- **X2:** lag-1 to lag-4 within-player-season autocorrelation of r = y − base (active projected rows), by position × P0 band. ICC from `gam(r ~ s(player_season, bs = "re"))` per position. Player-season bootstrap CIs.
+- **X26** (ESPN's learning rule): OLS of the projection change proj_{t+1} − proj_t on the residual r_t, by position (both weeks projected and active), with player-season-clustered CIs. This becomes the empirical learning rule for P5's simulated policies.
+
+**Development evaluation** (descriptive; σ_L is matched in sample): CRPS and 50/80/90% coverage of ROS totals by
+position × w, for the P4 model against VE1-normal.
+
+**E22 primary for P4** (one-time, 2024; Holm with the batch's other primaries):
+- ΔCRPS(P4 − VE1-normal) on ROS totals, pooled over positions and w;
+- player-clustered bootstrap: players resampled within the season, keeping all their as-of weeks;
+- success: CI below 0 **and** the ROS coverage gate passed. The gate covers position × level (12 cells, pooled over w), uses the same cluster, and applies Holm across cells.
+
+**Frozen artefact if E22 passes:** `models/probabilistic/season_dyn_v1.yml`, containing σ_L by position × band, the
+attrition table, μ_h, and the learning coefficients, all fitted on 2019–2023, plus a fingerprint.
