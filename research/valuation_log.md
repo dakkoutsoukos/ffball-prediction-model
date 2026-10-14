@@ -788,3 +788,29 @@ a 95% CI that includes 1 and a point estimate in [0.8, 1.2].
 - CORP decomposition;
 - reliability tables;
 - results by league size and by favourite strength.
+
+### LAB1 result 1: outcome-free triage (X8, X9), recorded before any realised comparison was computed
+
+**Scale.** The full development replay (2020–2023; 20 leagues per season; arms A–D) ran in **23.7 min**
+(`lab_replays`; criterion ≤ 2 h). The lab tests pass, including the end-to-end firewall test with planted future data.
+
+**X8, lineups** (arm A, regular season, all teams; 11,088 team-weeks).
+- Calibrated and raw-ESPN lineups differ in **2.9%** of team-weeks; by season and league size the range is 1.3–5.2%.
+- Model-implied gain under the calibrated model: **0.004 points per team-week** on average, **0.16** points when the lineups differ.
+- This is what the triage predicted. Per-position linear calibration with positive slopes keeps each position's order, so only FLEX choices across positions can change.
+
+**X8, waivers** (arm A states; 10,296 team-weeks).
+- Claim lists differ in 6.7% of team-weeks in 2020, the first lab season, calibrated on 2019 only. In 2021–2023 they differ in 15–20%.
+- Claims run at about 0.7–1.1 per team-week under either policy.
+- Model-implied gain of the calibrated top claim over the raw one (ROS points, calibrated model): −0.01 (2020), +0.22 (2021), +0.29 (2022), +0.46 (2023).
+
+**X9** (arm A focal team-weeks; 1,120). P(win) of the calibrated EV lineup against single swaps, with P0 PODs and
+P(active) by position × band (LAB1a).
+- A significant flip occurs in **2.9%** of team-weeks; mean ΔP(win) is **0.0013** (90th percentile 0.0055).
+- The EV lineup's mean P(win) is 0.508.
+- **X9's kill rule fires** (flips < 5% *and* mean ΔP < 0.005). D1 gets **no full pre-kickoff P(win) mode**: EV lineups, slotting and late-window features only.
+- This agrees with the one earlier measurement (0/208).
+
+**Reading for VL11.** Calibration alone barely changes lineups, so a realised lineup effect of calibration will sit far
+below any plausible MDE. The waiver arm, and the availability and distribution arms once P1/P2 exist, carry the
+decision question. VL11's pre-registration should size its primaries with these flip rates in mind.
