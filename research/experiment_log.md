@@ -1666,3 +1666,13 @@ season-blocked bootstrap. A level fails if its coverage lies outside nominal ± 
 **Reported either way:** coverage, variance ratio and PIT histogram, with and without K/D-ST; results by league size.
 No 2024 or 2025 K/D-ST row is read: the K/D-ST tables cover 2019–2025, and the code restricts them through the
 register.
+
+### E23a (2026-10-14, amendment before any K/D-ST distribution or lineup total was computed)
+
+E23's conditioned variant named F4's as-of implied totals (kickoff − 2 h). A schema check, with no values or results
+viewed, shows those lines exist only from 2021. E20 also reserves them for earlier horizons (R5) and uses the
+schedule's **closing** lines at the late horizon.
+
+**Amended.** The conditioned variant uses `team_games$implied_team_total`: the closing total and spread, valid at
+kickoff, as in E20's C2. It exists for every season. K uses the team's own value; D/ST uses the opponent's. A missing
+line takes the training median. Nothing else in E23 changes.
