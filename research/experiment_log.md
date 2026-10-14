@@ -1627,3 +1627,42 @@ P2 v2 or P4 v2 can use it once it wins in development.
 This decision uses no 2024 data and does not change any criterion in favour of a result. It declines to test candidates
 that development already rejected. `spent_checks` is unchanged. The frozen P0 table remains in production. Its
 prospective record continues (2026 archive, 2027 confirmatory).
+
+## 2026-10-14 — E23: X22, K and D/ST distributions for lineup totals (distribution stack, P0/S0; pre-registration, written before any K/D-ST distribution or lineup-total computation)
+
+**Question (X22).** Are v0 K and D/ST distributions adequate for team-total variance? The live simulators (S0, S1,
+D2–D5) leave K and D/ST out and say so. 05 §4.6 asks for v0 position-level distributions, upgraded to
+matchup-conditioned ones **only if lineup-total calibration fails**.
+
+**Family.** `distribution_stack`: development 2020–2023, warm-up 2019. No 2024 batch. E22 is not run (X-020), and a
+pass needs no batch (as in E21).
+
+**Lineups and skill draws.** E21's, unchanged:
+- F6 arm-A development replays, all teams, regular season;
+- C0 refit on 2019 … s − 1;
+- position × band P(active);
+- 2,000 independent draws per lineup.
+
+**K and D/ST units.** The lab has none, so each team-week is given one K unit and one D/ST unit.
+- Two NFL teams are drawn uniformly among the teams playing that week, seeded by season, league, team and week.
+- Realised points: F4 part 2's tables under the league's scoring (the team's kicker points in the game; the team's
+  D/ST points).
+- This is a construction; real managers choose their K and D/ST.
+
+**Distributions** (for season s, fit on all team-games of 2019 … s − 1):
+- **v0:** per unit, the empirical quantiles of points on E21's τ grid (position-level, independent of the matchup).
+- **Conditioned:** per unit, empirical quantiles within tertiles of the as-of implied total (F4's kickoff − 2 h
+  lines). K uses the team's own implied total; D/ST uses the opponent's. Tertile edges come from the training seasons.
+- K and D/ST draws are independent of each other and of the skill draws.
+
+**Gate (E21's, applied to the lineup total of skill + K + D/ST):** central 50/80/90% interval coverage, week-clustered
+season-blocked bootstrap. A level fails if its coverage lies outside nominal ± 0.03 with a Holm-adjusted p < 0.05.
+
+**Decision.**
+- **v0 passes:** v0 is adequate. A later VL3 addendum may add v0 draws to S0's team totals, and nothing else is built.
+- **v0 fails, conditioned passes:** S0 may adopt the conditioned distributions (VL3 addendum).
+- **Both fail:** K and D/ST stay outside the simulators, with the limitation stated.
+
+**Reported either way:** coverage, variance ratio and PIT histogram, with and without K/D-ST; results by league size.
+No 2024 or 2025 K/D-ST row is read: the K/D-ST tables cover 2019–2025, and the code restricts them through the
+register.
