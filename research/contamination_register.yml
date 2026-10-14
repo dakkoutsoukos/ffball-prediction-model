@@ -47,10 +47,11 @@ families:
   decision_family:
     description: "F6 decision-laboratory experiments (lineup and contested add/drop policies; X8, X9, X10b, X16, X23)"
     development: [2020, 2021, 2022, 2023]
+    warmup: [2019]
     check: [2025]
     confirmatory: [2027]
     excluded: [2024]
-    notes: "Replays; forecasts inside the lab are rolling-origin. Policies needing injury timestamps are excluded on 2025. 2024 is excluded because the distribution-stack check results will have been seen."
+    notes: "Replays; forecasts inside the lab are rolling-origin (2019 = forecast warm-up only, added by LAB1 before any replay). Policies needing injury timestamps are excluded on 2025. 2024 is excluded because the distribution-stack check results will have been seen."
   usage_features:
     description: "R7 usage reliability and first-read share"
     development: [2023, 2024]

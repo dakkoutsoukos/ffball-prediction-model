@@ -581,3 +581,93 @@ through each season's last week.
 - Rosters are frozen, players are independent, and there is no in-season learning.
 - The current matchup period is simulated in full, so runs should be made before its first kickoff.
 - Odds are produced only when a fresh league snapshot exists: the owner runs `league_refresh.R`. The dispatcher does not refresh the league.
+
+## 2026-10-13 — LAB1: F6 decision laboratory v1 (instrument; X8/X9 triage plan; pre-registration written before any replay was run)
+
+**Purpose.** An out-of-sample testbed for weekly **lineup** and **contested add/drop** policies (master plan F6;
+experiment X8), plus outcome-free triage for X8 and X9. LAB1 is an instrument, not a test:
+- the decision family's one batch check is VL11 (2025 replays);
+- confirmation is the 2027 prospective season;
+- nothing below selects a policy for VL11 without VL11's own pre-registration.
+
+**Data.**
+- The F4 frame `player_week_all` (QB/RB/WR/TE) and the team schedules.
+- Development seasons 2020–2023: the lab calls `assert_family_seasons("decision_family", 2020:2023, "development")`.
+- 2019 is a forecast warm-up only. The contamination register's decision family gains `warmup: [2019]` in this commit.
+- 2024 is excluded; 2025 is used only at VL11; 2026 is sealed.
+
+**Leagues.**
+- 20 synthetic leagues per season, sizes cycling 8/10/12.
+- Roster: QB, RB×2, WR×2, TE, FLEX×2 (RB/WR/TE), bench 7. That is 15 skill players, no IR.
+- **No K or D/ST.** Their points are not ESPN-validated (B-001), and no policy under study touches them.
+- No trades.
+- Regular season: weeks 1–14. Playoffs (descriptive only): 4 teams, semifinals in week 15, final in week 16.
+
+**Draft.**
+- Snake draft.
+- Value: ESPN's week-1 week-of projection, minus the position's replacement level (the projection of the n-th QB and TE and the 3n-th RB and WR, with n teams), plus N(0, 1) noise per (league, team, player).
+- Caps: QB 2, TE 2, RB 6, WR 6. Remaining picks must be able to fill every starting slot.
+- The week-1 projection is late-horizon at week-1 kickoff. That is a deliberate simplification: it is policy-neutral, because every arm shares the draft.
+
+**Schedule.** Circle-method round robin over 14 weeks, with the team order permuted per league.
+
+**Information set** (the firewall `lab_info()` truncates by construction):
+- **Draft:** week-1 pregame values only.
+- **Waivers before week t** (t ≥ 2): everything from weeks ≤ t−1, plus the season's bye schedule. Nothing from weeks ≥ t.
+- **Lineups at week t:** everything from weeks ≤ t−1, plus week t's pregame values: ESPN's week-of projection and the F4 base.
+- No week-t outcome is visible: points, active, snaps, stat line, ESPN actual, game-day status.
+- Policies are functions `policy(state, info)`. They never see the engine's outcome table.
+
+**Forecasts** (rolling origin).
+- **Lineup values:**
+  - raw = ESPN's week-of projection;
+  - calibrated = the F4 `base` (per-position OLS on earlier weeks).
+- **Waiver values** are built on the per-game level L_avg4: the mean of the last (up to 4) positive ESPN projections through week t−1.
+  - raw = L_avg4.
+  - calibrated = a_p + b_p·L_avg4. The coefficients are per position, from OLS of the points over the next 1–4 weeks on L_avg4. Only weeks the player's team plays count, with 0 points when there is no row. Fitting uses seasons 2019..s−1, as-of weeks 1–15.
+- **Byes:** a per-game value is scaled by the share of the remaining weeks (t..16) in which the player's team plays.
+
+**Policies.**
+- **Lineup:** optimal by value (greedy: fixed slots first, then FLEX). A player without a week-t row cannot start.
+- **Waivers (contested):**
+  - Gain of adding a and dropping d = [optimal lineup value of the roster with the swap − without] × remaining weeks (t..16).
+  - Candidates: the 5 best free agents per position by value, and the 2 lowest-value roster players per position.
+  - A claim needs a gain > 2 points and a legal roster afterwards: QB 1–3, TE 1–3, RB ≥ 2, WR ≥ 2. At most 2 claims per week.
+  - Claims resolve in rounds by waiver priority: fewest wins, then fewest points for; week 2 uses reverse draft order. A team that claims successfully moves to the end of the order for the rest of that week. A dropped player is not claimable the same week.
+- **Opponents:** raw lineup and raw waivers.
+- **Focal team** (one per league, seat drawn from the league seed), one of four arms:
+  - A: raw lineup, raw waivers (control);
+  - B: calibrated lineup, raw waivers;
+  - C: raw lineup, calibrated waivers;
+  - D: calibrated lineup, calibrated waivers.
+- The arms share each league's draft, schedule, focal seat and seeds.
+
+**Engine outputs per team-week:**
+- the lineup and its realised points;
+- the hindsight-optimal lineup points and the regret;
+- **shadow lineups**: both lineup policies applied to the same roster, with their realised points (arm A, all teams).
+
+**Triage** (outcome-free; computed and reported *before* any realised comparison).
+- **X8:**
+  - (a) lineup flip rate between raw and calibrated on arm-A rosters (all teams);
+  - (b) model-implied lineup gain: Σ base over the calibrated lineup − Σ base over the raw lineup;
+  - (c) waiver flip rate, and model-implied gain (calibrated values) of the two policies' top claims, on arm-A states.
+- **X9:** on arm-A focal team-weeks (weeks 1–14):
+  - Compare the P(win) of the EV-optimal (calibrated) lineup with every legal single swap (starter ↔ bench). The opponent plays its calibrated EV lineup.
+  - Points come from the frozen P0 table, with p_active = P0's development active share by position: 2,000 common-random-number draws.
+  - A flip is a swap that beats EV by more than 2 Monte Carlo SE of the paired difference.
+  - Report the flip rate and the mean ΔP(win). X9's kill rule for D1 applies: under 5% flips, or a mean ΔP below 0.005, means no full P(win) mode.
+
+**Development results** (after the triage; descriptive, development only):
+- the shadow-lineup difference (calibrated − raw on identical rosters, all teams);
+- the focal arms' paired differences in realised lineup points per team-week: B−A, C−A, D−A;
+- for each: week-clustered, season-blocked bootstrap 95% intervals (2,000 replicates; weeks resampled within season);
+- regret by arm;
+- wins, playoffs and titles, descriptive only.
+
+**Instrument success criteria:**
+1. The full development replay (2020–2023, 20 leagues per season, 4 arms) completes in ≤ 2 h.
+2. Firewall tests pass. Planted future data must leave every decision unchanged: week-≥ t outcomes and week-> t projections rewritten.
+3. Determinism: identical seeds give identical results.
+4. Toy-league tests pass.
+5. The X8/X9 triage report is produced before the realised development comparison, and long before VL11.
