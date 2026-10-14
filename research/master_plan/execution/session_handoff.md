@@ -82,21 +82,26 @@ this handoff). Keep every safeguard, test requirement, approval boundary and int
 
 ## Exact next action
 
-(See the tracker for statuses; this list is the queue at the time of writing.)
+Session 3 (2026-10-14) recovered an interrupted session. The tree was clean, but four completed runs had not been
+written up. They are now recorded (3d669cc):
+- VL11 (2025 batch, run once; 2025 spent): X10b and X23 supported; X8, X9 and X16 not;
+- X22 (v0 K/D-ST passes);
+- X11 (divergence near the noise floor);
+- D4 mock drafts (assistant primary, 19 s per pick).
 
-1. Read `lab_stream` (X16) once the lab rebuild finishes; check that arms A–D results are unchanged against
-   `tmp/lab_snapshot_before_armE.rds` (lab_triage_x8/x9, lab_dev, s1_eval, s2_summary, lw_result, p3_gate_result).
-   Record "VL9 result"; set `D3_STREAMING_RECOMMENDED` only if the CI excludes 0 in streaming's favour.
-2. `tar_make(names = c("x10a_weekly_file", "x10a_result", "x10b_rows", "x10b_result"), shortcut = TRUE)`; record
-   "VL7 result" (X10a supported or not; X10b selection by the pre-registered rule; note the timing run saw one
-   iteration-1 QB count). S3 complete if the live display exists (it does) and V1/V2 tests pass.
-3. X11 (`tmp/x11_run.R`, output in `data/archive/league_analysis/x11_*.rds`, aggregates in `tmp/x11_run.log`):
-   record "VL12 result" (aggregates only, with the count of V2-invariant exclusions as a finding). D2 complete.
-4. D5 briefing validation (`tmp/briefing_run.log`, console is name-free): record; commit
-   `archive/decision_manifest.csv`.
-5. VL11: pre-register the decision-family batch on 2025 replays (X8, X9-late window, X10b, X16, X23; Holm), with the
-   2025 waiver calibration on 2019–2023 only (2024 is excluded for decisions). Run once; add to `spent_checks`.
-6. D4 (VL10, projections-only draft assistant under the O2/O8 defaults), then R5/R6/R7/I2 dispositions.
-7. In season: keep the tree clean around slate windows, remind the owner to push, and when R3's adoption fires
-   (about early November) wire it into S0 behind a flag (VL3 addendum).
-8. Season end (January 2027): R1, then I1, F2-full, F3-full (O8), B-001.
+D2, D4 and VL11 are complete. X-028 fixed ledger seal 2, which had opened mechanically; no report was produced. Suite:
+360 blocks, 1,539 expectations, 0 failures.
+
+**Nothing in the roadmap is buildable now without the owner or the calendar.** The queue:
+1. **In season (no code):**
+   - Keep the tree clean around slate windows.
+   - Commit `archive/decision_manifest.csv` after ledger runs.
+   - Remind the owner to push (about 99 local commits).
+2. **About early November:** when `hz_adoption()` reports a ready cell (E17a: 4 target weeks), the VL3c hook activates
+   by itself. Record the adoption (cells, V-hat) in the valuation log as a VL3c note; there is no code change.
+3. **Owner decisions pending:**
+   - O8 rest: K/DST slots would unblock B-001 and B-002 (S0 v0 K/D-ST draws, which needs a VL3 addendum first).
+     Transactions and box scores would enable the late-window display.
+   - O3 for R4.
+4. **Season end (January 2027):** R1 (M5 scoring, VE-P1), then I1, F2-full, F3-full and B-001; then the 2027
+   decision pre-registrations (dated 2027, which also lifts seal 2, X-028).
