@@ -1,0 +1,2 @@
+file,season,week,captured_at_utc,n_players,n_rows,periods,parquet_sha256,raw_sha256
+captured_at=20261014T214907Z.parquet,2026,6,20261014T214907Z,76,988,6-18,f4ef821bc6b5d5791e43ea080309cacfe150d3b8fbcdad54298d413bd57e9f5a,6465f34498844715e8f2f10eef9b27a838ee264c098634c99deee3469a581d1d
