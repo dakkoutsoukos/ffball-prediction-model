@@ -682,3 +682,20 @@ literally, it would sit a starting QB in a quarter of the simulations.
 band** (`pd_band()`), falling back to the position's share for an empty band (`lab_active_table()`,
 `lab_p_active()`). The amendment was made after seeing only the position-level input shares, before any replay,
 X9 draw or lab output existed. No other part of LAB1 changes.
+
+### LAB1b (2026-10-13, amendment after a data-feasibility failure; no triage or outcome had been viewed)
+
+The first full replay stopped in 2023 with "draft pool exhausted". The historical ESPN week-1 file for 2023 is
+defective: 64 of its 784 projections are positive, against 386–445 in 2019–2022. The frozen WR source shows the
+same (26 of 398). LAB1's draft value, the week-1 projection, therefore cannot form a draft in 2023.
+
+**Amended draft value.**
+- The player's mean positive ESPN projection in the previous season, if he had at least 4 projected weeks.
+- Otherwise his positive week-1 projection.
+- Otherwise he is not drafted.
+- Only players with a week-1 ESPN row (the preseason pool) are draftable. A player who joins a team later is not known at the draft.
+
+The rule is applied to every season, so all four are re-replayed.
+
+**Order of events.** Before this amendment, three seasons' replays were stored. Nothing from them was read: no
+triage, no lineup or waiver output, no outcome. Everything else in LAB1 and LAB1a is unchanged.

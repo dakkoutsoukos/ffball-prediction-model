@@ -80,6 +80,12 @@ test_that("the draft fills legal rosters deterministically", {
   expect_false(identical(r1, lab_draft(S, 8L, seed = 43L)))
 })
 
+test_that("draft values use last season's mean projection (>= 4 weeks), else the week-1 projection", {
+  fr <- tibble::tibble(season = 2021L, gsis_id = rep(c("a", "b"), c(5, 3)), espn_proj = c(10, 12, 8, 10, 0, 6, 6, 6))
+  v <- lab_draft_values(fr, 2022L, ids = c("a", "b", "c", "d"), week1 = c(3, 4, 7, 0))
+  expect_equal(v, c(10, 4, 7, NA))                              # a: mean of 4 positive weeks; b: only 3 weeks
+})
+
 test_that("the schedule is a round robin", {
   for (n in c(8L, 10L, 12L)) {
     s <- lab_schedule(n, seed = 7L)

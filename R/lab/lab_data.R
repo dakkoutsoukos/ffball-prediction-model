@@ -64,7 +64,20 @@ lab_season_data <- function(frame, team_games, season, weeks = LAB_WEEKS) {
   proj <- mat(d$espn_proj)
   list(season = as.integer(season), weeks = weeks, ids = ids, pos = pos$position[match(ids, pos$gsis_id)],
        proj = proj, base = mat(d$base), y = mat(d$actual), active = mat(d$active, NA), has_row = has_row,
-       team = team, team_asof = lab_carry_forward(team), L = lab_level_avg4(proj), plays = plays, teams = teams)
+       team = team, team_asof = lab_carry_forward(team), L = lab_level_avg4(proj), plays = plays, teams = teams,
+       draft_value = lab_draft_values(frame, season, ids, proj[, 1]))
+}
+
+#' Pre-draft value (LAB1b): the player's mean positive ESPN projection in the previous season (at
+#' least 4 projected weeks); otherwise his week-1 projection when positive; otherwise NA (not
+#' drafted). Robust to a defective week-1 file (2023 week 1 has 64 positive projections of 784).
+lab_draft_values <- function(frame, season, ids, week1, min_weeks = 4L) {
+  prev <- frame[frame$season == season - 1L & !is.na(frame$espn_proj) & frame$espn_proj > 0, ]
+  pm <- dplyr::summarise(prev, n = dplyr::n(), v = mean(.data$espn_proj), .by = "gsis_id")
+  pm <- pm[pm$n >= min_weeks, ]
+  v <- pm$v[match(ids, pm$gsis_id)]
+  w1 <- ifelse(!is.na(week1) & week1 > 0, week1, NA_real_)
+  dplyr::coalesce(v, w1)
 }
 
 #' The information firewall. What a policy may see at a decision time:
@@ -78,7 +91,7 @@ lab_info <- function(S, t, stage = c("draft", "waiver", "lineup")) {
   pre <- switch(stage, draft = 1L, waiver = t - 1L, lineup = as.integer(t))
   cut <- function(m, k) m[, seq_len(k), drop = FALSE]
   structure(list(stage = stage, t = as.integer(t), season = S$season, ids = S$ids, pos = S$pos,
-                 proj = cut(S$proj, pre), base = cut(S$base, pre),
+                 draft_value = S$draft_value, proj = cut(S$proj, pre), base = cut(S$base, pre),
                  y = cut(S$y, past), active = cut(S$active, past), has_row = cut(S$has_row, past),
                  team = cut(S$team, past), team_asof = cut(S$team_asof, past), L = cut(S$L, past),
                  plays = S$plays, teams = S$teams, n_weeks = length(S$weeks)),

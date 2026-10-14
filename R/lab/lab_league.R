@@ -11,13 +11,15 @@ lab_open_needs <- function(n) {
   fixed + max(0, LAB_SLOTS$FLEX - flex_have)
 }
 
-#' Snake draft on ESPN's week-1 projection minus the position's replacement level (n-th QB/TE,
-#' 3n-th RB/WR) plus N(0, 1) noise per (team, player). Caps QB 2, TE 2, RB 6, WR 6; every pick
-#' leaves enough picks to fill the starting slots. Returns a list of player indices per team.
+#' Snake draft on the pre-draft value (lab_draft_values(); LAB1b) minus the position's replacement
+#' level (n-th QB/TE, 3n-th RB/WR) plus N(0, 1) noise per (team, player). Caps QB 2, TE 2, RB 6,
+#' WR 6; every pick leaves enough picks to fill the starting slots. Returns player indices per team.
 lab_draft <- function(S, n_teams, seed) {
   info <- lab_info(S, 1L, "draft")
-  v <- info$proj[, 1]
-  ok <- !is.na(v) & v > 0
+  v <- info$draft_value
+  # draftable: a positive value and a week-1 ESPN row (the preseason player pool; a player who joins
+  # a team later in the season is not known at the draft)
+  ok <- !is.na(v) & v > 0 & !is.na(info$proj[, 1])
   repl <- vapply(LAB_POSITIONS, function(p) {
     x <- sort(v[ok & info$pos == p], decreasing = TRUE)
     r <- if (p %in% c("QB", "TE")) n_teams else 3L * n_teams
