@@ -1,7 +1,8 @@
 # F6 decision laboratory v1: synthetic leagues, the weekly loop and replays (pre-registration LAB1) -
 
 LAB_ARMS <- list(A = c(lineup = "raw", waiver = "raw"), B = c(lineup = "calibrated", waiver = "raw"),
-                 C = c(lineup = "raw", waiver = "calibrated"), D = c(lineup = "calibrated", waiver = "calibrated"))
+                 C = c(lineup = "raw", waiver = "calibrated"), D = c(lineup = "calibrated", waiver = "calibrated"),
+                 E = c(lineup = "raw", waiver = "stream"))           # E: X16 QB streaming (VL9)
 LAB_CAPS <- c(QB = 2L, RB = 6L, WR = 6L, TE = 2L)
 
 #' Starting-slot needs still open for a roster with position counts `n` (named QB/RB/WR/TE).
@@ -122,7 +123,8 @@ lab_run_league <- function(S, setup, arm = "A", calib, shadow = FALSE) {
   n <- setup$n
   a <- LAB_ARMS[[arm]]
   pol_lineup <- list(raw = lab_lineup_policy("raw"), calibrated = lab_lineup_policy("calibrated"))
-  pol_waiver <- list(raw = lab_waiver_policy("raw"), calibrated = lab_waiver_policy("calibrated", calib))
+  pol_waiver <- list(raw = lab_waiver_policy("raw"), calibrated = lab_waiver_policy("calibrated", calib),
+                     stream = lab_stream_policy(calib))
   team_lineup <- function(j) if (j == setup$focal) a[["lineup"]] else "raw"
   team_waiver <- function(j) if (j == setup$focal) a[["waiver"]] else "raw"
   rosters <- setup$rosters

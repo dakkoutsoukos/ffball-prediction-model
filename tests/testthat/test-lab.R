@@ -196,3 +196,67 @@ test_that("replays refuse seasons outside the decision family's development set"
   expect_error(lab_replay_season(x$frame, x$team_games, 2025L, leagues = 1L, register = reg), "may not use")
   expect_error(lab_replay_season(x$frame, x$team_games, 2026L, leagues = 1L, register = reg), "may not use|sealed")
 })
+
+test_that("the QB streaming policy claims a clearly better free-agent QB first and keeps the roster legal", {
+  S <- lab_toy_S(seed = 8)
+  setup <- lab_setup(S, 8L, 1L, seed = 21L)
+  calib <- lab_toy_calib()
+  info <- lab_info(S, 6L, "waiver")
+  r <- setup$rosters[[1]]
+  fa <- setdiff(which(rowSums(info$has_row) > 0), unlist(setup$rosters))
+  pol <- lab_stream_policy(calib, min_gain = 1)
+  cl <- pol(list(team = 1L, roster = r, free_agents = fa), info)
+  k <- match(info$pos, calib$position)
+  v <- calib$a[k] + calib$b[k] * info$L[, 5]
+  plays <- info$plays[cbind(match(info$team_asof[, 5], info$teams), 6)]
+  nv <- ifelse(!is.na(plays) & plays, v, 0)
+  qb_fa <- fa[info$pos[fa] == "QB" & !is.na(v[fa])]
+  qbs <- r[info$pos[r] == "QB"]
+  gain <- max(nv[qb_fa]) - max(dplyr::coalesce(nv[qbs], 0))
+  if (gain > 1) {
+    expect_equal(cl$add[1], qb_fa[which.max(nv[qb_fa])])
+    expect_true(cl$drop[1] %in% qbs)
+  } else {
+    expect_false(any(info$pos[cl$add] == "QB" & cl$gain == gain))
+  }
+  expect_lte(nrow(cl), 2)
+  strict <- lab_stream_policy(calib, min_gain = 1e6)(list(team = 1L, roster = r, free_agents = fa), info)
+  expect_identical(strict, lab_waiver_policy("calibrated", calib)(list(team = 1L, roster = r, free_agents = fa), info))
+})
+
+test_that("the X16 estimate pairs arms C and E within league-weeks and counts the focal team's claims", {
+  x <- lab_toy_frame(seed = 3)
+  S <- lab_season_data(x$frame, x$team_games, 2021L)
+  setup <- lab_setup(S, 8L, 1L, seed = 5L)
+  runs <- lapply(c("C", "E"), function(a) lab_run_league(S, setup, a, lab_toy_calib()))
+  pick <- function(el) purrr::list_rbind(purrr::compact(purrr::map(runs, el)))
+  rp <- list(season = 2021L, team_weeks = pick("team_weeks"), standings = pick("standings"), claims = pick("claims"))
+  reg <- read_contamination_register(file.path(project_root, "research", "contamination_register.yml"))
+  out <- lab_stream_result(list(rp), x$frame, x$team_games, reps = 50L, register = reg)
+  tw <- rp$team_weeks[rp$team_weeks$focal & rp$team_weeks$week %in% LAB_REG_WEEKS, ]
+  expect_equal(out$n, length(LAB_REG_WEEKS))
+  expect_equal(out$mean, mean(tw$points[tw$arm == "E"] - tw$points[tw$arm == "C"]))
+  expect_true(out$ci[1] <= out$mean + 1e-9 || out$ci[2] >= out$mean - 1e-9)
+  cl <- rp$claims[rp$claims$team == setup$focal, ]
+  expect_equal(out$claims$claims, c(sum(cl$arm == "C"), sum(cl$arm == "E")))
+  expect_equal(out$claims$qb_claims, c(sum(cl$arm == "C" & S$pos[cl$add] == "QB"), sum(cl$arm == "E" & S$pos[cl$add] == "QB")))
+  expect_error(lab_stream_result(list(utils::modifyList(rp, list(season = 2024L))), x$frame, x$team_games, reps = 10L, register = reg),
+               "may not use")
+})
+
+test_that("planted future data never change a streaming decision made before it", {
+  S <- lab_toy_S(seed = 2)
+  setup <- lab_setup(S, 8L, 1L, seed = 99L)
+  ref <- lab_run_league(S, setup, "E", lab_toy_calib())
+  t0 <- 7L
+  bad <- S
+  later <- seq(t0 + 1, length(S$weeks))
+  bad$proj[, later] <- 99
+  bad$base[, later] <- 99
+  bad$L[, t0:length(S$weeks)] <- 99
+  bad$y[, t0:length(S$weeks)] <- 1e4 * stats::runif(length(bad$y[, t0:length(S$weeks)]))
+  got <- lab_run_league(bad, setup, "E", lab_toy_calib())
+  keep <- function(x, k) if (is.null(x)) NULL else x[x$week <= k, ]
+  expect_identical(keep(ref$team_weeks, t0)$lineup, keep(got$team_weeks, t0)$lineup)
+  expect_identical(keep(ref$claims, t0), keep(got$claims, t0))
+})

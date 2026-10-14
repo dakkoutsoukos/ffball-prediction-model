@@ -149,3 +149,45 @@ lab_dev_results <- function(replays, reps = 2000L, seed = 1L,
       dplyr::arrange(.data$arm)
   )
 }
+
+#' X16 (VL9): focal realised lineup points, arm E (QB streaming) minus arm C, per team-week (regular
+#' season), with a week-clustered, season-blocked CI. Also: the focal team's claims and QB claims per
+#' league-season, and the realised points of its starting QB (E - C, same CI).
+lab_stream_result <- function(replays, player_week_all, team_games, reps = 2000L, seed = 16L,
+                              register = read_contamination_register()) {
+  seasons <- vapply(replays, function(rp) as.integer(rp$season), 0L)
+  assert_family_seasons("decision_family", seasons, "development", register)
+  parts <- purrr::map(replays, function(rp) {
+    S <- lab_season_data(player_week_all, team_games, rp$season)
+    tw <- rp$team_weeks
+    x <- tw[tw$focal & tw$week %in% LAB_REG_WEEKS & tw$arm %in% c("C", "E"), ]
+    ids <- lapply(strsplit(x$lineup, " ", fixed = TRUE), as.integer)
+    wk <- match(x$week, S$weeks)
+    qb_pts <- vapply(seq_along(ids), function(i) {
+      q <- ids[[i]][S$pos[ids[[i]]] == "QB"]
+      sum(dplyr::coalesce(S$y[q, wk[i]], 0))
+    }, 0)
+    rows <- tibble::tibble(season = x$season, league = x$league, week = x$week, arm = x$arm, points = x$points,
+                           qb_points = qb_pts)
+    st <- rp$standings[rp$standings$focal & rp$standings$arm == "E", ]
+    cl <- rp$claims %||% tibble::tibble(league = integer(), arm = character(), team = integer(), add = integer())
+    cl <- cl[cl$arm %in% c("C", "E") & cl$team == st$team[match(cl$league, st$league)], ]
+    is_qb <- S$pos[cl$add] == "QB"
+    claims <- tibble::tibble(season = rp$season, arm = c("C", "E"), leagues = nrow(st),
+                             claims = c(sum(cl$arm == "C"), sum(cl$arm == "E")),
+                             qb_claims = c(sum(is_qb & cl$arm == "C"), sum(is_qb & cl$arm == "E")))
+    list(rows = rows, claims = claims)
+  })
+  rows <- purrr::map(parts, "rows") |> purrr::list_rbind()
+  wide <- tidyr::pivot_wider(rows, id_cols = c("season", "league", "week"), names_from = "arm",
+                             values_from = c("points", "qb_points"))
+  d <- wide$points_E - wide$points_C
+  dq <- wide$qb_points_E - wide$qb_points_C
+  b <- pd_cluster_boot(d, wide$season, wide$week, reps = reps, seed = seed)
+  bq <- pd_cluster_boot(dq, wide$season, wide$week, reps = reps, seed = seed + 1L)
+  claims <- purrr::map(parts, "claims") |> purrr::list_rbind()
+  list(n = length(d), mean = mean(d), ci = unname(stats::quantile(b, c(0.025, 0.975))),
+       share_differs = mean(d != 0), qb_mean = mean(dq), qb_ci = unname(stats::quantile(bq, c(0.025, 0.975))),
+       claims = dplyr::mutate(claims, per_league = .data$claims / .data$leagues,
+                              qb_per_league = .data$qb_claims / .data$leagues))
+}

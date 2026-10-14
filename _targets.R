@@ -640,7 +640,10 @@ list(
       tab <- read_pod_table(pd_table_file)
       purrr::map(lab_replays, function(r) lw_season(r, player_week_all, team_games, tab, at)) |> purrr::list_rbind()
     }),
-    tar_target(lw_result, lw_summary(lw_rows))
+    tar_target(lw_result, lw_summary(lw_rows)),
+    # D3 (VL9, X16): QB streaming, focal arm E - C on the development replays
+    tar_target(lab_stream, lab_stream_result(lab_replays, player_week_all, team_games,
+                                             register = read_contamination_register(contamination_register_file)))
   ),
   # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
   # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded

@@ -86,6 +86,36 @@ lab_waiver_policy <- function(kind = c("raw", "calibrated"), calib = NULL, max_c
   }
 }
 
+#' X16 QB streaming (VL9): a streaming claim first (the best free-agent QB if his week-t value beats
+#' the starting QB's by more than `min_gain`; the roster QB with the lower rest-of-season value is
+#' dropped), then the calibrated waiver claims that do not conflict with it. Values are per-game
+#' calibrated L_avg4 times whether the player's last known team plays week t.
+lab_stream_policy <- function(calib, min_gain = 1, max_claims = 2L) {
+  cal <- lab_waiver_policy("calibrated", calib, max_claims = max_claims)
+  function(state, info) {
+    stopifnot(inherits(info, "lab_info"), info$stage == "waiver")
+    out <- cal(state, info)
+    t <- info$t
+    k <- match(info$pos, calib$position)
+    per_game <- calib$a[k] + calib$b[k] * info$L[, t - 1]
+    plays <- info$plays[cbind(match(info$team_asof[, t - 1], info$teams), t)]
+    next_v <- ifelse(!is.na(plays) & plays, per_game, 0)
+    r <- state$roster
+    qbs <- r[info$pos[r] == "QB"]
+    fa <- state$free_agents[info$pos[state$free_agents] == "QB" & !is.na(per_game[state$free_agents])]
+    if (!length(qbs) || !length(fa)) return(out)
+    start_qb <- qbs[which.max(dplyr::coalesce(next_v[qbs], 0))]
+    best <- fa[which.max(next_v[fa])]
+    gain <- next_v[best] - dplyr::coalesce(next_v[start_qb], 0)
+    if (!is.finite(gain) || gain <= min_gain) return(out)
+    ros <- lab_ros_values(info, "calibrated", calib)
+    drop <- qbs[which.min(dplyr::coalesce(ros[qbs], 0))]
+    stream <- tibble::tibble(add = best, drop = drop, gain = gain)
+    out <- out[out$add != best & out$drop != drop, ]
+    utils::head(dplyr::bind_rows(stream, out), max_claims)
+  }
+}
+
 #' Claim list for a roster given per-week values `v` (all players; NA = no value).
 lab_claims <- function(v, pos, roster, free_agents, n_weeks, max_claims = 2L, min_gain = 2, per_pos_fa = 5L,
                        per_pos_drop = 2L) {
