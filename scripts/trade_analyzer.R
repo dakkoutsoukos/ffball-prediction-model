@@ -20,6 +20,9 @@
 #        # SHADOW thin slice (master plan S2/D2): the top K trades with that team by the utility screen,
 #        # re-scored by both teams' P(playoffs) and P(title) with common random numbers, plus the
 #        # partner's generic-value view and the frontier. Unvalidated; see the printed label.
+#   Rscript scripts/trade_analyzer.R values3 [--team "Team"] [--sims 5000]
+#        # SHADOW player values (master plan S3, VL7): wins added and P(playoffs)/P(title) values by removal
+#        # with common random numbers, EVOR, V1/V2 VOR and trade value, and a roster risk report.
 #   Rscript scripts/trade_analyzer.R faboard [--k 8] [--sims 5000] [--per-pos 6]
 #        # SHADOW free-agent board (master plan D3, VL9): the utility screen of adds, the top K re-scored by
 #        # your P(playoffs) and P(title) with common random numbers, drop advice, and this week's streaming view.
@@ -37,7 +40,7 @@
 
 for (f in list.files("R", pattern = "[.]R$", recursive = TRUE, full.names = TRUE)) source(f)
 a <- commandArgs(trailingOnly = TRUE)
-if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|faboard|values|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
+if (!length(a)) stop("Usage: Rscript scripts/trade_analyzer.R <rankings|needs|waivers|faboard|values|values3|analyze|fair|target|sell|snapshot|lineup|odds|rescore|ledger-action> [options]")
 cmd <- a[[1]]
 opt <- list()
 i <- 2
@@ -239,6 +242,27 @@ res <- switch(cmd,
       cli::cli_text("Frontier (your simulated title gain vs the partner's generic-value view): trades {paste(fr$trade, collapse = ', ')}.")
       list(rescore = dplyr::select(out, -"label"), frontier_trades = fr$trade, sims = sims)
     }
+  },
+  values3 = {
+    # S3 (VL7): your roster's wins added and P(playoffs)/P(title) values (common-random-number removal on
+    # the S0 engine), EVOR, V1/V2 VOR and trade value for reference, and the roster risk report.
+    team <- if (!is.null(opt$team)) lg_find_team(m, opt$team) else me
+    if (is.na(team)) stop("Set --team (your team could not be detected).")
+    sims <- as.integer(opt$sims %||% 5000)
+    state <- lg_state_from_snapshot(lg_latest_snapshot(season))
+    if (!state$has_schedule) stop("The league snapshot has no schedule: run scripts/league_refresh.R (view=mMatchup).")
+    vals <- v3_live_values(m, state, team, sims = sims, p_active_fun = avail)
+    risk <- v3_roster_risk(m, team, vals, p_active_fun = avail)
+    cli::cli_alert_warning(S0_LABEL)
+    cli::cli_h3("{lg_team_label(m, team)}: player values (removal with common random numbers; the vacated slot is streamed)")
+    print(dplyr::transmute(vals, .data$player, .data$position, wins_added = round(.data$wins_added, 2),
+                           playoffs_value = round(.data$playoffs_value, 3), title_value = round(.data$title_value, 3),
+                           evor = round(.data$evor, 1), vor = round(.data$vor, 1), trade_value = round(.data$trade_value, 1)))
+    cli::cli_h3("Roster risk")
+    cli::cli_text("Top two players supply {round(100 * risk$top2_share)}% of expected lineup points; the largest single-player P(playoffs) value is {round(risk$max_playoffs_value, 3)}.")
+    if (nrow(risk$holes)) print(risk$holes) else cli::cli_text("No week leaves a starting slot without a playing roster player.")
+    if (nrow(risk$designated)) print(dplyr::mutate(risk$designated, p_active = round(.data$p_active, 2))) else cli::cli_text("No designated players this week.")
+    list(values = vals, risk = risk, sims = sims)
   },
   faboard = {
     # D3 (VL9): V2's utility screen of free-agent adds, the top K re-scored by your P(playoffs) and

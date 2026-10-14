@@ -418,3 +418,33 @@ test_that("D3 streaming view: a free agent fills a bye-week hole for that week o
   v3 <- d3_stream_view(m, 1, week = 1, prior = d3_prior, p_active_fun = f)
   expect_equal(v3$expected[v3$player == "F_QB_f1"], 6)
 })
+
+# ---- S3 (VL7): live values and roster risk (new functions) ------------------------------------------------
+
+test_that("S3 EVOR is zero without playing time and grows as the replacement level falls", {
+  tab <- read_pod_table(file.path(project_root, POD_TABLE_FILE))
+  A <- matrix(c(1, 1, 0, 0), 2, 2, byrow = TRUE)
+  lvl <- matrix(c(15, 15, 15, 15), 2, 2)
+  R_hi <- matrix(12, 4, 2, dimnames = list(VAL_POSITIONS, NULL))
+  R_lo <- matrix(6, 4, 2, dimnames = list(VAL_POSITIONS, NULL))
+  e_hi <- v3_evor(c("WR", "WR"), A, lvl, R_hi, tab)
+  e_lo <- v3_evor(c("WR", "WR"), A, lvl, R_lo, tab)
+  expect_equal(e_hi[2], 0)
+  expect_gt(e_lo[1], e_hi[1])
+  expect_gt(e_hi[1], 2 * max(0, 15 - 12) - 1e-9)       # convexity: E[max(0, Y - R)] >= max(0, E[Y] - R) (P0 bases are unbiased)
+})
+
+test_that("S3 roster risk: a bye without a backup is a hole that week only; designations carry P(active)", {
+  m <- toy_lg(base_players, weeks = 1:2, byes = list(`1_QB_a1` = 1))
+  h <- v3_holes(m, m$state[["1"]]$rows)
+  expect_equal(h$holes, c(1, 0))
+  expect_equal(h$slots[1], "QB")
+  w <- d3_weekly(base_players, 1:2, list(`1_QB_a1` = 1))
+  w$availability_status[w$player_id == "1_RB_a2" & w$week == 1] <- "QUESTIONABLE"
+  m$input_data <- list(weekly = w)
+  d <- v3_designated(m, m$state[["1"]]$rows, prior = d3_prior)
+  expect_equal(d$player, "1_RB_a2")
+  expect_equal(d$p_active, 0.71)
+  f <- function(id, status, position) rep(0.5, length(id))
+  expect_equal(v3_designated(m, m$state[["1"]]$rows, prior = d3_prior, p_active_fun = f)$p_active, 0.5)
+})
