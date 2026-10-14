@@ -613,6 +613,48 @@ list(
       lab_dev_results(lab_replays, register = read_contamination_register(contamination_register_file))
     })
   ),
+  # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
+  # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded
+  # and the committed R2 parameters must equal a fresh derivation).
+  if (build_valuation) list(
+    tar_target(p1_frame_dev, {
+      reg <- read_contamination_register(contamination_register_file)
+      assert_family_seasons("injury_stack", P1_DEV, "development", reg)
+      assert_family_seasons("injury_stack", P1_TRAIN, "training", reg)
+      p1_frame(injury_detail, snaps, player_stats, rosters_weekly, team_games, c(P1_TRAIN, P1_DEV))
+    }),
+    tar_target(p1_dev_scored, p1_dev_evaluation(p1_frame_dev, register = read_contamination_register(contamination_register_file))),
+    tar_target(p1_dev_covid, p1_dev_evaluation(p1_frame_dev, exclude = 2020:2021,
+                                               register = read_contamination_register(contamination_register_file))),
+    tar_target(p1_dev, p1_dev_summary(p1_dev_scored, p1_dev_covid, p1_frame_dev)),
+    tar_target(m6_rows, m6_frame(player_week_all), format = "parquet"),
+    tar_target(m6_params_derived, m6_derive_params(m6_rows, register = read_contamination_register(contamination_register_file))),
+    tar_target(m6_dev, m6_dev_selection(m6_rows, m6_params_derived)),
+    tar_target(m6_mde_2019, if (is.na(m6_dev$selected)) NULL else m6_mde(m6_rows, m6_params_derived, m6_dev$selected)),
+    if (file.exists(M6_PARAMS_FILE)) list(
+      tar_target(m6_params_file, M6_PARAMS_FILE, format = "file"),
+      tar_target(m6_params_check, {
+        committed <- yaml::read_yaml(m6_params_file)
+        derived <- yaml::yaml.load(yaml::as.yaml(c(m6_params_derived, list(selected = m6_dev$selected))))
+        if (!isTRUE(all.equal(committed, derived, check.attributes = FALSE, tolerance = 1e-9))) {
+          cli::cli_abort("{.file {m6_params_file}} differs from the derived R2 parameters.")
+        }
+        committed
+      }),
+      tar_target(e19_gate, {
+        if (!any(grepl("^## .* E19b:", readLines("research/experiment_log.md", warn = FALSE)))) {
+          cli::cli_abort("Record E19b (development results, R2 parameters, MDE) before the 2019 check.")
+        }
+        TRUE
+      }, cue = tar_cue(mode = "always")),
+      tar_target(e19_check, {
+        e19_gate
+        e19_batch_check(injury_detail, snaps, player_stats, rosters_weekly, team_games, p1_frame_dev, m6_rows,
+                        m6_params_check, m6_params_check$selected %||% NA_character_,
+                        register = read_contamination_register(contamination_register_file))
+      })
+    )
+  ),
   # League points: the league's K/DST scoring items are read from the private league snapshot at
   # build time (only where it exists locally; nothing league-specific is committed).
   if (file.exists(LG_SNAPSHOT_MANIFEST) && dir.exists(LG_SNAPSHOT_ROOT)) list(

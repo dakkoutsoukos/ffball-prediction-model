@@ -3,7 +3,7 @@
 *Exact instructions for resuming execution in a new Claude Code session. Update at the end of every
 substantial work segment.*
 
-Last updated: 2026-10-13 (session 1, start of execution).
+Last updated: 2026-10-13 (session 1, Phase 2 under way: F4 done, F6 and E19 in progress).
 
 ## Read first (in this order)
 
@@ -65,10 +65,32 @@ Every recommendation command of `trade_analyzer.R` writes a private record (`dat
 
 `Rscript scripts/horizon_study.R`. The dispatcher also runs it after each early-week run. Outcome-free (ESPN source 1 only). Results go to `data/archive/horizon_study/`; commit `archive/horizon_manifest.csv`. The adoption table fires per position × lead bin at 4 target weeks (E17a).
 
+## Phase 2 tools built in session 1 (continued)
+
+- **F4 frame** (`R/data/player_week_all.R`, target `player_week_all`). QB/RB/WR/TE, 2019–2025, with ESPN components, P0's rolling base, injury features, roles, as-of lines and point-in-time flags. Docs: `docs/player_week_all.md`. Checks: `pwa_scoring`, `pwa_wr_check`, `pwa_leakage`, `pwa_injury_leakage`.
+- **K/DST** (`R/data/kdst_week.R`). Rule-free stats from nflverse. League points come from the private snapshot's scoring items at build time (`kdst_rules`). Not ESPN-validated: blocker B-001.
+- **F6 decision lab** (`R/lab/`, pre-registration LAB1 and LAB1a in `research/valuation_log.md`).
+  - `lab_info()` is the firewall: policies only ever see truncated matrices.
+  - Targets: `lab_replays` (2020–2023, 20 leagues per season, arms A–D), `lab_triage_x8`, `lab_triage_x9`.
+  - `lab_dev` is **gated**: it refuses to build until "### LAB1 result 1" (the triage) is in the valuation log.
+- **Injury stack** (E19 in `research/experiment_log.md`). P1 is `R/probabilistic/availability_v2.R`; R2 is `R/models/m6_candidates.R`.
+  - Development targets: `p1_frame_dev`, `p1_dev_scored`, `p1_dev_covid`, `p1_dev`, `m6_rows`, `m6_params_derived`, `m6_dev`, `m6_mde_2019`.
+  - The 2019 check (`e19_check`) is **gated** in two ways: E19b must be in the experiment log, and `research/m6_candidate_params.yml` (committed) must equal a fresh derivation.
+- **Running new targets:** `tar_make(names = c(...), shortcut = TRUE)`. A brand-new upstream target must be in `names` too, otherwise shortcut cannot bootstrap it. Never run two `tar_make` processes at once.
+
 ## Exact next action
 
-**Phase 0 and Phase 1 are complete; R3 is accruing.**
-1. **Weekly, in season:** check `data/ops/status.txt` and `dispatch_log.csv` after each slate. Make sure scheduled runs happened (≥ 95% coverage) and nothing was skipped as dirty or untracked. Remind the owner to push.
-2. **When R3's adoption first fires** (about early November; `adopted_cells > 0` in `archive/horizon_manifest.csv`): wire the spread variance and drift into S0's current-week draws. Do it as a new function behind a flag, recorded in the valuation log (VL3 addendum), never by editing frozen files.
-3. **F4** (position-general historical frame; unlocks Phase 2): may start before January. Base R plus lockfile packages; no outcome-based selection; analyses on it go through `assert_family_seasons()`. Fix the `nfldata_history.R` neutral-site issue behind a new target (X-007).
-4. **Season end (January 2027):** R1 (score per E3/E6/E9/E14 + E16 S1–S8, including the late-push sensitivity from `data/ops/push_log.csv` and GitHub), then I1, F2-full, F3-full (ask the O8 items).
+1. **F6:**
+   - Read `lab_triage_x8` and `lab_triage_x9`, and record them as "### LAB1 result 1" in the valuation log (outcome-free). Commit.
+   - Then build `lab_dev` and record "LAB1 result 2" (development, descriptive).
+   - Update the tracker. F6 is COMPLETED when the replay ran in ≤ 2 h, firewall tests pass and the triage report exists.
+2. **P1 + R2 (E19):**
+   - Build the development targets and write E19b: P1 development scores, R2 parameters (write `research/m6_candidate_params.yml` from `m6_params_derived` plus `selected`, as YAML with LF line endings), the selection and the MDE. Commit **before** the check.
+   - Then `tar_make(names = "e19_check")` **once**. Record E19c, add the 2019 entry to `spent_checks` in the contamination register, and freeze the outcomes (an m6 lineage if R2 passes; the P1 provider).
+3. Then P2 (E20) → P3 (gated) → P4 → the E22 batch → P5 → the S2/D2 thin slice → S1/S2/S3 → D1–D5 → VL11 → I3, I2, R5–R7, in dependency order.
+4. **In season:**
+   - Check `data/ops/status.txt` after slates.
+   - Keep the tree clean, and no untracked files under `R/` or `scripts/`, around slate windows: Thu ~17:15–18:45 ET, Sun ~10:00–11:30 ET, Mon ~17:15–18:45 ET.
+   - Remind the owner to push.
+   - When R3's adoption fires (about early November), wire it into S0 behind a flag (VL3 addendum).
+5. **Season end (January 2027):** R1 (E3/E6/E9/E14 and E16 S1–S8), then I1, F2-full, F3-full (O8), and B-001 (K/DST ESPN match) if the owner approves O8 or the 2026 league data are unsealed.
