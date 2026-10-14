@@ -748,3 +748,43 @@ VL4 lists 2019–2023 as the σ_L matching rows. F4 starts in 2019, so no earlie
 components on, and 2019's ROS cannot be forecast out of sample. **σ_L is therefore matched on 2020–2023 rows**,
 each season's components fit on the seasons before it (2019 only for 2020). The band tertiles are taken on the same
 rows. Nothing else changes.
+
+## 2026-10-13 — VL5: S1 matchup win probability (X23; pre-registration, written before any computation)
+
+**Family.** `decision_family` (X23):
+- development: the F6 replays of 2020–2023 (warm-up 2019);
+- one check in the VL11 batch (2025 replays);
+- confirmatory 2027.
+
+Real-league calibration is descriptive and, for 2026, sealed until R1.
+
+**Matchups.** Every regular-season matchup in the F6 arm-A development replays (LAB1/LAB1a/LAB1b): both teams'
+actual starting lineups, realised winner (ties count ½).
+
+**Player distributions at lineup lock** (late horizon), identical for both methods:
+- the frozen P0 table (`pod_baseline_v0`) around the F4 base;
+- P(active) by position × P0 base band (LAB1a's development table);
+- a starter without a week-t ESPN row contributes 0.
+
+**Methods.**
+- **S1-sim** (P5 engine, σ_L = 0): 10,000 independent common-random-number draws per matchup of the lineup totals. P(win) = P(A > B) + ½ P(A = B).
+  - **No level shock.** For one week, P0's empirical residuals already contain each player's level uncertainty; a season-long shock on top would double-count it.
+- **Baseline (normal approximation):** Φ(μ_diff/σ_diff), with each player's mean and variance taken from the same POD (mixture with the point mass at 0).
+
+**Primary:** non-inferiority of S1-sim against the normal approximation.
+- ΔBrier = Brier(sim) − Brier(normal) over all development matchups.
+- Week-clustered, season-blocked bootstrap, 2,000 replicates.
+- Success: the upper 95% bound ≤ +0.005 (05 §6).
+
+**Also required:** the slope rule. S1-sim's calibration slope (logistic regression of the outcome on logit(P)) must have
+a 95% CI that includes 1 and a point estimate in [0.8, 1.2].
+
+**Decision.**
+- **Both hold:** S1-sim is the matchup P(win) engine.
+- **Otherwise:** ship the normal approximation (07 S1).
+
+**Reported:**
+- Brier and log loss for both methods;
+- CORP decomposition;
+- reliability tables;
+- results by league size and by favourite strength.
