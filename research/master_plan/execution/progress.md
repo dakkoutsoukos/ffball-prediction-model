@@ -9,10 +9,10 @@
 
 | Category | Milestones |
 |---|---|
-| Completed | **Phase 0 and Phase 1 complete:** F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite, F5, F2-lite, P0, S0 |
-| In progress | R3 (tooling built and scheduled; data accruing; first adoption about early November); **F4** (part 1, the QB/RB/WR/TE frame, validated; part 2, K and D/ST, in progress) |
-| Next (ready) | F4 part 2, then Phase 2 in dependency order (F6, P1 + R2, P2, ...); R3 first analysis once ≥ 4 weeks of captures (about early November); season-end R1 → I1 → F2-full, F3-full (O8) from Jan 2027 |
-| Blocked | — |
+| Completed | **Phase 0 and Phase 1 complete:** F0 (build; season-long criteria tracked), F1 (E16/E17; the owner's push publishes it), D0, F3-lite, F5, F2-lite, P0, S0. **Phase 2:** F4 (QB/RB/WR/TE frame; K/DST built and internally validated) |
+| In progress | R3 (tooling built and scheduled; data accruing; first adoption about early November) |
+| Next (ready) | Phase 2 in dependency order: F6, then P1 + R2, P2, ...; R3 first analysis once ≥ 4 weeks of captures (about early November); season-end R1 → I1 → F2-full, F3-full (O8) from Jan 2027 |
+| Blocked | F4's K/DST ESPN scoring-match criterion only (B-001: needs O8 or the 2026 league data after R1) |
 | Deferred | — |
 
 **Capability labels** (kept distinct, as the brief requires):

@@ -571,6 +571,35 @@ list(
     tar_target(pwa_audit_tables, pwa_audit(player_week_all))
   ),
 
+  # ---- Master plan F4 part 2: K and D/ST (R/data/kdst_week.R) -----------------
+  # Rule-free statistics from nflverse (2019-2025). Not validated against ESPN's own K/DST scoring:
+  # no ESPN K/DST actuals exist locally (blocker B-001).
+  list(
+    tar_target(kdst_pbp, kdst_read_pbp(raw_pbp), format = "parquet"),
+    tar_target(kdst_dst_stats_tbl, kdst_dst_stats(kdst_pbp, read_parquet_files(raw_schedules)), format = "parquet"),
+    tar_target(kdst_k_stats_tbl, kdst_k_stats(raw_player_stats), format = "parquet"),
+    # internal cross-source checks; thresholds fixed before the first build (X-017)
+    tar_target(kdst_check, {
+      chk <- kdst_checks(kdst_dst_stats_tbl, kdst_k_stats_tbl, kdst_pbp, raw_player_stats, team_games)
+      ok <- chk$k_fg_bands_match >= 0.99 && chk$k_pat_made_match >= 0.99 && chk$dst_rows_missing == 0 &&
+        chk$dst_sacks_match >= 0.98 && chk$dst_ints_match >= 0.99 && chk$dst_score_match >= 0.995
+      if (!ok) cli::cli_abort("K/DST internal checks failed.")
+      chk
+    })
+  ),
+  # League points: the league's K/DST scoring items are read from the private league snapshot at
+  # build time (only where it exists locally; nothing league-specific is committed).
+  if (file.exists(LG_SNAPSHOT_MANIFEST) && dir.exists(LG_SNAPSHOT_ROOT)) list(
+    tar_target(kdst_rules, {
+      lg <- lg_latest_snapshot(nfl_season())
+      if (is.null(lg)) cli::cli_abort("No league snapshot for the K/DST scoring rules.")
+      kdst_rules_from_settings(lg$settings)
+    }, cue = tar_cue(mode = "always")),
+    tar_target(kdst_k_week_tbl, kdst_k_week(kdst_k_stats_tbl, player_stats, kdst_rules), format = "parquet"),
+    tar_target(kdst_dst_week_tbl, kdst_dst_week(kdst_dst_stats_tbl, kdst_rules), format = "parquet"),
+    tar_target(kdst_team_k_tbl, kdst_team_k(kdst_k_week_tbl, team_games), format = "parquet")
+  ),
+
   # ---- Reports ------------------------------------------------------------
   if (build_report) tar_quarto(report, report_file, quiet = TRUE),
   # Always re-render: it reads the latest archived valuation run.

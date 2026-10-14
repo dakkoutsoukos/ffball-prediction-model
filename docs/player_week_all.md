@@ -1,7 +1,7 @@
 # Position-general player-week frame (F4)
 
 **Grain:** one row per `(season, week, gsis_id)` with a team game, regular season, **2019–2025**.
-**Positions:** QB, RB, WR, TE. K and D/ST are a separate table (see the end).
+**Positions:** QB, RB, WR, TE. K and D/ST are separate tables (see the last section).
 **Target:** `player_week_all` (pipeline; built when the valuation track's ESPN history is cached).
 **Built by:** `build_player_week_all()` in `R/data/player_week_all.R`. It calls the existing
 `build_player_week_base()` with all four positions; `player_week.R` and every frozen WR table are untouched.
@@ -77,6 +77,41 @@ Each one is a pipeline target that aborts on failure. Both criteria were fixed b
 **Consistency with P0 (descriptive, development seasons only).** On 2019–2023, F4's base equals
 P0's `pd_based` on all 31,225 projected rows (maximum difference 0).
 
-## K and D/ST
+## K and D/ST (F4 part 2)
 
-These rows are built separately: see the K/DST section of the master-plan execution tracker (F4, part 2).
+**Code:** `R/data/kdst_week.R`, 2019–2025.
+
+**Rule-free statistics** (public nflverse data; built everywhere):
+
+| Target | Grain | Source and content |
+|---|---|---|
+| `kdst_k_stats_tbl` | Kicker-game | Stat lines of position K: field goals made in ESPN's distance bands (0–39, 40–49, 50–59, 60+), attempts, misses including blocked kicks, tries |
+| `kdst_dst_stats_tbl` | Team-game | Built from play-by-play and schedule scores: sacks (team sacks, including those credited to no defender), interceptions, fumble recoveries, safeties, blocked kicks, return TDs by type, two-point returns, yards allowed, points allowed, and one-hot tiers for points and yards allowed |
+
+**League points** (`kdst_rules`, `kdst_k_week_tbl`, `kdst_dst_week_tbl`, `kdst_team_k_tbl`):
+- The league's own K/DST scoring items are read from the private league snapshot at build time, so these targets exist only where a snapshot exists locally. Nothing league-specific is committed.
+- Slot overrides apply: 16 = D/ST, 17 = K. A unit scores only its own statistics.
+- K points add any offensive points a kicker scored (ESPN PPR, which equals the league's offence).
+- `kdst_team_k_tbl` sums a team's kickers per game, with 0 when no kicker recorded a stat.
+
+**Definitions** (ESPN support article 115003847231, public):
+- Points allowed exclude the opponent's interception- and fumble-return TDs against the team's offense; special-teams scores count. `dst_points_pa_total` is the sensitivity variant that counts every opponent point. It changes the D/ST score in 6.0% of team-games.
+- Yards allowed are the opponent offense's scrimmage yards, two-point tries excluded.
+- The D/ST scores fumbles it recovers: the defense on scrimmage plays, either unit on kicks.
+- Stat-id meanings come from espn-api's public football constants. Two are inferred: 198 = made FG 50–59, and 209 = one-point safety on a try.
+
+**Internal checks** (`kdst_check`; thresholds fixed before the first build, X-017):
+
+| Check | Threshold | Result (2026-10-13) |
+|---|---|---|
+| Field-goal distance bands vs play-by-play | ≥ 99% of kicker-games | 100% (3,737) |
+| Field-goal attempts and tries made vs play-by-play | ≥ 99% | 100% |
+| One D/ST row per team-game | 0 missing | 0 missing (3,742) |
+| Interceptions vs defenders' stat lines | ≥ 99% | 100% |
+| Sacks vs defenders' stat lines | ≥ 98% | 98.3%; 59 of the 62 differences are one extra team sack credited to no defender |
+| Play-by-play final score vs schedule | ≥ 99.5% | 100% |
+
+**Not validated against ESPN.** No ESPN K/DST actuals exist locally, so F4's "scoring match ≥ 99.9%"
+criterion cannot be checked for K and D/ST. This is blocker B-001; it needs owner decision O8, or the
+2026 league data after R1. Until then K/DST points are an approximation of ESPN's scoring and are
+labelled as such wherever they are used.

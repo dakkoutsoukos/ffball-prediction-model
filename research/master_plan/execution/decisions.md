@@ -214,3 +214,30 @@ selects nothing and computes no hypothesis test, so it does not touch the 2026 r
 3. **`prev_offense_snaps`.** A missing snap record counts as 0 (snap tables keep only players with snaps).
 4. **Defensive-roster rows.** The 38 rows with a defensive roster position stay, as in the frozen WR frame. None is projected.
 5. **Rolling base.** P0's `pd_rolling_base()` unchanged. On 2019–2023 it equals P0's `pd_based` exactly (31,225 rows). For 2024–2025 rows, it is built by the same rolling-origin rule. Nothing about those seasons' fit or residuals was computed or viewed, consistent with the distribution stack's "nothing on 2024–2025 before the batch check".
+
+## X-017 · 2026-10-13 · F4 part 2 (K and D/ST): rules source, definitions, internal thresholds
+
+**Rules.** The league scores K and D/ST through its own scoring items. These are read from the private league
+snapshot at build time and never committed, because league data stay local. The committed code holds only the
+public stat-id map (espn-api's football constants) and two inferred ids: 198 = made FG 50–59 and 209 = one-point
+safety on a try. Slot overrides apply (16 = D/ST, 17 = K), and each unit scores only its own statistics.
+
+**Definitions** (ESPN support article 115003847231, public):
+- Points allowed exclude the opponent's interception- and fumble-return TDs against the team's offense; special-teams points count.
+- The conversion after such a TD is not excluded. It is a special-teams play. This is an assumption.
+- Yards allowed are the opponent offense's scrimmage yards, two-point tries excluded.
+- A D/ST scores fumbles it recovers.
+- Missed field goals include blocked ones.
+- Sacks are team sacks from play-by-play.
+- Sensitivity: `dst_points_pa_total` counts every opponent point; it differs in 6.0% of team-games.
+
+**Internal thresholds fixed before the first build:**
+- FG bands ≥ 99%;
+- tries ≥ 99%;
+- 0 missing team-games;
+- interceptions ≥ 99%;
+- sacks ≥ 98%;
+- final scores ≥ 99.5%.
+
+All pass (R-005). These checks show the inputs agree across sources. They do **not** show agreement with
+ESPN's own K/DST scoring, which cannot be checked (B-001).
