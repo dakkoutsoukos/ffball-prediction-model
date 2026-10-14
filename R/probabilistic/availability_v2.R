@@ -245,3 +245,31 @@ e19_batch_check <- function(injury_detail, snaps, player_stats, rosters_weekly, 
                      r2_all_candidates = all19)
   )
 }
+
+P1_PROVIDER_FILE <- "models/probabilistic/p1_availability_v2.yml"
+
+#' The frozen provider as a plain list: G1's fixed effects (the team-season effect is 0 at
+#' prediction, as E19 fixed), the factor levels and the formula's parametric part.
+p1_provider_list <- function(fit, check) {
+  b <- stats::coef(fit)
+  fixed <- b[!startsWith(names(b), "s(")]
+  lv <- lapply(c(designation = "designation", practice = "practice", prev_designation = "prev_designation",
+                 position = "position", kickoff_day = "kickoff_day"), function(v) levels(fit$model[[v]]))
+  list(version = "p1_availability_v2", pre_registration = "E19", fitted_on = "report population 2017-2018 + 2020-2023",
+       formula = "active ~ designation * practice + position + returning + streak + prev_designation + kickoff_day (team-season effect 0)",
+       levels = lv, coefficients = as.list(round(fixed, 8)), check_2019 = check)
+}
+
+#' P(active) from the frozen provider for rows with the P1 features.
+p1_provider_predict <- function(provider, newdata) {
+  lv <- provider$levels
+  nd <- newdata
+  for (v in names(lv)) nd[[v]] <- factor(as.character(nd[[v]]), unlist(lv[[v]]))
+  nd$returning <- as.logical(nd$returning)
+  X <- stats::model.matrix(~ designation * practice + position + returning + streak + prev_designation + kickoff_day,
+                           data = nd)
+  b <- unlist(provider$coefficients)
+  miss <- setdiff(colnames(X), names(b))
+  b[miss] <- 0                                            # empty interaction cells: 0, as in the fit
+  unname(stats::plogis(drop(X[, names(b)[names(b) %in% colnames(X)], drop = FALSE] %*% b[names(b) %in% colnames(X)])))
+}

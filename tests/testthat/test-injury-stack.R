@@ -81,6 +81,23 @@ test_that("the GLMM fits, predicts with the random effect at 0, and orders desig
   expect_true(abs(calibration_slope(p1_predict_glmm(g, d), d$active) - 1) < 0.2)
 })
 
+test_that("the frozen provider reproduces the GLMM's predictions with the random effect at 0", {
+  set.seed(7)
+  n <- 2500
+  d <- tibble::tibble(designation = factor(sample(c("Out", "Doubtful", "Questionable", "listed_only"), n, TRUE,
+                                                  c(0.2, 0.05, 0.35, 0.4)), c(P1_DESIGNATIONS, "none")),
+                      practice = factor(sample(c("DNP", "LP", "FP"), n, TRUE), P1_PRACTICE),
+                      position = factor(sample(P1_POSITIONS, n, TRUE), P1_POSITIONS),
+                      returning = stats::runif(n) < 0.2, streak = sample(0:4, n, TRUE),
+                      prev_designation = factor(sample(c("none", "Questionable"), n, TRUE), c("none", P1_DESIGNATIONS)),
+                      kickoff_day = factor(sample(c("Sun", "Thu", "Mon"), n, TRUE), c("Sun", "Thu", "Mon", "other")),
+                      team_season = paste0("T", sample(1:15, n, TRUE)))
+  d$active <- stats::runif(n) < stats::plogis(c(Out = -3, Doubtful = -1.5, Questionable = 1, listed_only = 2.5)[as.character(d$designation)])
+  g <- suppressWarnings(p1_fit_glmm(d))
+  prov <- yaml::yaml.load(yaml::as.yaml(p1_provider_list(g, list(passed = TRUE))))
+  expect_equal(p1_provider_predict(prov, d[1:200, ]), as.numeric(p1_predict_glmm(g, d[1:200, ])), tolerance = 1e-6)
+})
+
 test_that("the week bootstrap resamples whole weeks within each season", {
   sc <- tibble::tibble(season = rep(c(2020L, 2021L), each = 6), week = rep(rep(1:3, each = 2), 2),
                        x = c(1, 1, 2, 2, 3, 3, 10, 10, 20, 20, 30, 30))
