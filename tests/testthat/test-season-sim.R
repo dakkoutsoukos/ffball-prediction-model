@@ -284,3 +284,38 @@ test_that("VL3c: the horizon hook maps leads to adopted cells and is inert witho
   expect_equal(u$extra_week, 1L)
   expect_null(sim_universe(w, c("a", "b"), c("WR", "WR"), 7:8, 7L, prior)$extra_sd)
 })
+
+test_that("VL3d: K/D-ST draws leave skill scores bit-identical, add the same draws to every configuration and match v0", {
+  uni <- ss_universe()
+  cfg <- ss_config()
+  up <- cfg
+  up[["2"]] <- c(1L, up[["2"]])                                            # a different configuration
+  base <- ss_run(sims = 1000, uni = uni, configs = list(a = cfg, b = up))
+  kd <- list(tau = P2_TAU, q = list(K = stats::qnorm(P2_TAU, 8, 4), DST = stats::qnorm(P2_TAU, 6, 6)),
+             n = c(K = 1L, DST = 1L), source = "test")
+  ku <- uni
+  ku$kdst <- kd
+  with <- ss_run(sims = 1000, uni = ku, configs = list(a = cfg, b = up))
+  da <- with$a - base$a
+  expect_equal(da, with$b - base$b, tolerance = 1e-12)                     # common to every configuration
+  expect_equal(mean(da), 14, tolerance = 0.03)
+  expect_equal(stats::sd(as.vector(da)), sqrt(16 + 36), tolerance = 0.05)            # tails clipped at 1%/99%
+  expect_identical(ss_run(sims = 1000, uni = ku, configs = list(a = cfg, b = up)), with)   # deterministic
+  none <- uni
+  none$kdst <- NULL
+  expect_identical(ss_run(sims = 1000, uni = none, configs = list(a = cfg, b = up)), base)
+})
+
+test_that("VL3d: K/D-ST parameters follow the league's starting slots; draws follow sim_qdraw's rule", {
+  v0 <- list(version = "kdst_v0", tau = POD_TAU, K = stats::qnorm(POD_TAU, 8, 4), DST = stats::qnorm(POD_TAU, 6, 6))
+  expect_null(kdst_sim_params(list(nonskill_starters = list()), v0))
+  p <- kdst_sim_params(list(nonskill_starters = list(`D/ST` = 1L, K = 2L)), v0)
+  expect_equal(p$n, c(K = 2L, DST = 1L))
+  expect_equal(p$source, "kdst_v0")
+  u <- c(0, 0.005, 0.01, 0.237, 0.5, 0.99, 0.999, 1)
+  expect_equal(kdst_qdraw(v0$K, u, v0$tau), sim_qdraw(matrix(v0$K, length(u), length(v0$tau), byrow = TRUE), u, v0$tau))
+  f <- read_kdst_v0(file.path(project_root, KDST_V0_FILE))
+  expect_equal(f$seasons, 2019:2023)
+  expect_length(f$K, length(f$tau))
+  expect_true(all(diff(f$K) >= 0) && all(diff(f$DST) >= 0))
+})

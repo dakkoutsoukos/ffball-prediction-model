@@ -102,7 +102,7 @@ sim_roster_deltas <- function(uni, base_config, changes, state, spec, stream, ta
 #' as in V2 and the thin slice).
 sim_fa_rescore <- function(m, state, team, screen, k = 8L, table = read_pod_table(), params = read_s0_params(),
                            prior = read_availability_prior(), sims = 5000L, chunk = 1000L, seed = 20261013L,
-                           p_active_fun = NULL, sigma_scale = 1, noise_scale = 1, horizon_sd_fun = NULL) {
+                           p_active_fun = NULL, sigma_scale = 1, noise_scale = 1, horizon_sd_fun = NULL, kdst = NULL) {
   team <- lg_find_team(m, team)
   top <- utils::head(screen, k)
   if (!nrow(top)) return(dplyr::mutate(top, d_wins = double(), d_playoffs = double(), d_title = double()))
@@ -112,6 +112,7 @@ sim_fa_rescore <- function(m, state, team, screen, k = 8L, table = read_pod_tabl
   ids <- unique(c(pid[unlist(team_rows)], pid[top$add_row]))
   pos <- m$sim$players$position[match(ids, pid)]
   uni <- sim_universe(m$input_data$weekly, ids, pos, weeks, m$current_week, prior, p_active_fun, horizon_sd_fun)
+  uni$kdst <- kdst
   to_uni <- function(rows) {
     r <- match(pid[rows], ids)
     r[!is.na(r)]

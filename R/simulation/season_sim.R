@@ -7,11 +7,11 @@
 #   weekly noise are not) and scored on REALISED values. Free agents stream into empty slots at
 #   the week's expected free-agent level (V2's empty_slots policy).
 # Every roster configuration of a what-if is simulated in the same pass (common random numbers).
-# Not modelled in v0: K and D/ST, correlation, trades and waivers, in-season learning. Outputs are
+# Not modelled in v0: player-specific K and D/ST (VL3d adds position-level v0 draws when supplied), correlation, trades and waivers, in-season learning. Outputs are
 # shadow / unvalidated (VL3).
 
 S0_LABEL <- paste("SHADOW / UNVALIDATED (VL3): inputs are early-week, so odds are too sharp until R3; rosters frozen;",
-                  "players independent; K and D/ST not simulated")
+                  "players independent; K and D/ST as position-level v0 draws when supplied (VL3d)")
 
 #' Universe of simulated players with week-by-week availability and if-active levels.
 #' `weekly` is a valuation run's weekly table; `player_ids` the players to simulate. In the current
@@ -166,6 +166,13 @@ sim_scores <- function(uni, configs, spec, stream, table, sigma, sims = 10000, c
         }
       }
     }
+    if (!is.null(uni$kdst)) {
+      # VL3d: K/D-ST draws from the chunk's second substream (the first is VL3c's), added to every
+      # configuration alike, so the skill draws and results without the hook are unchanged
+      assign(".Random.seed", parallel::nextRNGSubStream(parallel::nextRNGSubStream(chunk_seed)), envir = globalenv())
+      kd <- kdst_draws(uni$kdst, length(teams), W, S)
+      for (k in seq_along(configs)) out[[k]][, , cols] <- out[[k]][, , cols, drop = FALSE] + kd
+    }
     stream_seed <- parallel::nextRNGStream(stream_seed)
   }
   out
@@ -268,7 +275,7 @@ sim_summarise <- function(res, owner = NA_integer_) {
 sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0_params(),
                             prior = read_availability_prior(), sims = 10000, chunk = 1000, seed = 20261013,
                             what_if = NULL, sigma_scale = 1, noise_scale = 1, p_active_fun = NULL,
-                            horizon_sd_fun = NULL) {
+                            horizon_sd_fun = NULL, kdst = NULL) {
   t0 <- Sys.time()
   weekly <- m$input_data$weekly
   league <- m$league
@@ -281,6 +288,7 @@ sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0
   ids <- unique(c(pid[unlist(team_rows)], extra))
   pos <- m$sim$players$position[match(ids, pid)]
   uni <- sim_universe(weekly, ids, pos, weeks, m$current_week, prior, p_active_fun, horizon_sd_fun)
+  uni$kdst <- kdst
   cfg <- function(add = character(), drop = character(), team = NA) {
     lapply(names(team_rows), function(t) {
       r <- match(pid[team_rows[[t]]], ids)
@@ -306,5 +314,6 @@ sim_league_odds <- function(m, state, table = read_pod_table(), params = read_s0
        sigma_scale = sigma_scale, noise_scale = noise_scale, sigma_L = params$sigma_L,
        espn_playoff_pct = state$standings[, c("team_id", "espn_playoff_pct")],
        availability_source = if (is.null(p_active_fun)) prior$source else attr(p_active_fun, "source") %||% "P1 provider",
+       kdst_source = kdst$source %||% "none",
        elapsed_seconds = round(as.numeric(difftime(Sys.time(), t0, units = "secs")), 1))
 }

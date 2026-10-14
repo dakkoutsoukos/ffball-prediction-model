@@ -1628,3 +1628,25 @@ that many independent draws per unit.
 - the mean and SD of the added draws match the frozen quantiles' implied moments (Monte Carlo tolerance);
 - live invariants (odds sum to the playoff count; P(title) sums to 1) hold on the league;
 - reported in aggregate: the change in the spread of teams' P(playoffs) and E[wins].
+
+### VL3d result (2026-10-14; owner's league, aggregates only)
+
+- **Frozen:** `models/simulation/kdst_v0.yml`, X22's v0 on 2,654 team-games (2019–2023).
+  - Draw moments: K mean 7.64, SD 4.44 (data 7.66, 4.47); D/ST 5.78, 6.52 (data 5.79, 6.63). The difference is the
+    1%/99% grid clipping X22 gated with.
+- **League slots:** 1 K and 1 D/ST. The league's K/DST scoring items match the rules F4 part 2 scores.
+- **Tests:**
+  - skill scores are bit-identical with the hook on;
+  - the added draws are identical across configurations;
+  - the moments match;
+  - a run without the hook is unchanged;
+  - `kdst_qdraw` equals `sim_qdraw`.
+- **Live, 10,000 simulations each:**
+  - Invariants hold (Σ P(playoffs) = 4, Σ P(title) = 1, max MC SE 0.005).
+  - The spread of teams' P(playoffs) moves from 0.219 to 0.218 and of E[wins] from 1.169 to 1.162. The largest
+    change for any team is 0.009 in P(playoffs) and 0.005 in P(title).
+  - Simulated points-for rise by 121 per team over the remaining regular-season weeks, about the v0 K + D/ST mean per
+    simulated week. Completed weeks are untouched.
+  - Run time is unchanged (15 s).
+- **Live from this commit:** `odds`, `rescore`, `faboard`, `values3` and the D5 briefing. Ledger records name
+  `kdst_v0`.

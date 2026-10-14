@@ -53,7 +53,7 @@ v3_designated <- function(m, rows, prior = read_availability_prior(), p_active_f
 #' value for reference.
 v3_live_values <- function(m, state, team, table = read_pod_table(), params = read_s0_params(),
                            prior = read_availability_prior(), sims = 5000L, chunk = 1000L, seed = 20261013L,
-                           p_active_fun = NULL, horizon_sd_fun = NULL) {
+                           p_active_fun = NULL, horizon_sd_fun = NULL, kdst = NULL) {
   team <- lg_find_team(m, team)
   weeks <- seq(m$current_week, max(m$league$playoff_weeks))
   pid <- m$sim$players$player_id
@@ -62,6 +62,7 @@ v3_live_values <- function(m, state, team, table = read_pod_table(), params = re
   ids <- unique(pid[unlist(team_rows)])
   pos <- m$sim$players$position[match(ids, pid)]
   uni <- sim_universe(m$input_data$weekly, ids, pos, weeks, m$current_week, prior, p_active_fun, horizon_sd_fun)
+  uni$kdst <- kdst
   to_uni <- function(rows) {
     r <- match(pid[rows], ids)
     r[!is.na(r)]

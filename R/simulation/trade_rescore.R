@@ -53,7 +53,7 @@ sim_trade_deltas <- function(uni, base_config, trades, state, spec, stream, tabl
 #' V2's utility deltas and the partner lens (the partner's generic VOR net).
 sim_trade_rescore <- function(m, state, trades, table = read_pod_table(), params = read_s0_params(),
                               prior = read_availability_prior(), sims = 10000L, chunk = 1000L, seed = 20261013L,
-                              p_active_fun = NULL, sigma_scale = 1, noise_scale = 1, horizon_sd_fun = NULL) {
+                              p_active_fun = NULL, sigma_scale = 1, noise_scale = 1, horizon_sd_fun = NULL, kdst = NULL) {
   weeks <- seq(m$current_week, max(m$league$playoff_weeks))
   pid <- m$sim$players$player_id
   team_rows <- lapply(m$state, function(s) s$rows)
@@ -69,6 +69,7 @@ sim_trade_rescore <- function(m, state, trades, table = read_pod_table(), params
   ids <- unique(c(pid[unlist(team_rows)], unlist(lapply(resolved, function(r) pid[c(r$tr$a$rows, r$tr$b$rows)]))))
   pos <- m$sim$players$position[match(ids, pid)]
   uni <- sim_universe(m$input_data$weekly, ids, pos, weeks, m$current_week, prior, p_active_fun, horizon_sd_fun)
+  uni$kdst <- kdst
   to_uni <- function(rows) {
     r <- match(pid[rows], ids)
     r[!is.na(r)]
