@@ -334,3 +334,40 @@ test_that("X10b summary selects a clearly better metric and otherwise keeps VOR"
   expect_equal(x10b_summary(same, reps = 200L, register = reg)$selected, "vor")
   expect_error(x10b_summary(dplyr::mutate(rows, season = 2024L), reps = 10L, register = reg), "may not use")
 })
+
+# ---- VL11: decision-family batch check helpers ---------------------------------------------------------
+
+test_that("VL11 p-values follow E19c's form and the HLN-type t is one-sided", {
+  expect_equal(vl11_p(c(0.1, 0.2, 0.3)), 1 / 4)
+  expect_equal(vl11_p(c(-0.1, 0.2, -0.3)), 3 / 4)
+  expect_equal(vl11_p(c(0.001, 0.006, 0.002), "ge_margin", 0.005), 2 / 4)
+  set.seed(5)
+  x <- stats::rnorm(140, 1, 1)
+  wk <- rep(1:14, 10)
+  expect_lt(vl11_t(x, wk), 0.01)
+  expect_gt(vl11_t(-x, wk), 0.99)
+})
+
+test_that("VL11's 2025 base ignores 2024 rows; other seasons keep the F4 base", {
+  set.seed(9)
+  fr <- tidyr::expand_grid(season = c(2023L, 2024L, 2025L), week = 1:6, gsis_id = sprintf("P%03d", 1:80)) |>
+    dplyr::mutate(position = "WR", espn_proj = stats::rgamma(dplyr::n(), 4, 0.4), active = TRUE,
+                  actual = pmax(0, .data$espn_proj * ifelse(.data$season == 2024L, 2, 1) + stats::rnorm(dplyr::n(), 0, 4)),
+                  base = -1)
+  v <- vl11_frame(fr)
+  ref <- pd_rolling_base(dplyr::transmute(fr[fr$season != 2024L, ], .data$season, .data$week, .data$gsis_id, .data$position,
+                                          .data$espn_proj, y = .data$actual, .data$active))
+  ref <- ref[ref$season == 2025L, ]
+  k <- match(paste(ref$week, ref$gsis_id), paste(v$week, v$gsis_id)[v$season == 2025L])
+  expect_equal(v$base[v$season == 2025L][k], unname(ref$base))
+  expect_true(all(v$base[v$season != 2025L] == -1))
+})
+
+test_that("the VL11 check refuses a spent 2025 and the development seasons", {
+  reg <- read_contamination_register(file.path(project_root, "research", "contamination_register.yml"))
+  spent <- reg
+  spent$spent_checks <- c(spent$spent_checks, list(list(date = "2027-01-01", family = "decision_family", season = 2025L, entry = "VL11")))
+  expect_error(assert_family_seasons("decision_family", 2025L, "check", spent), "spent|already")
+  expect_error(assert_family_seasons("decision_family", 2023L, "check", reg), "may not use")
+  expect_silent(assert_family_seasons("decision_family", 2025L, "check", reg))
+})
