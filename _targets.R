@@ -643,7 +643,25 @@ list(
     tar_target(lw_result, lw_summary(lw_rows)),
     # D3 (VL9, X16): QB streaming, focal arm E - C on the development replays
     tar_target(lab_stream, lab_stream_result(lab_replays, player_week_all, team_games,
-                                             register = read_contamination_register(contamination_register_file)))
+                                             register = read_contamination_register(contamination_register_file))),
+    # S3 (VL7, X10b): value metrics vs the realised gain from adding a free agent (arm A, focal teams)
+    tar_target(x10b_rows, x10b_season(lab_replays, player_week_all, team_games, read_pod_table(pd_table_file),
+                                      lab_active_table(pd_based)),
+               pattern = map(lab_replays), iteration = "list"),
+    tar_target(x10b_result, x10b_summary(dplyr::bind_rows(x10b_rows),
+                                         register = read_contamination_register(contamination_register_file)))
+  ),
+  # ---- Master plan S3 (VL7, X10a): the V1 re-draft with level uncertainty and learning ----------
+  # Model-based on the archived 2026 week-5 run's projections (no outcomes); V1 is reused, not changed.
+  if (build_valuation && file.exists(X10A_WEEKLY_FILE)) list(
+    tar_target(x10a_weekly_file, X10A_WEEKLY_FILE, format = "file"),
+    tar_target(x10a_result, {
+      cfg <- read_valuation_config()
+      wk <- val_weekly_frame(arrow::read_parquet(x10a_weekly_file, mmap = FALSE))
+      wk <- dplyr::filter(wk, .data$week %in% val_horizon_weeks(cfg$league, X10A_WEEK))
+      x10a_study(wk, cfg$league, read_s0_params()$sigma_L, sims = cfg$simulation$sims, seed = cfg$simulation$seed,
+                 max_iterations = cfg$simulation$max_iterations, cand_per_pos = cfg$simulation$candidates_per_position)
+    })
   ),
   # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
   # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded

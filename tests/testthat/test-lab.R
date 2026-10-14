@@ -260,3 +260,77 @@ test_that("planted future data never change a streaming decision made before it"
   expect_identical(keep(ref$team_weeks, t0)$lineup, keep(got$team_weeks, t0)$lineup)
   expect_identical(keep(ref$claims, t0), keep(got$claims, t0))
 })
+
+# ---- X10b (VL7): value metrics vs realised add gain --------------------------------------------------
+
+x10b_toy_replay <- function(seed = 3) {
+  x <- lab_toy_frame(seed = seed)
+  S <- lab_season_data(x$frame, x$team_games, 2021L)
+  setup <- lab_setup(S, 8L, 1L, seed = 5L)
+  run <- lab_run_league(S, setup, "A", lab_toy_calib())
+  list(x = x, S = S, replay = list(season = 2021L, calib = lab_toy_calib(), team_weeks = run$team_weeks,
+                                   standings = run$standings, claims = run$claims))
+}
+
+x10b_toy_active <- function() {
+  tidyr::expand_grid(position = LAB_POSITIONS, band = 1:7) |> dplyr::mutate(rows = 100L, active_share = 0.95)
+}
+
+test_that("X10b: the excess over replacement and the best drop behave as defined", {
+  q <- matrix(10, 2, length(POD_TAU))
+  expect_equal(x10b_excess(q, c(4, 12)), c(6, 0))
+  pos <- c("QB", "RB", "RB", "WR", "WR", "TE", "RB", "WR")
+  v <- c(20, 15, 12, 14, 11, 8, 3, 1)
+  r <- 1:7
+  # a 13-point RB: the gain is the best legal add/drop change in lineup value times the weeks
+  vv <- c(v, 13)
+  pp <- c(pos, "RB")
+  bd <- x10b_best_drop(vv, pp, r, 9L, n_weeks = 2)
+  brute <- max(vapply(r, function(d) {
+    nr <- c(r[r != d], 9L)
+    if (!lab_roster_legal(pp[nr])) return(-Inf)
+    (lab_lineup_value(vv[nr], pp[nr]) - lab_lineup_value(v[r], pos[r])) * 2
+  }, 0))
+  expect_equal(bd$gain, brute)
+  expect_gt(bd$gain, 0)
+  expect_true(bd$drop %in% r)
+  # a worthless candidate is not added: the drop is the candidate himself
+  bad <- x10b_best_drop(c(v, 0.5), c(pos, "WR"), r, 9L, n_weeks = 2)
+  expect_equal(bad$drop, 9L)
+  expect_equal(bad$gain, 0)
+})
+
+test_that("X10b rows use stage information only, and a no-add has zero gain and zero wins added", {
+  tr <- x10b_toy_replay()
+  tab <- read_pod_table(file.path(project_root, POD_TABLE_FILE))
+  at <- x10b_toy_active()
+  rows <- x10b_season(tr$replay, tr$x$frame, tr$x$team_games, tab, at, stages = c(4L, 7L))
+  expect_true(all(c("vor", "evor", "mru", "wins_added", "gain", "added") %in% names(rows)))
+  expect_true(all(rows$vor >= 0 & rows$evor >= 0 & rows$mru >= 0))
+  expect_true(all(rows$gain[!rows$added] == 0 & rows$wins_added[!rows$added] == 0))
+  expect_lte(max(table(rows$stage, rows$position)), X10B_PER_POS)
+  # planting outcomes from week 7 on changes realised gains but no stage-7 metric
+  fr2 <- tr$x$frame
+  fr2$actual[fr2$week >= 7] <- fr2$actual[fr2$week >= 7] + 1e3 * stats::runif(sum(fr2$week >= 7))
+  rows2 <- x10b_season(tr$replay, fr2, tr$x$team_games, tab, at, stages = 7L)
+  r7 <- rows[rows$stage == 7, ]
+  expect_equal(rows2[c("candidate", "vor", "evor", "mru", "wins_added", "added")], r7[c("candidate", "vor", "evor", "mru", "wins_added", "added")])
+})
+
+test_that("X10b summary selects a clearly better metric and otherwise keeps VOR", {
+  set.seed(11)
+  mk <- function(season, league, stage) {
+    g <- stats::rnorm(20)
+    tibble::tibble(season = season, league = league, stage = stage, candidate = 1:20, position = rep(LAB_POSITIONS, 5),
+                   vor = g + stats::rnorm(20, 0, 3), evor = g + stats::rnorm(20, 0, 0.1), mru = stats::rnorm(20),
+                   wins_added = g + stats::rnorm(20, 0, 3), added = TRUE, gain = g)
+  }
+  rows <- purrr::pmap(tidyr::expand_grid(season = 2020:2023, league = 1:3, stage = 2:13), mk) |> purrr::list_rbind()
+  reg <- read_contamination_register(file.path(project_root, "research", "contamination_register.yml"))
+  s <- x10b_summary(rows, reps = 200L, register = reg)
+  expect_equal(s$top, "evor")
+  expect_equal(s$selected, "evor")
+  same <- dplyr::mutate(rows, evor = .data$vor, mru = .data$vor, wins_added = .data$vor)
+  expect_equal(x10b_summary(same, reps = 200L, register = reg)$selected, "vor")
+  expect_error(x10b_summary(dplyr::mutate(rows, season = 2024L), reps = 10L, register = reg), "may not use")
+})
