@@ -996,3 +996,26 @@ are league-clustered and season-blocked; the base-rate Brier is 0.241.
 
 **Status.** S2 v1's success criteria are met: rules reproduced, invariants hold, calibration reported with CIs. The
 prospective `playoffPct` comparison is not possible while ESPN omits it (X-004).
+
+## 2026-10-14 — VL9: D3 waiver and free-agent assistant; X16 QB streaming (pre-registration, written before any computation)
+
+**League facts** (F3-lite): no FAAB (`isUsingAcquisitionBudget = FALSE`), so the FAAB bid model is gated off and claims
+go by waiver priority. Keepers 0.
+
+**Tool** (live; shadow ΔP like S0):
+- the free-agent board: V2's ΔU screen;
+- the top candidates re-scored by ΔP(playoffs) and ΔP(title) with common random numbers, as in the thin slice;
+- drop advice: the roster player whose removal costs the least ΔU;
+- a streaming view by next-week posted ESPN projection, calibrated, which the live capture provides;
+- ledgered as `waivers`.
+
+**X16 in the lab** (F6 development replays 2020–2023; `decision_family` development).
+- **Limitation.** Historical replays have no posted future-week projections (VE0), so lab streaming can use only levels and byes, not matchups. A null therefore means "level-based streaming does not help"; it says nothing about matchup-based streaming.
+- **Arm E (QB streaming), focal team.**
+  1. Each waiver stage starts with a streaming pass. The starting QB's next-week value is compared with the best free-agent QB's: per-game calibrated L_avg4, times whether the team plays week t.
+  2. If the free agent is better by more than 1 point for week t, claim him and drop the roster QB with the lower rest-of-season value. The roster must stay legal; the claim is contested like any other.
+  3. Then the calibrated waiver policy runs as in arm C.
+- **Paired with arm C** (calibrated lineups are not part of C, so E uses arm C's raw lineups): same leagues, drafts and seeds.
+- **Primary estimate** (no test; D3's criterion): ΔE − C in focal realised lineup points per team-week, regular season. Week-clustered, season-blocked bootstrap 95% CI.
+- **Also reported:** QB claims per season; realised QB points of the focal starter.
+- **Use:** streaming is recommended by the tool only if the CI excludes 0 in its favour. Otherwise the streaming view is informational. VL11 re-tests on 2025.
