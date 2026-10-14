@@ -1271,3 +1271,55 @@ Odds show VL3's band (minimum–maximum over the four settings), with no flag.
 - The monitor refuses any season the contamination register seals, so it does **not** run on 2026 before R1 (E16,
   X-009). Whether it runs blind during the 2027 season is decided in the 2027 prospective protocol. Until then it is
   built and tested on synthetic data only.
+
+## 2026-10-14 — VL10: D4 draft assistant, projections-only under the O2/O8 defaults (pre-registration, written before any draft code or mock draft)
+
+**Scope.**
+- Owner decisions O2 (ADP capture) and O8 (the league's draft history) are pending, so their defaults apply: no ADP and
+  no draft history. The assistant is **projections-only**.
+- `keeperCount = 0` (F3-lite), so keeper valuation is gated off.
+- Live use is the 2027 preseason draft. The owner enters picks in a local file; no ESPN draft requests are made.
+
+**Values.**
+- V1's generic machinery for the league's format (settings from the snapshot): rest-of-season points, VOR and the
+  roster utility U (expected season lineup points, streaming at the proportional pool's waiver level).
+- K and D/ST are outside the valuation. The last two rounds are reserved for them (one each), and they are never
+  recommended earlier.
+
+**Opponent model.** There are no data to calibrate it, so it is fixed now and labelled an assumption.
+- Each opponent picks among available QB/RB/WR/TE players with probability ∝ exp(−(rank − best available rank)/τ).
+  Rank is V1's overall VOR rank; τ = 3.
+- **Needs:** at most 2 QBs and 2 TEs per roster before the last three rounds. When a team's remaining picks equal its
+  unfilled starting slots, it picks only eligible positions.
+- **Herding:** if the previous two picks were at the same position, that position's weights are multiplied by 1.5.
+- K and D/ST are taken in the last two rounds.
+
+**Recommendation at the owner's pick.**
+- **Candidates:** the 4 best available per position by VOR (16).
+- **Rollouts:** for each candidate, 100 rollouts of the rest of the draft. Opponents follow the model. The owner's later
+  picks follow the need-aware VOR rule: fill unfilled starting slots first, otherwise take the best VOR.
+- **Primary objective:** the mean U of the owner's final roster (V1's U with 100 availability draws).
+- **Display:**
+  - the top 5 by mean U, with the rollout SE;
+  - each one's probability of surviving to the owner's next pick (rollouts in which the owner passes on him);
+  - the top 3 re-scored by week-0 E[wins] and P(playoffs): 20 rollout leagues each, S2's resolver on the league's
+    schedule, 1,000 simulations.
+- **Time target:** ≤ 60 s per pick.
+
+**Evaluation (labelled simulation evidence, 07 D4).**
+- **Mock drafts:** the owner's league format (8 teams, snake, its slots and bench). The pool is the 2026 week-5
+  valuation run's players and weekly projections: projections only, no outcomes.
+- **Design:** 200 mock drafts per policy; the owner's seat cycles through 1–8; opponents follow the model; seeds are
+  common across policies.
+- **Policies:** the assistant vs **VOR-greedy** (the owner takes the best available by VOR, with the same need rule).
+- **Metrics:** the owner's final U, and week-0 P(playoffs) from S2's resolver on the completed league (1,000
+  simulations each).
+- **Reported:** paired mean differences (paired by seat and seed) with 95% CIs.
+- **Use rule:**
+  - If the P(playoffs) difference has a CI excluding 0 in the assistant's favour, its top pick is shown first.
+  - Otherwise VOR-greedy is the primary display, and the rollouts are shown as information.
+- **Prospective (2027):** survival probabilities are calibrated after the draft against the owner's pick log
+  (descriptive Brier score).
+
+**D4 completion:** the assistant runs within the time target on the owner's format, the mock-draft evaluation is
+reported, and the keeper and FAAB parts are recorded as gated off.
