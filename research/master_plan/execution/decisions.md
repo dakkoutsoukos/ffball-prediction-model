@@ -346,3 +346,18 @@ methodology change for the owner.
 - **Impact:** none. Seal 1 (season end plus 7 days) blocks every outcome join, and no report was produced.
 - **Fix:** headings must be dated 2027 or later (`from_year`). A test covers 2026-dated entries. This tightens the
   seal to its documented intent; no methodology changed.
+
+## X-029 · 2026-10-14 · Owner approves O8 and B-002; scope built now
+
+- **Owner (2026-10-14):** "I approve completing O8 and B-002, including K and D/ST in the appropriate roster,
+  scoring, valuation, and league simulation components. Use the existing X22 distributions…"
+- **Built now (K/DST part of O8):**
+  - ESPN K/DST requests are separate from the QB-TE ones, whose files, parsers and manifests are unchanged
+    (`R/data/espn_kdst.R`).
+  - Historical week-of files for 2019–2023 (B-001's check seasons; 2024 and 2025 are not read, as in E23).
+  - A live K/DST capture after each valuation capture (`archive/kdst_espn_capture_manifest.csv`).
+  - B-002: S0 v0 K/D-ST draws, pre-registered as VL3d.
+- **Approved, scheduled with F3-full (January 2027, roadmap order):**
+  - Transactions, weekly box scores and lineups: these contain 2026 outcomes, which stay sealed until R1.
+  - Previous league seasons and draft history (for D4's opponent model, needed by August 2027).
+  - 2018 QB/RB/TE history: no open check needs it.

@@ -1586,3 +1586,45 @@ From now on, 2027 prospective results are the only confirmatory evidence for dec
   against the 60 s target. Building the pool takes 0.06 min, once per draft. The optional week-0 re-score is outside
   this figure.
 - **D4 status:** complete (development).
+
+### VL3d (2026-10-14): S0 team totals include v0 K and D/ST draws (E23 result; owner approval X-029; written before any K/D-ST draw was simulated on the league)
+
+E23's result allows a VL3 addendum adding v0 K/D-ST draws to S0's team totals. The owner approved it (B-002).
+
+**Distributions.** X22's v0 is frozen as `models/simulation/kdst_v0.yml`:
+- the empirical quantiles, on E21's τ grid, of team-game K points and D/ST points under the league's scoring;
+- fit on 2019–2023, the seasons X22 read (`X22_UNIT_SEASONS`). E23's "2019 … s − 1" would add 2024–2025, which the
+  register keeps out of distribution work.
+- The file stores only quantiles of league-scored points; the league's rules are not written to it.
+
+**Slots.** The league's starting K and D/ST counts (`nonskill_starters`; this league has 1 and 1). Each team-week gets
+that many independent draws per unit.
+
+**Draws.**
+- Inverse-CDF draws (`sim_qdraw`, as in X22), independent across teams, weeks and units, and independent of the skill
+  draws and of the level shock (as X22 gated).
+- They come from their own random substream, so the skill scores are bit-identical with or without them.
+- The same K/D-ST draws are added to every roster configuration of a run (common random numbers). K/D-ST therefore
+  changes ΔP only through the totals' spread, never through which roster holds which unit.
+- Every simulated week, playoffs included, gets the draws. A unit on a bye is assumed to be streamed, as skill slots
+  already are.
+
+**No double counting.**
+- Completed periods enter through ESPN's standings, which already include K/D-ST.
+- Only simulated weeks get draws.
+- Skill lineups never contain K or D/ST (`is_skill`).
+
+**Scope.**
+- Live: `odds`, `rescore`, `faboard`, `values3` and the D5 briefing. The label and the ledger records name
+  `kdst_v0`.
+- Unchanged: the F6 lab, the S1/S2/VL11 studies and D4's evaluated mock drafts, so recorded results stay
+  reproducible.
+- v0 is position-level, so it gives no player-specific K or D/ST values. `values3` keeps listing skill players only.
+  Player-specific K/D-ST distributions (from ESPN's K/DST projections, now captured under O8) would be a separate,
+  pre-registered experiment.
+
+**Validation (no outcomes):**
+- bit-identity with the hook off, and of the skill component with it on;
+- the mean and SD of the added draws match the frozen quantiles' implied moments (Monte Carlo tolerance);
+- live invariants (odds sum to the playoff count; P(title) sums to 1) hold on the league;
+- reported in aggregate: the change in the spread of teams' P(playoffs) and E[wins].
