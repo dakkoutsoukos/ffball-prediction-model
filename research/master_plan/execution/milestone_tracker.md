@@ -34,7 +34,7 @@ Last updated: 2026-10-13.
 | P4 | Season dynamics (VL4) | 2 | P2, F4 | FAILED EXPERIMENT 2026-10-14 (development): the ROS distribution is worse than VE1-normal in every cell (shape too peaked); not advanced | VL4 result (3da8138); X2 residual persistence ≈ 0; X26 ESPN revision slope 0.11–0.14 |
 | P5 | Scenario engine v1 | 2 | P1, P2, P4 (P3 optional) | COMPLETED (engine) 2026-10-14: 600 × 14 × 5,000 draws in 0.12 min (≤ 5); determinism, CRN under universe changes, mean preservation and decision-time vs hindsight tests pass | 2b641eb. Components are pluggable: the frozen P1 provider now; P2/P4 swap in if E22 passes |
 | S1 | Matchup win probability v1 (VL5) | 3 | P5, F3, F6 | COMPLETED (development) 2026-10-13 | VL5 (4d964c1); simulation non-inferior to the normal approximation (ΔBrier +0.0001, upper +0.0003) and the slope rule passes: S1-sim adopted; the check is in VL11; real-league calibration sealed until R1 |
-| S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | IN PROGRESS: thin slice built on S0 (a84579b, f4714a0); v1 pending | |
+| S2 | Season and playoff simulator (thin → v1; VL6) | 3 | F3, S0 engine; P5, S1 for v1 | COMPLETED 2026-10-14: thin slice (a84579b, f4714a0); v1 resolver (c097a3c) reproduces S0 exactly; week-k calibration reported (2c73b1f) | Odds are over-confident without a level shock and calibrated with S0's σ_L (slope ≈ 1) |
 | S3 | Valuation v3 (VL7) | 3 | P4, P5, S2, F6 | NOT STARTED | |
 | D1 | Lineup engine v1 (VL8; triage-gated) | 4 | S1, P5, F5, F6 | NOT STARTED | |
 | D2 | Trade engine v3 | 4 | S2, S3, F3, F5 | IN PROGRESS: thin slice (two-team ΔP re-scoring, partner-lens frontier, `rescore` CLI, ledgered); real league: 5 trades × 5,000 simulations in 0.56 min | |
