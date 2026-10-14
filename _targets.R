@@ -623,7 +623,15 @@ list(
         s1_predict(s1_matchups(r, S), player_week_all, tab, at)
       }) |> purrr::list_rbind()
     }),
-    tar_target(s1_eval, s1_evaluate(s1_pred))
+    tar_target(s1_eval, s1_evaluate(s1_pred)),
+    # S2 v1 (VL6): week-k P(playoffs) calibration on the development replays (estimation only)
+    tar_target(s2_comps, s2_components(player_week_all, team_games)),
+    tar_target(s2_study, s2_week_k_study(lab_replays, player_week_all, team_games, s2_comps, read_pod_table(pd_table_file),
+                                         register = read_contamination_register(contamination_register_file))),
+    tar_target(s2_study_shock, s2_week_k_study(lab_replays, player_week_all, team_games, s2_comps, read_pod_table(pd_table_file),
+                                               sigma = read_s0_params()$sigma_L,
+                                               register = read_contamination_register(contamination_register_file))),
+    tar_target(s2_summary, list(main = s2_week_k_summary(s2_study), shock = s2_week_k_summary(s2_study_shock)))
   ),
   # ---- Master plan P1 + R2: injury stack (E19) --------------------------------
   # Development and training seasons only, until the gated 2019 batch check (E19b must be recorded
