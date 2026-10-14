@@ -1535,3 +1535,29 @@ matched a fresh development derivation (`m6_params_check`). 2019 is now spent fo
 3. **A future G1:** a recalibrated G1, e.g. logistic recalibration of its linear predictor fit on development, would be a new family member. It could not use 2019 again; its evidence would be prospective (2027).
 
 `research/contamination_register.yml`: `spent_checks` gains injury_stack 2019 (E19c).
+
+---
+
+## 2026-10-14 — E20a: C2 fitting repair (development only; written after C2's development failure, before any 2024 computation)
+
+**What happened.** As specified, C2 is `gam(list(y ~ s(base), ~ s(base) + covariates, ~1, ~1), family = shash())`.
+Its development CRPS was 12.37, against 2.97 for C0. QB was fine (3.99); RB, WR and TE were not (6.2–19.4).
+
+The diagnosis (TE, fit on 2019–2021 and scored on 2022) points to a **degenerate optimum**, not a code error:
+- The location predictor stays near 0 for most rows and ignores the base.
+- δ = exp(−1.43) gives very heavy tails, with strong skew (ε = 0.93).
+- The mean 10–90% width is 277 points.
+
+The quantile code matches mgcv's own `qf` (unit test).
+
+**Repair.**
+- Fit the same shash model to the residual r = y − base: `list(r ~ s(base, k = 10), ~ s(base, k = 10) + covariates, ~ 1, ~ 1)`.
+- Quantiles of y are base + quantiles of r, floored at the position floor.
+- The model space is unchanged: a smooth function of base absorbs the linear base term. Only the optimiser's starting region changes, since the residual location is near 0 by construction.
+
+**Rules.**
+- **One attempt.** C2 and C3 (whose base may change) are re-run on development; C0 and C1 are unchanged.
+- E20's selection rule (CRPS, coverage gate, 0.5% tie band) applies unchanged to the new results.
+- If the repaired C2 still fails the gate or loses, the selection stays as the rule gives it. No further variants.
+
+**Record.** The first development results, with C0 selected, are kept here. They appear in E20's result entry beside the repaired run.
