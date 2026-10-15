@@ -51,11 +51,13 @@ UNSUPPORTED = [
     ("Draft assistant", "Deferred to the 2027 pre-draft window; the R tool exists (scripts/draft_assistant.R)."),
 ]
 
-REFRESH_HELP = """Refreshing data stays a terminal step (the UI never contacts ESPN):
+REFRESH_HELP = """Refreshing data stays a terminal step (the UI never contacts ESPN). In PowerShell, from the project folder
+(Rscript is not on PATH, so the alias line comes first):
 
 ```
+Set-Alias Rscript "C:\\Program Files\\R\\R-4.5.1\\bin\\Rscript.exe"
 Rscript scripts/league_refresh.R          # league snapshot (one ESPN request)
-Rscript scripts/valuation_run.R --league  # valuation run in this league's format
-Rscript scripts/briefing.R                # weekly briefing (records ledger entries)
+Rscript scripts/valuation_run.R --league  # optional: valuation run in this league's format (~4 min)
+Rscript scripts/briefing.R                # optional: weekly briefing (~12 min; records ledger entries)
 ```
 The scheduled dispatcher captures projections automatically before each slate."""
