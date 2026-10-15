@@ -12,7 +12,11 @@ ADAPTER = (UI / "r" / "ui_adapter.R").read_text(encoding="utf-8")
 
 
 def test_streamlit_config_is_local_only():
-    cfg = tomllib.loads((UI / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    raw = (UI / ".streamlit" / "config.toml").read_bytes()
+    assert not raw.startswith(bytes([0xEF, 0xBB, 0xBF])), "a BOM makes Streamlit ignore the whole config"
+    import toml  # the parser Streamlit itself uses
+    toml.loads(raw.decode("utf-8"))
+    cfg = tomllib.loads(raw.decode("utf-8"))
     assert cfg["server"]["address"] == "127.0.0.1"
     assert cfg["browser"]["gatherUsageStats"] is False
     assert cfg["client"]["showErrorDetails"] == "none"

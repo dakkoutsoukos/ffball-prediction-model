@@ -39,10 +39,12 @@ if odds:
                 help="S1 simulation win probability (method adopted, X23) shown through the shadow S0 engine.")
     if mine is not None:
         rng = f"band {C.fmt_pct(bm['p_playoffs'].min(), 0)}–{C.fmt_pct(bm['p_playoffs'].max(), 0)}" if not bm.empty else ""
-        c[1].metric("P(playoffs)", C.fmt_pct(mine["p_playoffs"]), rng, delta_color="off",
+        c[1].metric("P(playoffs)", C.fmt_pct(mine["p_playoffs"]),
                     help="Shadow S0 odds; the band is σ_L × 0.5–1.5 and noise × 0.8–1.2 (VL3).")
+        c[1].caption(f"Sensitivity {rng.removeprefix('band ')}" if rng else "")
         rng = f"band {C.fmt_pct(bm['p_title'].min(), 0)}–{C.fmt_pct(bm['p_title'].max(), 0)}" if not bm.empty else ""
-        c[2].metric("P(title)", C.fmt_pct(mine["p_title"]), rng, delta_color="off", help="Shadow S0 odds.")
+        c[2].metric("P(title)", C.fmt_pct(mine["p_title"]), help="Shadow S0 odds.")
+        c[2].caption(f"Sensitivity {rng.removeprefix('band ')}" if rng else "")
         c[3].metric("Expected wins", C.fmt_num(mine["e_wins"], 2), help="Shadow S0: expected regular-season wins.")
     cap = st.columns([1, 4])
     with cap[0]:

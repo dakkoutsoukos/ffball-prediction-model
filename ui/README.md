@@ -6,7 +6,7 @@ odds, research records and operations health. Design and audit: [docs/streamlit_
 ## Start
 
 ```powershell
-ui\run.ps1                        # syncs the environment (uv, frozen lock) and starts http://127.0.0.1:8501
+ui\run.ps1                        # syncs the environment (uv, frozen lock) and starts http://127.0.0.1:8765
 ```
 or, from `ui/`: `uv run streamlit run app.py`. The first start creates `ui/.venv/` from `uv.lock` (Python 3.13).
 Requirements: `uv` and R 4.5.1 (`C:\Program Files\R\R-4.5.1\bin\Rscript.exe`, or set `FFUI_RSCRIPT`).
@@ -18,7 +18,7 @@ Requirements: `uv` and R 4.5.1 (`C:\Program Files\R\R-4.5.1\bin\Rscript.exe`, or
 | Pages | Streamlit pages; no modelling code | `views/*.py`, `app.py` |
 | Read-only data | Manifest-driven discovery of valuation runs, distributions, league snapshot, ledger records, briefings, ops status, research records; schema contracts; id-only joins | `ffui/artifacts.py`, `ffui/contracts.py`, `ffui/research.py`, `ffui/playerdata.py` |
 | R adapter | Exploratory computations with the same core R functions as `scripts/trade_analyzer.R`, minus its persistence | `r/ui_adapter.R` |
-| Jobs and cache | Background `Rscript` processes, one at a time; deterministic cache keys; timeout, cancel, recovery | `ffui/jobs.py` → `data/archive/ui_cache/` |
+| Jobs and cache | Background `Rscript` processes, one at a time; deterministic cache keys; timeout, cancel, recovery | `ffui/jobs.py` â†’ `data/archive/ui_cache/` |
 
 **The adapter's safety boundary.** After sourcing `R/`, `ui_adapter.R` replaces every persistence and network
 function with a trip-wire that aborts the process (exit 5): `append_manifest`, `lg_archive_query`, `lg_ledger_record`,
@@ -36,15 +36,15 @@ any spent or holdout check. It never listens beyond 127.0.0.1, and usage statist
 |---|---|---|
 | Command Center | Ledgered odds/lineup/waivers/trades, snapshot roster + values, briefing HTML, ops status | none |
 | Player Explorer, Compare | Valuation run (V1 values, weekly), P0 distributions, value history, snapshot ownership | none |
-| Trade Lab | League context | `trade_eval` (≈10 s), `trade_search` (≈45 s) |
-| Lineup Lab | League context | `lineup` (≈4 s, availability overrides), `values3` (≈40 s) |
-| Waivers | Ledgered board, league analysis | `fa_board` (≈16–30 s) |
-| Season Outlook | Standings, schedule, ledgered odds | `odds` (≈11–20 s, bands, add/drop what-if) |
+| Trade Lab | League context | `trade_eval` (â‰ˆ10 s), `trade_search` (â‰ˆ45 s) |
+| Lineup Lab | League context | `lineup` (â‰ˆ4 s, availability overrides), `values3` (â‰ˆ40 s) |
+| Waivers | Ledgered board, league analysis | `fa_board` (â‰ˆ16â€“30 s) |
+| Season Outlook | Standings, schedule, ledgered odds | `odds` (â‰ˆ11â€“20 s, bands, add/drop what-if) |
 | Research | Registries, fingerprints, tracker, results, contamination register, logs | `research_target` (allow-list; refuses 2026 rows) |
-| Operations | status.txt, dispatch log, manifests audit, horizon study, app jobs/cache | `health` (≈3 s), read-only `schtasks /Query` |
+| Operations | status.txt, dispatch log, manifests audit, horizon study, app jobs/cache | `health` (â‰ˆ3 s), read-only `schtasks /Query` |
 | Draft (2027), Help & limits | Static | none |
 
-Every number carries a status badge: Adopted, Shadow / Unvalidated, Informational, Exploratory · not ledgered,
+Every number carries a status badge: Adopted, Shadow / Unvalidated, Informational, Exploratory Â· not ledgered,
 Fragile, Ledgered. Each panel has a Provenance expander: snapshot hash, valuation run, model versions, seed and
 simulation count, elapsed time, git commit.
 
@@ -53,7 +53,7 @@ simulation count, elapsed time, git commit.
 ```powershell
 cd ui
 uv run pytest                     # 54 tests on a synthetic fixture repo (no R, no real data)
-$env:FFUI_REAL="1"; uv run pytest tests/test_e2e_real.py   # real archives + real R adapter (≈5 min)
+$env:FFUI_REAL="1"; uv run pytest tests/test_e2e_real.py   # real archives + real R adapter (â‰ˆ5 min)
 ```
 The real-data tests check decision-record isolation (Gate B). Manifests, ledger, query archive, `models/` and
 `git status` must be byte-identical after every exploratory op and after clicking through the decision pages.
@@ -64,10 +64,10 @@ Failure messages contain counts and hashes only, never names.
 - **"League snapshot N h old"**: run `Rscript scripts/league_refresh.R` in a terminal. The app never refreshes.
 - **"missing, stale or changed context" (exit 3)**: the snapshot or valuation run changed after the page loaded.
   Reload the page; the context reloads in about 4 s.
-- **"Another calculation is running"**: one R job runs at a time. Wait, or cancel it under Operations ▸ App jobs.
+- **"Another calculation is running"**: one R job runs at a time. Wait, or cancel it under Operations â–¸ App jobs.
 - **"safety trip-wire fired"**: an R function tried to persist or fetch. Nothing was written. Report it with the job
   log from Operations.
 - **Rscript not found**: set `FFUI_RSCRIPT` to the full path of `Rscript.exe`.
-- **Stale cached results**: Operations ▸ Clear the app cache. Results are keyed on inputs, snapshot, valuation run
+- **Stale cached results**: Operations â–¸ Clear the app cache. Results are keyed on inputs, snapshot, valuation run
   and code version, so this is rarely needed.
 - `FFUI_DEMO=1` runs the app on fixtures and shows a DEMONSTRATION DATA banner. It is never the default.

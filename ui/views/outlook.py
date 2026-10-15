@@ -22,7 +22,7 @@ tab_odds, tab_table, tab_sched, tab_hist = st.tabs(["Odds", "Standings & strengt
 with tab_odds:
     o = st.columns([1, 1, 2, 2])
     sims = o[0].selectbox("Simulations", [5000, 10000], index=1)
-    bands = o[1].toggle("Sensitivity bands", value=True, help="4 × 2,000 extra simulations (σ_L × 0.5/1.5, noise × 0.8/1.2; VL3).")
+    bands = o[1].toggle("Bands", value=True, help="4 × 2,000 extra simulations (σ_L × 0.5/1.5, noise × 0.8/1.2; VL3).")
     pl = S.players_frame(ctx)
     mine = pl[pl["team_id"] == me]
     fa = pl[pl["free_agent"]].sort_values("ros_points", ascending=False).head(150)

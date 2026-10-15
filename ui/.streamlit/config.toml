@@ -1,7 +1,7 @@
 # Local-only: bound to the loopback interface, no usage statistics, no external services.
 [server]
 address = "127.0.0.1"
-port = 8501
+port = 8765
 headless = true
 runOnSave = false
 enableCORS = true

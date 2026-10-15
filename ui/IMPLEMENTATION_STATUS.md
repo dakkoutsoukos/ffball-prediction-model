@@ -14,7 +14,7 @@ Last updated: 2026-10-15 (session 1).
 | 2 Player analysis | COMPLETED | Player detail (weekly, P0 fan, value history), Compare; job runner (lock, timeout, cancel, recovery) with tests |
 | 3 Decision tools | COMPLETED | Trade Lab (evaluate, search, saved), Lineup Lab (overrides, values3), Waivers, Season Outlook (odds, bands, what-if, standings, schedule, history) |
 | 4 Research and operations depth | COMPLETED | Research allow-list op with sealed-season guard; health op; read-only scheduler query; cache management |
-| 5 Hardening and validation | COMPLETED | 54 fixture tests + 6 real-data tests pass; final report `ui/FINAL_IMPLEMENTATION_REPORT.md` |
+| 5 Hardening and validation | COMPLETED | 54 fixture tests + 6 real-data tests pass; browser check (Chrome) of 4 pages; final report `ui/FINAL_IMPLEMENTATION_REPORT.md` |
 | Draft page | DEFERRED (by design) | Terminal tool exists; UI planned for the 2027 pre-draft window |
 
 ## Architecture decisions made during implementation
@@ -45,7 +45,7 @@ Last updated: 2026-10-15 (session 1).
 - The league snapshot was 46 h old at implementation time. Pages warn; refreshing is the owner's terminal step.
 - Value and odds history charts are thin until more runs accrue (labelled "accruing").
 - AppTest cannot tick `st.fragment(run_every=…)`, so the real-data UI test waits on the runner and reruns. Live
-  progress-bar ticking was checked by HTTP boot only, not by a browser.
+  progress-bar ticking was verified in Chrome. App port is 8765 (8501 is used by another local app).
 - `fragile` flags exist only on ledgered records (VL13 rule). UI what-ifs show the X11 noise note instead
   (|ΔP| < 0.005).
 
