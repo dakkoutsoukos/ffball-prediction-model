@@ -254,11 +254,35 @@ run_op <- function(op) switch(op,
     m <- load_m(); ta <- my_team(m); tb <- team_of(m, p$team_b)
     if (ta == tb) fail(2L, "pick a different partner team")
     horizon <- p$horizon %||% "full"; s <- m$la$search
-    r <- lg_trade_search(m, ta, tb, NULL, top_n = s$top_n, tv_band = s$tv_band, max_eval = s$max_eval,
+    # Sell-high (owner's judgement): inflate one of my players' PUBLIC trade value (V1 display value) in a
+    # process-local copy. It only moves the candidate list and the public-value fairness band (how the partner
+    # sees the deal); both teams' deltas are still the model's projections, so the gain shown is real.
+    ms <- m; sell_row <- NA_integer_; boost <- 0
+    if (!is.null(p[["sell_player"]]) && nzchar(p[["sell_player"]])) {
+      sell_row <- rows_of(m, p[["sell_player"]])
+      if (!(sell_row %in% roster_rows(m, ta))) fail(2L, "the sell-high player must be on your roster")
+      boost <- as.numeric(p[["boost_pct"]] %||% 15) / 100
+      if (is.na(boost) || boost < 0 || boost > 1) fail(2L, "boost_pct must be between 0 and 100")
+      gi <- match(m$sim$players$player_id[sell_row], ms$generic$player_id)
+      if (is.na(gi)) fail(2L, "the sell-high player has no public trade value")
+      ms$generic$trade_value[gi] <- ms$generic$trade_value[gi] * (1 + boost)
+    }
+    my_gain <- isTRUE(p[["my_gain_only"]])
+    wide <- my_gain || !is.na(sell_row)  # evaluate more candidates: the default pruning favours balanced trades
+    r <- lg_trade_search(ms, ta, tb, NULL, top_n = s$top_n, tv_band = s$tv_band,
+                         max_eval = if (wide) max(s$max_eval, 600L) else s$max_eval,
                          eps = m$la$eps, strong = m$la$strong, horizon = horizon)
+    if (nrow(r) && !is.na(sell_row)) r <- r[vapply(r$a_rows, function(x) sell_row %in% x, TRUE), ]
+    if (nrow(r)) {  # actual (un-inflated) public value of what I give, next to the perceived one
+      r$tv_a_gives_perceived <- r$tv_a_gives
+      r$tv_a_gives <- vapply(r$a_rows, function(x) lg_tv(m, x), 0)
+    }
     if (isTRUE(p$win_win)) r <- dplyr::filter(r, .data$win_win)
+    if (my_gain && nrow(r)) r <- dplyr::arrange(dplyr::filter(r, .data$delta_a > 0), dplyr::desc(.data$delta_a))
     k <- min(as.integer(p$k %||% 5L), 8L)
-    out <- list(n_evaluated = nrow(r), candidates = NULL, rescore = NULL, excluded_invariants = 0L)
+    out <- list(n_evaluated = nrow(r), candidates = NULL, rescore = NULL, excluded_invariants = 0L,
+                sell_high = if (is.na(sell_row)) NULL else list(player_id = m$sim$players$player_id[sell_row], boost_pct = 100 * boost),
+                my_gain_only = my_gain)
     if (nrow(r)) {
       rr <- r
       rr$a_ids <- vapply(r$a_rows, function(x) paste(m$sim$players$player_id[x], collapse = ";"), "")

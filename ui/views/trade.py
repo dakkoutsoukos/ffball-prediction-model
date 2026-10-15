@@ -115,27 +115,53 @@ with tab_search:
     o = st.columns(4)
     k = o[0].number_input("Re-score top", 1, 8, 5, help="Candidates re-scored by S0 (CLI default 5).")
     sims2 = o[1].selectbox("Simulations", [2000, 5000], index=1, key="search_sims")
-    ww = o[2].toggle("Only win-win", value=False, help="Keep trades that raise both teams' utility.")
     sim2 = o[3].toggle("Re-score with S0", value=True)
-    params = {"team_b": partners[pname2], "k": int(k), "sims": sims2, "win_win": ww, "simulate": sim2}
+    mine_g = o[2].toggle("Only trades where I gain", value=True,
+                         help="Keep every trade that raises your utility, ranked by your gain. The partner may lose on our "
+                              "model; the search still requires the two sides to look fair on PUBLIC trade value.")
+    ww = False if mine_g else st.toggle("Only win-win", value=False, help="Keep trades that raise both teams' utility.")
+    my_roster = players[players["team_id"] == me].sort_values("trade_value", ascending=False)
+    sell_opts = {"": "None"} | {p.player_id: f"{p.player_name} ({p.position}) · public value {p.trade_value:.0f}"
+                                for p in my_roster.itertuples() if pd.notna(p.trade_value)}
+    s1, s2 = st.columns([2, 1])
+    sell = s1.selectbox("Sell high (optional)", list(sell_opts), format_func=lambda x: sell_opts[x],
+                        help="A player you think the public overrates. Only packages that include him are shown, and his "
+                             "public value is inflated so the search asks for a bigger return.")
+    boost = s2.slider("Public value boost", 0, 50, 15, step=5, format="+%d%%", disabled=not sell,
+                      help="How much more the other manager values him than the public trade value says.")
+    params = {"team_b": partners[pname2], "k": int(k), "sims": sims2, "win_win": ww, "simulate": sim2,
+              "my_gain_only": mine_g}
+    if sell:
+        params |= {"sell_player": sell, "boost_pct": boost}
     job = C.job_control("trade_search", "trade_search", params, ctx, "Search packages",
-                        "V2's utility search, invariant filter (X-021), then the top candidates re-scored (≈30–60 s).")
+                        "V2's utility search, invariant filter (X-021), then the top candidates re-scored (≈1–2 min "
+                        "with 'I gain' or sell-high, which evaluate more candidates).")
     if job and job.result:
         res = job.result
         C.badge(L.EXPLORATORY)
-        st.caption(f"{res.get('n_evaluated', 0)} trades evaluated; {res.get('excluded_invariants', 0)} candidate(s) failed V2's "
-                   "trade invariants and were left out (X-021).")
+        sh = res.get("sell_high")
+        if sh:
+            st.info(f"Selling high on **{sell_opts.get(sh['player_id'], sh['player_id']).split(' · ')[0]}** with his public value "
+                    f"inflated by {sh['boost_pct']:.0f}%. That only changes which packages count as fair to the other "
+                    "manager; *Your ΔU* and *Their ΔU* are still the model's projections.", icon=":material/trending_up:")
+        st.caption(f"{res.get('n_evaluated', 0)} trades shown after filters; {res.get('excluded_invariants', 0)} candidate(s) failed V2's "
+                   "trade invariants and were left out of the re-score (X-021).")
         cand = pd.DataFrame(res.get("candidates") or [])
         if cand.empty:
-            st.info("No candidate trade passed the utility screen.")
+            st.info("No package passed the filters. Try a larger boost, another partner, or turn off 'Only trades where I gain'.")
         else:
-            st.dataframe(cand[["a_gives", "b_gives", "delta_a", "delta_b", "surplus", "balance", "classification", "win_win"]],
-                         hide_index=True, width="stretch", column_config={
-                             "a_gives": "You give", "b_gives": "You get",
-                             "delta_a": st.column_config.NumberColumn("Your ΔU", format="%+.1f"),
-                             "delta_b": st.column_config.NumberColumn("Their ΔU", format="%+.1f"),
-                             "surplus": st.column_config.NumberColumn(format="%.1f"),
-                             "balance": st.column_config.NumberColumn(format="%.2f")})
+            cols = ["a_gives", "b_gives", "delta_a", "delta_b", "tv_a_gives", "tv_a_gives_perceived", "tv_b_gives", "classification"]
+            st.dataframe(cand[[c for c in cols if c in cand]], hide_index=True, width="stretch", column_config={
+                "a_gives": "You give", "b_gives": "You get",
+                "delta_a": st.column_config.NumberColumn("Your ΔU", format="%+.1f", help="Model: change in your expected ROS lineup points."),
+                "delta_b": st.column_config.NumberColumn("Their ΔU", format="%+.1f", help="Model: may be negative; they judge the deal by public value."),
+                "tv_a_gives": st.column_config.NumberColumn("Public value you give", format="%.0f"),
+                "tv_a_gives_perceived": st.column_config.NumberColumn("…as perceived", format="%.0f",
+                                                                      help="With the sell-high boost applied."),
+                "tv_b_gives": st.column_config.NumberColumn("Public value you get", format="%.0f")})
+            if (cand["delta_b"] < -20).any():
+                st.caption("Trades where the partner loses more than 20 points on our model are lopsided enough that an "
+                           "attentive manager may notice; acceptance is not modelled.")
         if res.get("rescore"):
             st.markdown("**Top candidates re-scored (S0)**")
             C.badge(L.SHADOW)

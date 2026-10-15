@@ -74,6 +74,8 @@ def test_gate_b_exploratory_ops_leave_records_untouched(runner, ctx):
         ("trade_eval", {"team_a": me, "give_a": [pl[2]["player_id"]], "team_b": other, "give_b": [theirs[2]["player_id"]],
                         "sims": 2000, "simulate": True, "horizon": "full"}),
         ("trade_search", {"team_b": other, "k": 2, "sims": 2000, "simulate": True}),
+        ("trade_search", {"team_b": other, "k": 2, "sims": 2000, "simulate": False, "my_gain_only": True,
+                          "sell_player": pl[1]["player_id"], "boost_pct": 20}),
         ("fa_board", {"k": 3, "per_pos": 4, "sims": 2000}),
         ("values3", {"sims": 2000}),
     ]
@@ -82,6 +84,9 @@ def test_gate_b_exploratory_ops_leave_records_untouched(runner, ctx):
         job, dt = run(runner, op, params, ctx)
         assert job.state in ("done", "cached"), f"{op}: {job.state} {job.code}"
         assert job.meta["exploratory"] is True and job.meta["ledgered"] is False
+        if params.get("sell_player"):
+            c = job.result.get("candidates") or []
+            assert all(params["sell_player"] in x["a_ids"].split(";") and x["delta_a"] > 0 for x in c)
         times[op] = round(dt, 1)
     after = protected_state()
     for k in before:
