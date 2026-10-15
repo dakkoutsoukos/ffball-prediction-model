@@ -73,3 +73,11 @@ desktop.ini
 
 # Owner-specific config overrides (e.g. ESPN opt-in); never published
 config/local.yml
+
+# Streamlit UI (ui/): local environment and caches; app outputs live under data/archive/ui_cache/ (ignored above)
+ui/.venv/
+ui/.pytest_cache/
+__pycache__/
+*.pyc
+ui/.streamlit/secrets.toml
+data/draft/
