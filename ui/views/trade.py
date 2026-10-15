@@ -20,6 +20,11 @@ if me is None:
     st.stop()
 partners = {names[t]: t for t in names if t != me}
 NOISE = 0.005
+# V2's lg_classify labels, with team A = you
+CLASS_LABEL = {"strong win-win": "Strong win-win", "mild win-win": "Mild win-win", "balanced": "Balanced",
+               "favors A": "Favors you", "strongly favors A": "Strongly favors you", "favors B": "Favors them",
+               "strongly favors B": "Strongly favors them", "harmful to both": "Harmful to both"}
+CLASS_ORDER = list(CLASS_LABEL.values())
 
 
 def roster_options(team_id: int) -> dict[str, str]:
@@ -150,15 +155,23 @@ with tab_search:
         if cand.empty:
             st.info("No package passed the filters. Try a larger boost, another partner, or turn off 'Only trades where I gain'.")
         else:
-            cols = ["a_gives", "b_gives", "delta_a", "delta_b", "tv_a_gives", "tv_a_gives_perceived", "tv_b_gives", "classification"]
-            st.dataframe(cand[[c for c in cols if c in cand]], hide_index=True, width="stretch", column_config={
+            cand["classification"] = cand["classification"].map(CLASS_LABEL).fillna(cand["classification"])
+            counts = cand["classification"].value_counts()
+            present = [c for c in CLASS_ORDER if c in counts] + [c for c in counts.index if c not in CLASS_ORDER]
+            pick = st.multiselect("Classification", present, default=present,
+                                  format_func=lambda c: f"{c} ({counts[c]})",
+                                  help="V2's label from both teams' ΔU (± 5 points = even, 20 = strong). The list is "
+                                       "mixed across the selected labels, best for you first within each.")
+            view = cand[cand["classification"].isin(pick)]
+            n_show = st.select_slider("Show", [10, 25, 50, 100, 200], value=25)
+            st.dataframe(view.head(n_show)[["a_gives", "b_gives", "delta_a", "delta_b", "classification"]],
+                         hide_index=True, width="stretch", column_config={
                 "a_gives": "You give", "b_gives": "You get",
                 "delta_a": st.column_config.NumberColumn("Your ΔU", format="%+.1f", help="Model: change in your expected ROS lineup points."),
                 "delta_b": st.column_config.NumberColumn("Their ΔU", format="%+.1f", help="Model: may be negative; they judge the deal by public value."),
-                "tv_a_gives": st.column_config.NumberColumn("Public value you give", format="%.0f"),
-                "tv_a_gives_perceived": st.column_config.NumberColumn("…as perceived", format="%.0f",
-                                                                      help="With the sell-high boost applied."),
-                "tv_b_gives": st.column_config.NumberColumn("Public value you get", format="%.0f")})
+                "classification": "Classification"})
+            st.caption(f"{len(view)} of {len(cand)} packages match the selected labels.")
+            cand = view
             if (cand["delta_b"] < -20).any():
                 st.caption("Trades where the partner loses more than 20 points on our model are lopsided enough that an "
                            "attentive manager may notice; acceptance is not modelled.")
@@ -167,7 +180,14 @@ with tab_search:
             C.badge(L.SHADOW)
             st.caption("At these simulation counts ΔP does not reliably rank close candidates (X11); prefer the utility "
                        f"ranking unless differences are large. Frontier trades: {', '.join(map(str, res.get('frontier_trades') or [])) or '–'}.")
-            rescore_cards(pd.DataFrame(res["rescore"]), ["a_gives", "b_gives"])
+            rs = pd.DataFrame(res["rescore"])
+            if not cand.empty:
+                keep = set(zip(cand["a_gives"], cand["b_gives"]))
+                rs = rs[[(a, b) in keep for a, b in zip(rs["a_gives"], rs["b_gives"])]]
+            if rs.empty:
+                st.caption("None of the re-scored packages match the selected labels.")
+            else:
+                rescore_cards(rs, ["a_gives", "b_gives"])
         C.provenance(job.meta)
 
 with tab_saved:

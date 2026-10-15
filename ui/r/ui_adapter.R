@@ -278,7 +278,14 @@ run_op <- function(op) switch(op,
       r$tv_a_gives <- vapply(r$a_rows, function(x) lg_tv(m, x), 0)
     }
     if (isTRUE(p$win_win)) r <- dplyr::filter(r, .data$win_win)
-    if (my_gain && nrow(r)) r <- dplyr::arrange(dplyr::filter(r, .data$delta_a > 0), dplyr::desc(.data$delta_a))
+    if (my_gain && nrow(r)) r <- dplyr::filter(r, .data$delta_a > 0)
+    if (nrow(r)) {
+      # Mix: interleave classifications (each ordered by my gain) so lopsided trades do not crowd out the rest;
+      # the UI filters by classification without re-running.
+      r <- dplyr::arrange(r, dplyr::desc(.data$delta_a))
+      r$class_rank <- stats::ave(seq_len(nrow(r)), r$classification, FUN = seq_along)
+      r <- r[order(r$class_rank, -r$delta_a), ]
+    }
     k <- min(as.integer(p$k %||% 5L), 8L)
     out <- list(n_evaluated = nrow(r), candidates = NULL, rescore = NULL, excluded_invariants = 0L,
                 sell_high = if (is.na(sell_row)) NULL else list(player_id = m$sim$players$player_id[sell_row], boost_pct = 100 * boost),
@@ -287,7 +294,7 @@ run_op <- function(op) switch(op,
       rr <- r
       rr$a_ids <- vapply(r$a_rows, function(x) paste(m$sim$players$player_id[x], collapse = ";"), "")
       rr$b_ids <- vapply(r$b_rows, function(x) paste(m$sim$players$player_id[x], collapse = ";"), "")
-      out$candidates <- clean_df(utils::head(dplyr::select(rr, -"a_rows", -"b_rows"), 25))
+      out$candidates <- clean_df(utils::head(dplyr::select(rr, -"a_rows", -"b_rows"), 200))
       if (!isFALSE(p$simulate)) {
         top <- utils::head(r, k)
         trades <- lapply(seq_len(nrow(top)), function(i) list(team_a = ta, give_a = top$a_rows[[i]], team_b = tb, give_b = top$b_rows[[i]]))
