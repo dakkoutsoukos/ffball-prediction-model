@@ -1,0 +1,23 @@
+# Local-only: bound to the loopback interface, no usage statistics, no external services.
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true
+runOnSave = false
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+serverAddress = "127.0.0.1"
+
+[client]
+showErrorDetails = "none"
+toolbarMode = "minimal"
+
+[global]
+developmentMode = false
+
+[theme]
+base = "light"
+primaryColor = "#1f5f99"
